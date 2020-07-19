@@ -5,6 +5,7 @@
 #include "session.h"
 #include "log/NanoLog.h"
 #include "model/document.h"
+#include "model/errors.h"
 
 #include <boost/asio/write.hpp>
 
@@ -38,8 +39,16 @@ void Session::doWrite( std::size_t length )
 {
   auto self{ shared_from_this() };
   buffer.commit( length );
+
   const auto doc = model::Document{ buffer, length };
-  if (!doc.bson()) LOG_DEBUG << "Invalid bson";
+  if ( !doc.bson() )
+  {
+    buffer.consume( buffer.size() );
+    std::ostream os{ &buffer };
+    auto view = spt::model::notBson();
+    os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
+    LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
+  }
 
   boost::asio::async_write( socket,
       buffer,

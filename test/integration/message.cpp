@@ -42,7 +42,7 @@ SCENARIO( "Message payload test suite", "[message]" )
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
       std::cout << resp << '\n';
-      REQUIRE( isize == osize );
+      REQUIRE( isize != osize );
     }
 
     WHEN( "Sending random bson payload" )
