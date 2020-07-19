@@ -66,6 +66,6 @@ SET(CMAKE_INSTALL_PREFIX /opt/spt)
 add_subdirectory(src)
 
 if (BUILD_TESTING)
-  #add_subdirectory(test/unit)
+  add_subdirectory(test/integration)
 endif()
 
