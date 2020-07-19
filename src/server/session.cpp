@@ -4,18 +4,14 @@
 
 #include "session.h"
 #include "log/NanoLog.h"
+#include "model/document.h"
 
-#include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 
 using spt::server::Session;
 using tcp = boost::asio::ip::tcp;
 
-Session::Session( tcp::socket socket ) : socket{ std::move( socket ) }
-{
-  data.reserve( 8192 );
-  data.push_back(' '); // If empty async_read does not insert any data
-}
+Session::Session( tcp::socket socket ) : socket{ std::move( socket ) } {}
 
 void Session::start()
 {
@@ -24,10 +20,11 @@ void Session::start()
 
 void Session::doRead()
 {
-  auto constexpr maxBytes = 8192 * 8192;
-
+  constexpr auto maxBytes = 128 * 1024;
   auto self{ shared_from_this() };
-  boost::asio::async_read( socket, boost::asio::buffer( data, maxBytes ),
+  buffer.consume( buffer.size() );
+
+  socket.async_receive( buffer.prepare( maxBytes ),
       [this, self]( boost::system::error_code ec, std::size_t length )
       {
         if ( !ec )
@@ -40,9 +37,15 @@ void Session::doRead()
 void Session::doWrite( std::size_t length )
 {
   auto self{ shared_from_this() };
-  boost::asio::async_write(socket, boost::asio::buffer( data, length ),
+  buffer.commit( length );
+  const auto doc = model::Document{ buffer, length };
+  if (!doc.bson()) LOG_DEBUG << "Invalid bson";
+
+  boost::asio::async_write( socket,
+      buffer,
       [this, self](boost::system::error_code ec, std::size_t /*length*/)
       {
+        //document.data.clear();
         if (!ec)
         {
           doRead();

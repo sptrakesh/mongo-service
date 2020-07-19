@@ -4,10 +4,10 @@
 
 #pragma once
 
+#include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
 #include <memory>
-#include <vector>
 
 namespace spt::server
 {
@@ -22,6 +22,6 @@ namespace spt::server
     void doWrite( std::size_t length );
 
     boost::asio::ip::tcp::socket socket;
-    std::vector<char> data;
+    boost::asio::streambuf buffer;
   };
 }

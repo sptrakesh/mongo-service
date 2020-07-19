@@ -1,4 +1,4 @@
-FROM sptrakesh/boost as base
+FROM sptrakesh/mongocxx-boost as base
 
 COPY CMakeLists.txt /opt/spt/mongo-service/CMakeLists.txt
 COPY src /opt/spt/mongo-service/src
