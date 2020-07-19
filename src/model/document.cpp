@@ -17,3 +17,17 @@ std::optional<bsoncxx::document::view> Document::bson() const
 {
   return view;
 }
+
+bool spt::model::Document::valid() const
+{
+  if (!view) return false;
+
+  auto find = [this]( std::string_view key )
+  {
+    auto it = view->find( key );
+    return it != view->end();
+  };
+
+  return find( "action" ) && find( "database" ) &&
+    find( "collection" ) && find( "document" );
+}

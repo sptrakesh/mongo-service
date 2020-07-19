@@ -43,6 +43,10 @@ SCENARIO( "Message payload test suite", "[message]" )
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
       std::cout << resp << '\n';
       REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      REQUIRE( option->find( "error" ) != option->end() );
     }
 
     WHEN( "Sending random bson payload" )
@@ -60,10 +64,12 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
       buffer.commit( osize );
-      REQUIRE( isize == osize );
+      REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
+      REQUIRE( option->find( "error" ) != option->end() );
+      REQUIRE( option->find( "fields" ) != option->end() );
     }
 
     s.close();

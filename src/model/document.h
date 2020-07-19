@@ -21,6 +21,7 @@ namespace spt::model
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
 
+    [[nodiscard]] bool valid() const;
     [[nodiscard]] std::optional<bsoncxx::document::view> bson() const;
 
   private:

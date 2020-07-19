@@ -9,4 +9,5 @@
 namespace spt::model
 {
   bsoncxx::document::view notBson();
+  bsoncxx::document::view missingField();
 }

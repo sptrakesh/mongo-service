@@ -50,6 +50,15 @@ void Session::doWrite( std::size_t length )
     LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
   }
 
+  if ( !doc.valid() )
+  {
+    buffer.consume( buffer.size() );
+    std::ostream os{ &buffer };
+    auto view = spt::model::missingField();
+    os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
+    LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
+  }
+
   boost::asio::async_write( socket,
       buffer,
       [this, self](boost::system::error_code ec, std::size_t /*length*/)
