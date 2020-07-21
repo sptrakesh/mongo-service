@@ -1,0 +1,12 @@
+//
+// Created by Rakesh on 20/07/2020.
+//
+
+#pragma once
+
+#include <bsoncxx/document/view_or_value.hpp>
+
+namespace spt::db
+{
+  bsoncxx::document::view_or_value process( bsoncxx::document::view view );
+}

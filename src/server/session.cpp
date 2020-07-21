@@ -3,6 +3,7 @@
 //
 
 #include "session.h"
+#include "db/storage.h"
 #include "log/NanoLog.h"
 #include "model/document.h"
 #include "model/errors.h"
@@ -49,14 +50,31 @@ void Session::doWrite( std::size_t length )
     os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
   }
-
-  if ( !doc.valid() )
+  else if ( !doc.valid() )
   {
     buffer.consume( buffer.size() );
     std::ostream os{ &buffer };
     auto view = spt::model::missingField();
     os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
+  }
+  else
+  {
+    buffer.consume( buffer.size() );
+    std::ostream os{ &buffer };
+
+    try
+    {
+      auto v = db::process( *doc.bson() );
+      auto view = v.view();
+      os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
+    }
+    catch ( const std::exception& ex )
+    {
+      LOG_WARN << "Error processing request " << ex.what();
+      auto view = model::unexpectedError();
+      os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
+    }
   }
 
   boost::asio::async_write( socket,

@@ -10,4 +10,8 @@ namespace spt::model
 {
   bsoncxx::document::view notBson();
   bsoncxx::document::view missingField();
+  bsoncxx::document::view invalidAction();
+  bsoncxx::document::view missingId();
+  bsoncxx::document::view insertError();
+  bsoncxx::document::view unexpectedError();
 }

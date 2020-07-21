@@ -1,16 +1,25 @@
 #!/bin/sh
 
 LOGDIR=/opt/spt/logs
-DBFILE=/opt/spt/data/dbip.mmdb
 
-Decompress()
+Check()
 {
-  if [ -f /opt/spt/data/dbip.mmdb.gz ]
+  if [ -z "$MONGO_URI" ]
   then
-    gzip -dc /opt/spt/data/dbip.mmdb.gz > $DBFILE
-  else
-    echo "DB IP file not found.  Make sure it is mounted for the running container."
+    echo "MONGO_URI must be set."
     exit 1
+  fi
+
+  if [ -z "$VERSION_HISTORY_DATABASE" ]
+  then
+    VERSION_HISTORY_DATABASE="versionHistory"
+    echo "VERSION_HISTORY_DATABASE not set.  Will default to $VERSION_HISTORY_DATABASE"
+  fi
+
+  if [ -z "$VERSION_HISTORY_COLLECTION" ]
+  then
+    VERSION_HISTORY_COLLECTION="entities"
+    echo "VERSION_HISTORY_COLLECTION not set.  Will default to $VERSION_HISTORY_COLLECTION"
   fi
 }
 
@@ -18,7 +27,7 @@ Defaults()
 {
   if [ -z "$PORT" ]
   then
-    PORT=8010
+    PORT=2000
     echo "PORT not set.  Will default to $PORT"
   fi
 
@@ -38,7 +47,11 @@ Service()
   fi
 
   echo "Starting up MaxMind DB websocket server"
-  /opt/spt/bin/mmdb-ws -c true -o ${LOGDIR}/ -p $PORT -n $THREADS -f $DBFILE
+  /opt/spt/bin/mongo-service --console true --dir ${LOGDIR}/ \
+    --mongo-uri $MONGO_URI \
+    --version-history-database $VERSION_HISTORY_DATABASE \
+    --version-history-collection $VERSION_HISTORY_COLLECTION \
+    --port $PORT --threads $THREADS
 }
 
-Decompress && Defaults && Service
+Check && Defaults && Service

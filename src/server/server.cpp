@@ -14,7 +14,7 @@ Server::Server( boost::asio::io_context& ioc ) :
   acceptor{ ioc, tcp::endpoint( tcp::v4(),
       static_cast<short>( model::Configuration::instance().port ) ) }
 {
-  acceptor.set_option( tcp::acceptor::reuse_address( true ) );
+  //acceptor.set_option( tcp::acceptor::reuse_address( true ) );
   doAccept();
 }
 

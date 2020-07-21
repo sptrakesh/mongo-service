@@ -12,8 +12,8 @@
 namespace spt::util
 {
   template<typename DataType>
-  DataType bsonValue( const std::string& key, const bsoncxx::document::view& view );
+  DataType bsonValue( std::string_view key, const bsoncxx::document::view& view );
 
   template<typename DataType>
-  std::optional<DataType> bsonValueIfExists( const std::string& key, const bsoncxx::document::view& view );
+  std::optional<DataType> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view );
 }

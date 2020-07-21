@@ -1,0 +1,25 @@
+version: '3.7'
+
+services:
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test
+      MONGO_INITDB_ROOT_PASSWORD: test
+    volumes:
+      - $DATA_DIR/mongo:/data/db
+
+  mongo-service:
+    image: mongo-service
+    stop_signal: SIGTERM
+    ports:
+      - "2000:2000"
+    environment:
+      - "MONGO_URI=mongodb://test:test@mongo/admin?authSource=admin&compressors=snappy&w=0"
+      - VERSION_HISTORY_DATABASE=versionHistory
+      - VERSION_HISTORY_COLLECTION=entities
+      - METRICS_COLLECTION=metrics
+    volumes:
+      - $DATA_DIR/mongo-service:/opt/spt/logs
