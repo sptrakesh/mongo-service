@@ -23,3 +23,7 @@ conform to the following document model:
   `document` with an `_id` field.
 * `options` - The options to associate with the Mongo request.  These correspond
   to the appropriate options as used by the Mongo driver.
+  
+### Limitation
+At present only documents with **BSON ObjectId** `_id` is supported.
+

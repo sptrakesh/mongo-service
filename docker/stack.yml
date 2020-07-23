@@ -17,7 +17,7 @@ services:
     ports:
       - "2000:2000"
     environment:
-      - "MONGO_URI=mongodb://test:test@mongo/admin?authSource=admin&compressors=snappy&w=0"
+      - "MONGO_URI=mongodb://test:test@mongo/admin?authSource=admin&compressors=snappy&w=1"
       - VERSION_HISTORY_DATABASE=versionHistory
       - VERSION_HISTORY_COLLECTION=entities
       - METRICS_COLLECTION=metrics

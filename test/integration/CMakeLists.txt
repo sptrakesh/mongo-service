@@ -7,7 +7,7 @@ target_compile_definitions(integration
 )
 
 target_link_libraries(integration
-  PRIVATE ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} z
+  PRIVATE mongo-service-lib ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} z
 )
 
 add_test(NAME integration COMMAND integration)

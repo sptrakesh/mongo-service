@@ -3,9 +3,11 @@
 //
 
 #include "bson.h"
+#include "log/NanoLog.h"
 
 #include <bsoncxx/types.hpp>
 #include <bsoncxx/oid.hpp>
+#include <bsoncxx/array/view.hpp>
 
 #include <sstream>
 
@@ -217,5 +219,60 @@ namespace spt::util
     if ( it == view.end() ) return std::nullopt;
     return bsonValue<bsoncxx::document::view>( key, view );
   }
-}
 
+  template<>
+  bsoncxx::array::view bsonValue( std::string_view key, const bsoncxx::document::view& view )
+  {
+    const auto type = view[key].type();
+    if ( bsoncxx::type::k_array == type ) return view[key].get_array().value;
+
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to array";
+
+    std::ostringstream ss;
+    ss << "Invalid type for " << key;
+    throw std::runtime_error( ss.str() );
+  }
+
+  template<>
+  std::optional<bsoncxx::array::view> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
+  {
+    auto it = view.find( key );
+    if ( it == view.end() ) return std::nullopt;
+    return bsonValue<bsoncxx::array::view>( key, view );
+  }
+
+  std::string toString( std::string_view key, const bsoncxx::document::view& view )
+  {
+    auto it = view.find( key );
+    if ( it == view.end() ) return {};
+
+    std::ostringstream ss;
+    switch ( it->type() )
+    {
+    case bsoncxx::type::k_bool:
+      ss << std::boolalpha << it->get_bool();
+      break;
+    case bsoncxx::type::k_int32:
+      ss << it->get_int32();
+      break;
+    case bsoncxx::type::k_int64:
+      ss << it->get_int64();
+      break;
+    case bsoncxx::type::k_double:
+      ss << it->get_double();
+      break;
+    case bsoncxx::type::k_date:
+      ss << bsonValue<std::chrono::milliseconds>( key, view ).count();
+      break;
+    case bsoncxx::type::k_oid:
+      ss << it->get_oid().value.to_string();
+      break;
+    case bsoncxx::type::k_utf8:
+      return bsonValue<std::string>( key, view );
+    default:
+      ss << "Unknown type";
+    }
+
+    return ss.str();
+  }
+}

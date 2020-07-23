@@ -14,4 +14,6 @@ namespace spt::model
   bsoncxx::document::view missingId();
   bsoncxx::document::view insertError();
   bsoncxx::document::view unexpectedError();
+  bsoncxx::document::view createVersionFailed();
+  bsoncxx::document::view notFound();
 }

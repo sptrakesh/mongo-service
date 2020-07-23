@@ -33,7 +33,7 @@ Defaults()
 
   if [ -z "$THREADS" ]
   then
-    THREADS=8
+    THREADS=4
     echo "THREADS not set.  Will default to $THREADS"
   fi
 }

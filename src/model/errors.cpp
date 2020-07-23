@@ -64,3 +64,19 @@ bsoncxx::document::view spt::model::unexpectedError()
   static value document = bsoncxx::builder::basic::make_document( kvp("error", "Unexpected error encountered.") );
   return document.view();
 }
+
+bsoncxx::document::view spt::model::createVersionFailed()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error creating version history document.") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::notFound()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Not found.") );
+  return document.view();
+}
