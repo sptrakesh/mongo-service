@@ -584,42 +584,63 @@ namespace spt::db::pstorage
     const auto docs = retrieve( view );
     const auto results = bsonValueIfExists<bsoncxx::array::view>( "results", docs );
     auto client = Pool::instance().acquire();
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
     auto success = bsoncxx::builder::basic::array{};
+    auto fail = bsoncxx::builder::basic::array{};
     auto vh = bsoncxx::builder::basic::array{};
+
+    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh]( auto d )
+    {
+      const auto vhd = [&client, &dbname, &collname, &metadata, &vh]( auto d )
+      {
+        auto vhd =  history( document{} << "action" << "delete" <<
+          "database" << dbname << "collection" << collname <<
+          "document" << d << finalize, client, metadata );
+        vh.append( vhd );
+      };
+
+      const auto oid = bsonValue<bsoncxx::oid>( "_id", d );
+      const auto res = (*client)[dbname][collname].delete_one(
+          document{} << "_id" << oid << finalize, opts );
+
+      if ( opts.write_concern()->is_acknowledged() )
+      {
+        if ( res )
+        {
+          LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
+          success.append( oid );
+          vhd( d );
+        }
+        else
+        {
+          LOG_WARN << "Unable to delete document " << dbname << ':' << collname << ':' << oid.to_string();
+          fail.append( oid );
+        }
+      }
+      else
+      {
+        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
+        success.append( oid );
+        vhd( d );
+      }
+    };
 
     if ( results )
     {
       for ( auto item : *results )
       {
         const auto d = item.get_document().view();
-        const auto oid = bsonValue<bsoncxx::oid>( "_id", d );
-        (*client)[dbname][collname].delete_one(
-            document{} << "_id" << oid << finalize, opts );
-        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
-        success.append( oid );
-
-        auto vhd =  history( document{} << "action" << "delete" <<
-          "database" << dbname << "collection" << collname <<
-          "document" << item.get_value().get_document().value << finalize, client, metadata );
-        vh.append( vhd );
+        rm( d );
       }
 
-      return document{} << "success" << success << "history" << vh << finalize;
+      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
     }
 
     const auto result = bsonValueIfExists<bsoncxx::document::view>( "result", docs );
     if ( result )
     {
-      const auto oid = bsonValue<bsoncxx::oid>( "_id", *result );
-      (*client)[dbname][collname].delete_one(
-          document{} << "_id" << oid << finalize, opts );
-      LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
-      success.append( oid );
-
-      auto vhd =  history( document{} << "action" << "delete" <<
-        "database" << dbname << "collection" << collname <<
-        "document" << *result << finalize, client, metadata );
+      rm( *result );
       return document{} << "success" << success << "history" << vh << finalize;
     }
 
