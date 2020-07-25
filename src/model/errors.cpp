@@ -53,7 +53,7 @@ bsoncxx::document::view spt::model::insertError()
 {
   using bsoncxx::document::value;
   using bsoncxx::builder::basic::kvp;
-  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error inserting document") );
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error inserting document.") );
   return document.view();
 }
 
@@ -78,5 +78,21 @@ bsoncxx::document::view spt::model::notFound()
   using bsoncxx::document::value;
   using bsoncxx::builder::basic::kvp;
   static value document = bsoncxx::builder::basic::make_document( kvp("error", "Not found.") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::updateError()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error updating document.") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::invalidAUpdate()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Invalid update document.") );
   return document.view();
 }

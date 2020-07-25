@@ -42,12 +42,34 @@ namespace spt::db::pstorage
 
     const auto vr = (*client)[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
         d << finalize );
-    LOG_INFO << "Created version for " << dbname << ':' << collname << ':' <<
-             id.to_string() << " with id: " << oid.to_string();
-    return document{} << "_id" << oid <<
-      "database" << conf.versionHistoryDatabase <<
-      "collection" << conf.versionHistoryCollection <<
-      "entity" << id << finalize;
+    if ( client->write_concern().is_acknowledged() )
+    {
+      if ( vr )
+      {
+        LOG_INFO << "Created version for " << dbname << ':' << collname << ':' <<
+                 id.to_string() << " with id: " << oid.to_string();
+        return document{} << "_id" << oid <<
+          "database" << conf.versionHistoryDatabase <<
+          "collection" << conf.versionHistoryCollection <<
+          "entity" << id << finalize;
+      }
+      else
+      {
+        LOG_WARN << "Unable to create version for " << dbname << ':' << collname << ':' <<
+                 id.to_string();
+      }
+    }
+    else
+    {
+      LOG_INFO << "Created version for " << dbname << ':' << collname << ':' <<
+               id.to_string() << " with id: " << oid.to_string();
+      return document{} << "_id" << oid <<
+        "database" << conf.versionHistoryDatabase <<
+        "collection" << conf.versionHistoryCollection <<
+        "entity" << id << finalize;
+    }
+
+    return model::createVersionFailed();
   }
 
   mongocxx::write_concern writeConcern( bsoncxx::document::view view )
@@ -76,54 +98,6 @@ namespace spt::db::pstorage
     if ( timeout ) w.timeout( *timeout );
 
     return w;
-  }
-
-  bsoncxx::document::view_or_value create( bsoncxx::document::view view )
-  {
-    using spt::util::bsonValue;
-    using spt::util::bsonValueIfExists;
-
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
-
-    const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( !idopt ) return model::missingId();
-
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
-    auto opts = mongocxx::options::insert{};
-    if ( options )
-    {
-      auto ordered = bsonValueIfExists<bool>( "ordered", *options );
-      if ( ordered ) opts.ordered( *ordered );
-
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
-    }
-
-    auto client = Pool::instance().acquire();
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
-    const auto result = (*client)[dbname][collname].insert_one( doc, opts );
-    if ( opts.write_concern()->is_acknowledged() )
-    {
-      if ( result )
-      {
-        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
-        return history( view, client, metadata );
-      }
-      else
-      {
-        LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
-      }
-    }
-    else
-    {
-      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
-      return history( view, client, metadata );
-    }
-
-    return model::insertError();
   }
 
   mongocxx::options::find findOpts( bsoncxx::document::view view )
@@ -234,6 +208,354 @@ namespace spt::db::pstorage
     return bsoncxx::builder::basic::make_document( kvp("results", array) );
   }
 
+  bsoncxx::document::view_or_value create( bsoncxx::document::view view )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
+    const auto dbname = bsonValue<std::string>( "database", view );
+    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+
+    const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
+    if ( !idopt ) return model::missingId();
+
+    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    auto opts = mongocxx::options::insert{};
+    if ( options )
+    {
+      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
+      if ( validate ) opts.bypass_document_validation( *validate );
+
+      auto ordered = bsonValueIfExists<bool>( "ordered", *options );
+      if ( ordered ) opts.ordered( *ordered );
+
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+    }
+
+    auto client = Pool::instance().acquire();
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    const auto result = (*client)[dbname][collname].insert_one( doc, opts );
+    if ( opts.write_concern()->is_acknowledged() )
+    {
+      if ( result )
+      {
+        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        return history( view, client, metadata );
+      }
+      else
+      {
+        LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
+      }
+    }
+    else
+    {
+      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+      return history( view, client, metadata );
+    }
+
+    return model::insertError();
+  }
+
+  bsoncxx::document::value updateDoc( bsoncxx::document::view doc )
+  {
+    using spt::util::bsonValue;
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::open_document;
+    using bsoncxx::builder::stream::close_document;
+    using bsoncxx::builder::stream::finalize;
+
+    auto d = document{};
+    d << "$set" << open_document;
+
+    for ( auto e : doc )
+    {
+      if ( e.key() == "_id" ) continue;
+
+      switch ( e.type() )
+      {
+      case bsoncxx::type::k_array:
+        d << e.key() << e.get_array();
+        break;
+      case bsoncxx::type::k_bool:
+        d << e.key() << e.get_bool();
+        break;
+      case bsoncxx::type::k_date:
+        d << e.key() << e.get_date();
+        break;
+      case bsoncxx::type::k_decimal128:
+        d << e.key() << e.get_decimal128();
+        break;
+      case bsoncxx::type::k_document:
+        d << e.key() << e.get_document();
+        break;
+      case bsoncxx::type::k_double:
+        d << e.key() << e.get_double();
+        break;
+      case bsoncxx::type::k_int32:
+        d << e.key() << e.get_int32();
+        break;
+      case bsoncxx::type::k_int64:
+        d << e.key() << e.get_int64();
+        break;
+      case bsoncxx::type::k_oid:
+        d << e.key() << e.get_oid();
+        break;
+      case bsoncxx::type::k_null:
+        d << e.key() << e.get_null();
+        break;
+      case bsoncxx::type::k_timestamp:
+        d << e.key() << e.get_timestamp();
+        break;
+      case bsoncxx::type::k_utf8:
+        d << e.key() << bsonValue<std::string>( e.key(), doc );
+        break;
+      default:
+        LOG_WARN << "Un-mapped bson type: " << bsoncxx::to_string( e.type() );
+        d << e.key() << bsoncxx::types::b_null{};
+      }
+    }
+
+    d << close_document;
+    return d << finalize;
+  }
+
+  bsoncxx::document::view_or_value updateOne( bsoncxx::document::view view )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
+    const auto dbname = bsonValue<std::string>( "database", view );
+    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto oid = bsonValue<bsoncxx::oid>( "_id", doc );
+
+    auto client = Pool::instance().acquire();
+    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    auto opts = mongocxx::options::update{};
+
+    if ( options )
+    {
+      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
+      if ( validate ) opts.bypass_document_validation( *validate );
+
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      if ( col ) opts.collation( *col );
+
+      auto upsert = bsonValueIfExists<bool>( "upsert", *options );
+      if ( upsert ) opts.upsert( *upsert );
+
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+
+      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options );
+      if ( af ) opts.array_filters( *af );
+    }
+
+    const auto vhd = [&dbname, &collname, &client, &metadata, &view]()
+    {
+      const auto updated = retrieveOne( view );
+      if ( bsonValueIfExists<std::string>( "error", updated ) ) return updated;
+
+      auto vhd =  history( document{} << "action" << "delete" <<
+        "database" << dbname << "collection" << collname <<
+        "document" << updated << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+      return updated;
+    };
+
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    const auto result = (*client)[dbname][collname].update_one(
+        document{} << "_id" << oid << finalize, updateDoc( doc ), opts );
+    if ( opts.write_concern()->is_acknowledged() )
+    {
+      if ( result )
+      {
+        LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
+        return vhd();
+      }
+      else
+      {
+        LOG_WARN << "Unable to update document " << dbname << ':' << collname << ':' << oid.to_string();
+      }
+    }
+    else
+    {
+      LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
+      return vhd();
+    }
+
+    return model::updateError();
+  }
+
+  bsoncxx::document::view_or_value replaceOne( bsoncxx::document::view view )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
+    const auto dbname = bsonValue<std::string>( "database", view );
+    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
+
+    auto client = Pool::instance().acquire();
+    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    auto opts = mongocxx::options::replace{};
+
+    if ( options )
+    {
+      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
+      if ( validate ) opts.bypass_document_validation( *validate );
+
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      if ( col ) opts.collation( *col );
+
+      auto upsert = bsonValueIfExists<bool>( "upsert", *options );
+      if ( upsert ) opts.upsert( *upsert );
+
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+    }
+
+    const auto vhd = [&dbname, &collname, &client, &metadata, &filter]() -> bsoncxx::document::view_or_value
+    {
+      const auto updated = (*client)[dbname][collname].find_one( filter );
+      if ( !updated ) return model::notFound();
+
+      auto vhd =  history( document{} << "action" << "replace" <<
+       "database" << dbname << "collection" << collname <<
+       "document" << updated->view() << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+      return { updated.value() };
+    };
+
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    const auto result = (*client)[dbname][collname].replace_one( filter,
+        bsonValue<bsoncxx::document::view>( "replace", doc ), opts );
+    if ( opts.write_concern()->is_acknowledged() )
+    {
+      if ( result )
+      {
+        LOG_INFO << "Updated document in " << dbname << ':' << collname <<
+          " with filter " << bsoncxx::to_json( filter );
+        return vhd();
+      }
+      else
+      {
+        LOG_INFO << "Unable to update document in " << dbname << ':' << collname <<
+          " with filter " << bsoncxx::to_json( filter );
+      }
+    }
+    else
+    {
+      LOG_INFO << "Updated document in " << dbname << ':' << collname <<
+        " with filter " << bsoncxx::to_json( filter );
+      return vhd();
+    }
+
+    return model::updateError();
+  }
+
+  bsoncxx::document::view_or_value update( bsoncxx::document::view view )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
+    const auto dbname = bsonValue<std::string>( "database", view );
+    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+
+    const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
+    if ( !idopt ) return updateOne( view );
+
+    auto client = Pool::instance().acquire();
+    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    auto opts = mongocxx::options::update{};
+
+    if ( options )
+    {
+      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
+      if ( validate ) opts.bypass_document_validation( *validate );
+
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      if ( col ) opts.collation( *col );
+
+      auto upsert = bsonValueIfExists<bool>( "upsert", *options );
+      if ( upsert ) opts.upsert( *upsert );
+
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+
+      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options );
+      if ( af ) opts.array_filters( *af );
+    }
+
+    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", view );
+    if ( !filter ) return model::invalidAUpdate();
+
+    const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", view );
+    if ( replace ) return replaceOne( view );
+
+    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", view );
+    if ( !update ) return model::invalidAUpdate();
+
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    const auto result = (*client)[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
+
+    const auto vhd = [&dbname, &collname, &client, &filter, &metadata]() -> bsoncxx::document::view_or_value
+    {
+      auto success = bsoncxx::builder::basic::array{};
+      auto vh = bsoncxx::builder::basic::array{};
+      auto results = (*client)[dbname][collname].find( *filter );
+
+      for ( auto d : results )
+      {
+        auto vhd =  history( document{} << "action" << "update" <<
+          "database" << dbname << "collection" << collname <<
+          "document" << d << finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+        success.append( d["_id"].get_oid() );
+        vh.append( vhd );
+      }
+
+      return document{} << "success" << success << "history" << vh << finalize;
+    };
+
+    if ( opts.write_concern()->is_acknowledged() )
+    {
+      if ( result )
+      {
+        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        return vhd();
+      }
+      else
+      {
+        LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
+      }
+    }
+    else
+    {
+      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+      return vhd();
+    }
+
+    return model::updateError();
+  }
+
   bsoncxx::document::view_or_value remove( bsoncxx::document::view view )
   {
     using spt::util::bsonValue;
@@ -318,6 +640,7 @@ bsoncxx::document::view_or_value spt::db::process( bsoncxx::document::view view 
     }
     else if ( action == "update" )
     {
+      return pstorage::update( view );
     }
     else if ( action == "retrieve" )
     {

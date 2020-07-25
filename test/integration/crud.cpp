@@ -228,21 +228,13 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
         REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
 
         const auto ev = spt::util::bsonValue<bsoncxx::document::view>( "entity", dv );
+        REQUIRE( ev["_id"].get_oid().value == spt::itest::crud::oid );
         const auto key = spt::util::bsonValueIfExists<std::string>( "key", ev );
         REQUIRE( key );
         REQUIRE( key == "value" );
         ++i;
       }
       REQUIRE( i == 1 );
-
-      /*
-      const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", arr[0].get_document().view() );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
-
-      const auto entity = spt::util::bsonValueIfExists<bsoncxx::document::view>( "entity", dv );
-      REQUIRE( entity );
-      REQUIRE( (*entity)["_id"].get_oid().value == spt::itest::crud::oid );
-       */
     }
 
     AND_THEN( "Updating the document" )
