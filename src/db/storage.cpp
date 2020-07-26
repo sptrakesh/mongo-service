@@ -570,6 +570,8 @@ namespace spt::db::pstorage
 
     const auto dbname = bsonValue<std::string>( "database", view );
     const auto collname = bsonValue<std::string>( "collection", view );
+    const auto doc = bsonValueIfExists<bsoncxx::document::view>( "document", view );
+    if ( !doc ) return model::notFound();
     const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
 
     const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
@@ -583,14 +585,16 @@ namespace spt::db::pstorage
       if ( co ) opts.collation( *co );
     }
 
-    const auto docs = retrieve( view );
-    const auto results = bsonValueIfExists<bsoncxx::array::view>( "results", docs );
     auto client = Pool::instance().acquire();
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
+    auto docs = bsoncxx::builder::basic::array{};
     auto success = bsoncxx::builder::basic::array{};
     auto fail = bsoncxx::builder::basic::array{};
     auto vh = bsoncxx::builder::basic::array{};
+    auto results = (*client)[dbname][collname].find( *doc );
+
+    for ( auto d : results ) docs.append( d );
 
     const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh]( auto d )
     {
@@ -628,25 +632,13 @@ namespace spt::db::pstorage
       }
     };
 
-    if ( results )
+    for ( auto d : docs.view() )
     {
-      for ( auto item : *results )
-      {
-        const auto d = item.get_document().view();
-        rm( d );
-      }
-
-      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
+      const auto item = d.get_document().view();
+      rm( item );
     }
 
-    const auto result = bsonValueIfExists<bsoncxx::document::view>( "result", docs );
-    if ( result )
-    {
-      rm( *result );
-      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
-    }
-
-    return model::notFound();
+    return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
   }
 }
 
