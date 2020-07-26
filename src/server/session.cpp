@@ -65,7 +65,7 @@ void Session::doWrite( std::size_t length )
 
     try
     {
-      auto v = db::process( *doc.bson() );
+      auto v = db::process( doc );
       auto view = v.view();
       os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     }

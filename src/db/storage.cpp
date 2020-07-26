@@ -100,11 +100,11 @@ namespace spt::db::pstorage
     return w;
   }
 
-  mongocxx::options::find findOpts( bsoncxx::document::view view )
+  mongocxx::options::find findOpts( const model::Document& model )
   {
     using spt::util::bsonValueIfExists;
 
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    const auto options = model.options();
     auto opts = mongocxx::options::find{};
 
     if ( options )
@@ -163,18 +163,18 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value retrieveOne( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value retrieveOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
     const auto id = bsonValue<bsoncxx::oid>( "_id", doc );
-    const auto opts = findOpts( view );
+    const auto opts = findOpts( model );
 
     auto client = Pool::instance().acquire();
     const auto res = (*client)[dbname][collname].find_one(
@@ -185,43 +185,39 @@ namespace spt::db::pstorage
     return model::notFound();
   }
 
-  bsoncxx::document::view_or_value retrieve( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value retrieve( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
 
     using bsoncxx::builder::basic::kvp;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-
+    const auto doc = model.document();
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( idopt ) return retrieveOne( view );
+    if ( idopt ) return retrieveOne( model );
 
-    const auto opts = findOpts( view );
+    const auto opts = findOpts( model );
     auto client = Pool::instance().acquire();
-    auto cursor = (*client)[dbname][collname].find( doc, opts );
+    auto cursor = (*client)[model.database()][model.collection()].find( doc, opts );
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto d : cursor ) array.append( d );
     return bsoncxx::builder::basic::make_document( kvp("results", array) );
   }
 
-  bsoncxx::document::view_or_value create( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value create( const model::Document& document )
   {
-    using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto doc = document.document();
+    const auto dbname = document.database();
+    const auto collname = document.collection();
+    const auto metadata = document.metadata();
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( !idopt ) return model::missingId();
 
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    const auto options = document.options();
     auto opts = mongocxx::options::insert{};
     if ( options )
     {
@@ -243,7 +239,7 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
-        return history( view, client, metadata );
+        return history( *document.bson(), client, metadata );
       }
       else
       {
@@ -253,7 +249,7 @@ namespace spt::db::pstorage
     else
     {
       LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
-      return history( view, client, metadata );
+      return history( *document.bson(), client, metadata );
     }
 
     return model::insertError();
@@ -322,11 +318,11 @@ namespace spt::db::pstorage
     return d << finalize;
   }
 
-  mongocxx::options::update updateOptions( bsoncxx::document::view view )
+  mongocxx::options::update updateOptions( const model::Document& document )
   {
     using spt::util::bsonValueIfExists;
 
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    const auto options = document.options();
     auto opts = mongocxx::options::update{};
 
     if ( options )
@@ -350,7 +346,7 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value updateOne( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value updateOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -358,13 +354,13 @@ namespace spt::db::pstorage
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto metadata = model.metadata();
     const auto oid = bsonValue<bsoncxx::oid>( "_id", doc );
 
-    auto opts = updateOptions( view );
+    auto opts = updateOptions( model );
     auto client = Pool::instance().acquire();
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
@@ -407,7 +403,7 @@ namespace spt::db::pstorage
     return model::updateError();
   }
 
-  bsoncxx::document::view_or_value replaceOne( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value replaceOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -415,14 +411,14 @@ namespace spt::db::pstorage
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto metadata = model.metadata();
     const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
 
     auto client = Pool::instance().acquire();
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    const auto options = model.options();
     auto opts = mongocxx::options::replace{};
 
     if ( options )
@@ -480,7 +476,7 @@ namespace spt::db::pstorage
     return model::updateError();
   }
 
-  bsoncxx::document::view_or_value update( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value update( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -488,25 +484,25 @@ namespace spt::db::pstorage
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto metadata = model.metadata();
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( idopt ) return updateOne( view );
+    if ( idopt ) return updateOne( model );
 
-    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", view );
+    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", doc );
     if ( !filter ) return model::invalidAUpdate();
 
-    const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", view );
-    if ( replace ) return replaceOne( view );
+    const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", doc );
+    if ( replace ) return replaceOne( model );
 
-    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", view );
+    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", doc );
     if ( !update ) return model::invalidAUpdate();
 
     auto client = Pool::instance().acquire();
-    auto opts = updateOptions( view );
+    auto opts = updateOptions( model );
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
     const auto result = (*client)[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
@@ -558,7 +554,7 @@ namespace spt::db::pstorage
     return model::updateError();
   }
 
-  bsoncxx::document::view_or_value remove( bsoncxx::document::view view )
+  bsoncxx::document::view_or_value remove( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -568,13 +564,12 @@ namespace spt::db::pstorage
     using bsoncxx::builder::stream::close_document;
     using bsoncxx::builder::stream::finalize;
 
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto doc = bsonValueIfExists<bsoncxx::document::view>( "document", view );
-    if ( !doc ) return model::notFound();
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto doc = model.document();
+    const auto metadata = model.metadata();
 
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
+    const auto options = model.options();
     auto opts = mongocxx::options::delete_options{};
     if ( options )
     {
@@ -592,7 +587,7 @@ namespace spt::db::pstorage
     auto success = bsoncxx::builder::basic::array{};
     auto fail = bsoncxx::builder::basic::array{};
     auto vh = bsoncxx::builder::basic::array{};
-    auto results = (*client)[dbname][collname].find( *doc );
+    auto results = (*client)[dbname][collname].find( doc );
 
     for ( auto d : results ) docs.append( d );
 
@@ -642,28 +637,28 @@ namespace spt::db::pstorage
   }
 }
 
-bsoncxx::document::view_or_value spt::db::process( bsoncxx::document::view view )
+bsoncxx::document::view_or_value spt::db::process( const model::Document& document )
 {
   using spt::util::bsonValue;
 
   try
   {
-    const auto action = bsonValue<std::string>( "action", view );
+    const auto action = document.action();
     if ( action == "create" )
     {
-      return pstorage::create( view );
+      return pstorage::create( document );
     }
     else if ( action == "update" )
     {
-      return pstorage::update( view );
+      return pstorage::update( document );
     }
     else if ( action == "retrieve" )
     {
-      return pstorage::retrieve( view );
+      return pstorage::retrieve( document );
     }
     else if ( action == "delete" )
     {
-      return pstorage::remove( view );
+      return pstorage::remove( document );
     }
 
     return bsoncxx::document::value{ model::invalidAction() };
@@ -671,7 +666,7 @@ bsoncxx::document::view_or_value spt::db::process( bsoncxx::document::view view 
   catch ( const std::exception& ex )
   {
     LOG_CRIT << "Error processing database action " << ex.what();
-    LOG_INFO << bsoncxx::to_json( view );
+    LOG_INFO << document.json();
   }
 
   return model::unexpectedError();

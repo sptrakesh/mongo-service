@@ -3,7 +3,9 @@
 //
 
 #include "document.h"
+#include "util/bson.h"
 
+#include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 
 using spt::model::Document;
@@ -30,4 +32,39 @@ bool spt::model::Document::valid() const
 
   return find( "action" ) && find( "database" ) &&
     find( "collection" ) && find( "document" );
+}
+
+std::string spt::model::Document::action() const
+{
+  return util::bsonValue<std::string>( "action", *view );
+}
+
+std::string spt::model::Document::database() const
+{
+  return util::bsonValue<std::string>( "database", *view );
+}
+
+std::string spt::model::Document::collection() const
+{
+  return util::bsonValue<std::string>( "collection", *view );
+}
+
+bsoncxx::document::view spt::model::Document::document() const
+{
+  return util::bsonValue<bsoncxx::document::view>( "document", *view );
+}
+
+std::string spt::model::Document::json() const
+{
+  return bsoncxx::to_json( *view );
+}
+
+std::optional<bsoncxx::document::view> spt::model::Document::options() const
+{
+  return util::bsonValueIfExists<bsoncxx::document::view>( "options", *view );
+}
+
+std::optional<bsoncxx::document::view> spt::model::Document::metadata() const
+{
+  return util::bsonValueIfExists<bsoncxx::document::view>( "metadata", *view );
 }

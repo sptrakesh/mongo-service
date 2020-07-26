@@ -24,6 +24,15 @@ namespace spt::model
     [[nodiscard]] bool valid() const;
     [[nodiscard]] std::optional<bsoncxx::document::view> bson() const;
 
+    [[nodiscard]] std::string action() const;
+    [[nodiscard]] std::string database() const;
+    [[nodiscard]] std::string collection() const;
+    [[nodiscard]] bsoncxx::document::view document() const;
+    [[nodiscard]] std::optional<bsoncxx::document::view> options() const;
+    [[nodiscard]] std::optional<bsoncxx::document::view> metadata() const;
+
+    [[nodiscard]] std::string json() const;
+
   private:
     std::optional<bsoncxx::document::view> view;
   };
