@@ -322,21 +322,10 @@ namespace spt::db::pstorage
     return d << finalize;
   }
 
-  bsoncxx::document::view_or_value updateOne( bsoncxx::document::view view )
+  mongocxx::options::update updateOptions( bsoncxx::document::view view )
   {
-    using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
 
-    using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::finalize;
-
-    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
-    const auto dbname = bsonValue<std::string>( "database", view );
-    const auto collname = bsonValue<std::string>( "collection", view );
-    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
-    const auto oid = bsonValue<bsoncxx::oid>( "_id", doc );
-
-    auto client = Pool::instance().acquire();
     const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
     auto opts = mongocxx::options::update{};
 
@@ -358,19 +347,43 @@ namespace spt::db::pstorage
       if ( af ) opts.array_filters( *af );
     }
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &view]()
-    {
-      const auto updated = retrieveOne( view );
-      if ( bsonValueIfExists<std::string>( "error", updated ) ) return updated;
+    return opts;
+  }
 
-      auto vhd =  history( document{} << "action" << "delete" <<
+  bsoncxx::document::view_or_value updateOne( bsoncxx::document::view view )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = bsonValue<bsoncxx::document::view>( "document", view );
+    const auto dbname = bsonValue<std::string>( "database", view );
+    const auto collname = bsonValue<std::string>( "collection", view );
+    const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
+    const auto oid = bsonValue<bsoncxx::oid>( "_id", doc );
+
+    auto opts = updateOptions( view );
+    auto client = Pool::instance().acquire();
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+
+    const auto vhd = [&dbname, &collname, &client, &metadata, &oid]() -> bsoncxx::document::view_or_value
+    {
+      const auto updated = (*client)[dbname][collname].find_one(
+          document{} << "_id" << oid << finalize );
+      if ( !updated ) return model::notFound();
+      if ( bsonValueIfExists<std::string>( "error", *updated ) ) return { updated.value() };
+
+      auto vhd =  history( document{} << "action" << "update" <<
         "database" << dbname << "collection" << collname <<
-        "document" << updated << finalize, client, metadata );
+        "document" << updated->view() << finalize, client, metadata );
       if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
-      return updated;
+
+      return bsoncxx::document::view_or_value {
+        document{} << "document" << updated->view() << "history" << vhd << finalize };
     };
 
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
     const auto result = (*client)[dbname][collname].update_one(
         document{} << "_id" << oid << finalize, updateDoc( doc ), opts );
     if ( opts.write_concern()->is_acknowledged() )
@@ -436,7 +449,8 @@ namespace spt::db::pstorage
        "database" << dbname << "collection" << collname <<
        "document" << updated->view() << finalize, client, metadata );
       if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
-      return { updated.value() };
+
+      return document{} << "document" << updated->view() << "history" << vhd << finalize;
     };
 
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
@@ -480,29 +494,7 @@ namespace spt::db::pstorage
     const auto metadata = bsonValueIfExists<bsoncxx::document::view>( "metadata", view );
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( !idopt ) return updateOne( view );
-
-    auto client = Pool::instance().acquire();
-    const auto options = bsonValueIfExists<bsoncxx::document::view>( "options", view );
-    auto opts = mongocxx::options::update{};
-
-    if ( options )
-    {
-      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
-      if ( validate ) opts.bypass_document_validation( *validate );
-
-      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
-      if ( col ) opts.collation( *col );
-
-      auto upsert = bsonValueIfExists<bool>( "upsert", *options );
-      if ( upsert ) opts.upsert( *upsert );
-
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
-
-      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options );
-      if ( af ) opts.array_filters( *af );
-    }
+    if ( idopt ) return updateOne( view );
 
     const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", view );
     if ( !filter ) return model::invalidAUpdate();
@@ -513,26 +505,36 @@ namespace spt::db::pstorage
     const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", view );
     if ( !update ) return model::invalidAUpdate();
 
+    auto client = Pool::instance().acquire();
+    auto opts = updateOptions( view );
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+
     const auto result = (*client)[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
 
     const auto vhd = [&dbname, &collname, &client, &filter, &metadata]() -> bsoncxx::document::view_or_value
     {
       auto success = bsoncxx::builder::basic::array{};
+      auto fail = bsoncxx::builder::basic::array{};
       auto vh = bsoncxx::builder::basic::array{};
       auto results = (*client)[dbname][collname].find( *filter );
 
-      for ( auto d : results )
+      auto docs = bsoncxx::builder::basic::array{};
+      for ( auto d : results ) docs.append( d );
+
+      for ( auto d : docs.view() )
       {
         auto vhd =  history( document{} << "action" << "update" <<
           "database" << dbname << "collection" << collname <<
-          "document" << d << finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
-        success.append( d["_id"].get_oid() );
-        vh.append( vhd );
+          "document" << d.get_document().view() << finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) fail.append( d["_id"].get_oid() );
+        else
+        {
+          success.append( d["_id"].get_oid() );
+          vh.append( vhd );
+        }
       }
 
-      return document{} << "success" << success << "history" << vh << finalize;
+      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
     };
 
     if ( opts.write_concern()->is_acknowledged() )
@@ -641,7 +643,7 @@ namespace spt::db::pstorage
     if ( result )
     {
       rm( *result );
-      return document{} << "success" << success << "history" << vh << finalize;
+      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
     }
 
     return model::notFound();
