@@ -16,7 +16,8 @@
 
 namespace spt::db::pstorage
 {
-  bsoncxx::document::view_or_value history( bsoncxx::document::view view, mongocxx::pool::entry& client,
+  bsoncxx::document::view_or_value
+  history( bsoncxx::document::view view, mongocxx::pool::entry& client,
       std::optional<bsoncxx::document::view> metadata = std::nullopt )
   {
     using spt::util::bsonValue;
@@ -40,33 +41,37 @@ namespace spt::db::pstorage
       "created" << bsoncxx::types::b_date{ std::chrono::system_clock::now() };
     if ( metadata ) d << "metadata" << *metadata;
 
-    const auto vr = (*client)[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+    const auto vr = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
         d << finalize );
-    if ( client->write_concern().is_acknowledged() )
+    if ( client->write_concern().is_acknowledged())
     {
       if ( vr )
       {
-        LOG_INFO << "Created version for " << dbname << ':' << collname << ':' <<
-                 id.to_string() << " with id: " << oid.to_string();
+        LOG_INFO
+            << "Created version for " << dbname << ':' << collname << ':' <<
+            id.to_string() << " with id: " << oid.to_string();
         return document{} << "_id" << oid <<
-          "database" << conf.versionHistoryDatabase <<
-          "collection" << conf.versionHistoryCollection <<
-          "entity" << id << finalize;
+                          "database" << conf.versionHistoryDatabase <<
+                          "collection" << conf.versionHistoryCollection <<
+                          "entity" << id << finalize;
       }
       else
       {
-        LOG_WARN << "Unable to create version for " << dbname << ':' << collname << ':' <<
-                 id.to_string();
+        LOG_WARN
+            << "Unable to create version for " << dbname << ':' << collname
+            << ':' <<
+            id.to_string();
       }
     }
     else
     {
-      LOG_INFO << "Created version for " << dbname << ':' << collname << ':' <<
-               id.to_string() << " with id: " << oid.to_string();
+      LOG_INFO
+          << "Created version for " << dbname << ':' << collname << ':' <<
+          id.to_string() << " with id: " << oid.to_string();
       return document{} << "_id" << oid <<
-        "database" << conf.versionHistoryDatabase <<
-        "collection" << conf.versionHistoryCollection <<
-        "entity" << id << finalize;
+                        "database" << conf.versionHistoryDatabase <<
+                        "collection" << conf.versionHistoryCollection <<
+                        "entity" << id << finalize;
     }
 
     return model::createVersionFailed();
@@ -85,19 +90,36 @@ namespace spt::db::pstorage
     if ( nodes ) w.nodes( *nodes );
 
     auto level = bsonValueIfExists<int32_t>( "acknowledgeLevel", view );
-    if ( level ) w.acknowledge_level( static_cast<mongocxx::write_concern::level>( *level ) );
+    if ( level )
+      w.acknowledge_level(
+          static_cast<mongocxx::write_concern::level>( *level ));
     else w.acknowledge_level( mongocxx::write_concern::level::k_majority );
 
-    auto majority = bsonValueIfExists<std::chrono::milliseconds>( "majority", view );
+    auto majority = bsonValueIfExists<std::chrono::milliseconds>( "majority",
+        view );
     if ( majority ) w.majority( *majority );
 
     auto tag = bsonValueIfExists<std::string>( "tag", view );
     if ( tag ) w.tag( *tag );
 
-    auto timeout = bsonValueIfExists<std::chrono::milliseconds>( "timeout", view );
+    auto timeout = bsonValueIfExists<std::chrono::milliseconds>( "timeout",
+        view );
     if ( timeout ) w.timeout( *timeout );
 
     return w;
+  }
+
+  bsoncxx::document::view_or_value index( const model::Document& model )
+  {
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto options = model.options();
+
+    auto client = Pool::instance().acquire();
+    return options ?
+        (*client)[dbname][collname].create_index( doc, *options ) :
+        (*client)[dbname][collname].create_index( doc );
   }
 
   mongocxx::options::find findOpts( const model::Document& model )
@@ -660,12 +682,16 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
     {
       return pstorage::remove( document );
     }
+    else if ( action == "index" )
+    {
+      return pstorage::index( document );
+    }
 
     return bsoncxx::document::value{ model::invalidAction() };
   }
   catch ( const std::exception& ex )
   {
-    LOG_CRIT << "Error processing database action " << ex.what();
+    LOG_CRIT << "Error processing database action " << document.action() << ". " << ex.what();
     LOG_INFO << document.json();
   }
 

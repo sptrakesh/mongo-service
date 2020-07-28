@@ -7,6 +7,7 @@
         * [Retrieve](#retrieve)
         * [Update](#update)
         * [Delete](#delete)
+        * [Index](#index)
     * [Limitation](#limitation)
 * [Acknowledgements](#acknowledgements)
     
@@ -25,7 +26,7 @@ it has been *deleted* or not).
 ## Protocol
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
-* `action` - The type of database action being performed.  One of `create|retrieve|update|delete`.
+* `action` - The type of database action being performed.  One of `create|retrieve|update|delete|index`.
 * `database` - The Mongo database the action is to be performed against.
 * `collection` - The Mongo collection the action is to be performed against.
 * `document` - The document payload to associate with the database operation.
@@ -105,6 +106,11 @@ to delete from the `database`:`collection`.  The query is executed to retrieve
 the candidate documents, and the documents removed from the specified
 `database:collection`.  The retrieved documents are then written to the version
 history database.
+
+#### Index
+The `document` represents the specification for the *index* to be created.
+Additional options for the index (such as *unique*) can be specified via the
+optional `options` sub-document.
   
 ### Limitation
 At present only documents with **BSON ObjectId** `_id` is supported.
