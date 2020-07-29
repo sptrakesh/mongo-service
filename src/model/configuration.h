@@ -24,7 +24,8 @@ namespace spt::model
     Configuration( const Configuration& ) = delete;
     Configuration& operator=( const Configuration& ) = delete;
 
-    std::string metrics{ "metrics" };
+    std::string metricsDatabase{ "versionHistory" };
+    std::string metricsCollection{ "metrics" };
     std::string mongoUri;
     std::string versionHistoryDatabase{ "versionHistory" };
     std::string versionHistoryCollection{ "entities" };

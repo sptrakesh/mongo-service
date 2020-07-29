@@ -10,9 +10,10 @@ std::string spt::model::Configuration::str() const
   std::ostringstream ss;
   ss << R"({"port": )" << port <<
      R"(, "threads": )" << threads <<
-     R"(, "mongo": {"database": ")" << versionHistoryDatabase <<
-     R"(", "historyCollection": ")" << versionHistoryCollection <<
-     R"(", "metricsCollection": ")" << metrics <<
+     R"(, "mongo": {"versionHistory": {"database": ")" << versionHistoryDatabase <<
+     R"(", "collection": ")" << versionHistoryCollection <<
+     R"("}, "metrics": {"database": ")" << metricsDatabase <<
+     R"(", "collection": ")" << metricsCollection <<
      "\"}}";
   return ss.str();
 }

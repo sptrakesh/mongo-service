@@ -49,20 +49,28 @@ void spt::db::Pool::index()
 
   auto& config = model::Configuration::instance();
   auto client = acquire();
-  auto db = ( *client )[config.versionHistoryDatabase];
 
   try
   {
-    db[config.versionHistoryCollection].create_index(
+    auto vdb = ( *client )[config.versionHistoryDatabase];
+    vdb[config.versionHistoryCollection].create_index(
         document{} << "database" << 1 << finalize );
-    db[config.versionHistoryCollection].create_index(
+    vdb[config.versionHistoryCollection].create_index(
         document{} << "collection" << 1 << finalize );
-    db[config.versionHistoryCollection].create_index(
+    vdb[config.versionHistoryCollection].create_index(
         document{} << "action" << 1 << finalize );
-    db[config.versionHistoryCollection].create_index(
+    vdb[config.versionHistoryCollection].create_index(
         document{} << "entity._id" << 1 << finalize );
-    db[config.versionHistoryCollection].create_index(
+    vdb[config.versionHistoryCollection].create_index(
         document{} << "created" << 1 << finalize );
+
+    auto mdb = ( *client )[config.metricsDatabase];
+    mdb[config.metricsCollection].create_index(
+        document{} << "action" << 1 << finalize );
+    mdb[config.metricsCollection].create_index(
+        document{} << "correlationId" << 1 << finalize );
+    mdb[config.metricsCollection].create_index(
+        document{} << "application" << 1 << finalize );
   }
   catch ( const std::exception& ex )
   {

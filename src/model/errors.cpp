@@ -96,3 +96,9 @@ bsoncxx::document::view spt::model::invalidAUpdate()
   static value document = bsoncxx::builder::basic::make_document( kvp("error", "Invalid update document.") );
   return document.view();
 }
+
+bsoncxx::document::value spt::model::withMessage( std::string_view message )
+{
+  using bsoncxx::builder::basic::kvp;
+  return bsoncxx::builder::basic::make_document( kvp("error", message) );
+}

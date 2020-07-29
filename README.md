@@ -39,6 +39,13 @@ conform to the following document model:
   is created (not relevant for `retrieve` obviously).  This typically will include
   information about the user performing the action, any other information as
   relevant in the system that uses this service.
+* `application` - Optional name of the *application* accessing the service.
+  Helps to retrieve database metrics for a specific *application*.
+* `correlationId` - Optional *correlation id* to associate with the metric record
+  created by this action.  This is useful for tracing logs originating from a single
+  operation/request within the overall system.  This value is stored as a *string*
+  value in the *metric* document to allow for sensible data types to used as the
+  *correlation id*.
 
 ### Document Payload
 The document payload contains all the information necessary to execute the

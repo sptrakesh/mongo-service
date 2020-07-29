@@ -68,3 +68,14 @@ std::optional<bsoncxx::document::view> spt::model::Document::metadata() const
 {
   return util::bsonValueIfExists<bsoncxx::document::view>( "metadata", *view );
 }
+
+std::optional<std::string> spt::model::Document::correlationId() const
+{
+  auto v = util::toString( "correlationId", *view );
+  return v.empty() ? std::nullopt : std::optional<std::string>{ v };
+}
+
+std::optional<std::string> spt::model::Document::application() const
+{
+  return util::bsonValueIfExists<std::string>( "application", *view );
+}

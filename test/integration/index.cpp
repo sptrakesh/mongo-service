@@ -90,5 +90,75 @@ SCENARIO( "Index test suite", "[index]" )
       const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
       REQUIRE( name );
     }
+
+    WHEN( "Creating a unique index" )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "index" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document(
+              kvp( "unused1", 1 ) ) ),
+          kvp( "options", basic::make_document(
+              kvp( "unique", true ),
+              kvp( "expireAfterSeconds", 5 ) ) ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+
+      const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
+      REQUIRE( name );
+    }
+
+    AND_THEN( "Creating a unique index again" )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "index" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document(
+              kvp( "unused1", 1 ) ) ),
+          kvp( "options", basic::make_document(
+              kvp( "unique", true ),
+              kvp( "expireAfterSeconds", 5 ) ) ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+
+      const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
+      REQUIRE( name );
+    }
   }
 }

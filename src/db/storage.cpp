@@ -7,12 +7,16 @@
 #include "log/NanoLog.h"
 #include "model/configuration.h"
 #include "model/errors.h"
+#include "model/metric.h"
 #include "util/bson.h"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
+#include <mongocxx/exception/bulk_write_exception.hpp>
+#include <mongocxx/exception/logic_error.hpp>
 
 #include <chrono>
+#include <sstream>
 
 namespace spt::db::pstorage
 {
@@ -657,43 +661,96 @@ namespace spt::db::pstorage
 
     return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
   }
+
+  bsoncxx::document::view_or_value process( const model::Document& document )
+  {
+    using spt::util::bsonValue;
+
+    try
+    {
+      const auto action = document.action();
+      if ( action == "create" )
+      {
+        return create( document );
+      }
+      else if ( action == "update" )
+      {
+        return update( document );
+      }
+      else if ( action == "retrieve" )
+      {
+        return retrieve( document );
+      }
+      else if ( action == "delete" )
+      {
+        return remove( document );
+      }
+      else if ( action == "index" )
+      {
+        return index( document );
+      }
+
+      return bsoncxx::document::value{ model::invalidAction() };
+    }
+    catch ( const mongocxx::bulk_write_exception& be )
+    {
+      std::ostringstream ss;
+      ss << "Error processing database action " << document.action() <<
+         " code: " << be.code() << ", message: " << be.what();
+      LOG_CRIT << ss.str();
+      LOG_INFO << document.json();
+
+      std::ostringstream oss;
+      oss << "Error processing database action " << document.action();
+      return model::withMessage( oss.str() );
+    }
+    catch ( const mongocxx::logic_error& le )
+    {
+      std::ostringstream ss;
+      ss << "Error processing database action " << document.action() <<
+         " code: " << le.code() << ", message: " << le.what();
+      LOG_CRIT << ss.str();
+      LOG_INFO << document.json();
+
+      std::ostringstream oss;
+      oss << "Error processing database action " << document.action();
+      return model::withMessage( oss.str() );
+    }
+    catch ( const std::exception& ex )
+    {
+      LOG_CRIT << "Error processing database action " << document.action() << ". " << ex.what();
+      LOG_INFO << document.json();
+    }
+
+    return model::unexpectedError();
+  }
 }
 
 bsoncxx::document::view_or_value spt::db::process( const model::Document& document )
 {
-  using spt::util::bsonValue;
+  using util::bsonValueIfExists;
 
-  try
-  {
-    const auto action = document.action();
-    if ( action == "create" )
-    {
-      return pstorage::create( document );
-    }
-    else if ( action == "update" )
-    {
-      return pstorage::update( document );
-    }
-    else if ( action == "retrieve" )
-    {
-      return pstorage::retrieve( document );
-    }
-    else if ( action == "delete" )
-    {
-      return pstorage::remove( document );
-    }
-    else if ( action == "index" )
-    {
-      return pstorage::index( document );
-    }
+  const auto st = std::chrono::steady_clock::now();
+  auto value = pstorage::process( document );
+  const auto et = std::chrono::steady_clock::now();
+  const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
 
-    return bsoncxx::document::value{ model::invalidAction() };
-  }
-  catch ( const std::exception& ex )
-  {
-    LOG_CRIT << "Error processing database action " << document.action() << ". " << ex.what();
-    LOG_INFO << document.json();
-  }
+  auto metric = model::Metric{};
+  metric.action = document.action();
+  metric.database = document.database();
+  metric.collection = document.collection();
+  metric.duration = delta;
 
-  return model::unexpectedError();
+  auto doc = document.document();
+  metric.id = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
+
+  metric.application = document.application();
+  metric.correlationId = document.correlationId();
+  metric.message = bsonValueIfExists<std::string>( "error", value.view() );
+
+  auto& conf = model::Configuration::instance();
+  auto client = Pool::instance().acquire();
+  (*client)[conf.versionHistoryDatabase][conf.metricsCollection].insert_one( metric.bson() );
+
+  return value;
 }
