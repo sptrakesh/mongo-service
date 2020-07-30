@@ -4,7 +4,10 @@
 
 #include "metric.h"
 
+#include <bsoncxx/types/value.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
+
+#include <chrono>
 
 bsoncxx::document::value spt::model::Metric::bson() const
 {
@@ -15,7 +18,9 @@ bsoncxx::document::value spt::model::Metric::bson() const
   doc << "action" << action <<
     "database" << database <<
     "collection" << collection <<
-    "time" << duration.count();
+    "time" << duration.count() <<
+    "timestamp" << bsoncxx::types::b_int64{
+      std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now().time_since_epoch() ).count() };
 
   if ( id ) doc << "entityId" << *id;
   if ( application ) doc << "application" << *application;

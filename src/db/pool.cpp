@@ -66,11 +66,7 @@ void spt::db::Pool::index()
 
     auto mdb = ( *client )[config.metricsDatabase];
     mdb[config.metricsCollection].create_index(
-        document{} << "action" << 1 << finalize );
-    mdb[config.metricsCollection].create_index(
-        document{} << "correlationId" << 1 << finalize );
-    mdb[config.metricsCollection].create_index(
-        document{} << "application" << 1 << finalize );
+        document{} << "timestamp" << 1 << finalize );
   }
   catch ( const std::exception& ex )
   {
