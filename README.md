@@ -5,6 +5,7 @@
     * [Document Payload](#document-payload)
         * [Create](#create)
         * [Retrieve](#retrieve)
+        * [Count](#count)
         * [Update](#update)
         * [Delete](#delete)
         * [Index](#index)
@@ -26,13 +27,14 @@ it has been *deleted* or not).
 ## Protocol
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
-* `action` - The type of database action being performed.  One of `create|retrieve|update|delete|index`.
+* `action` - The type of database action being performed.  One of 
+  `create|retrieve|update|delete|count|index`.
 * `database` - The Mongo database the action is to be performed against.
 * `collection` - The Mongo collection the action is to be performed against.
 * `document` - The document payload to associate with the database operation.
   For `create` and `update` this is assumed to be the documet that is being saved.
-  For `retrieve` this is the *query* to execute.  For `delete` this is a simple
-  `document` with an `_id` field.
+  For `retrieve` or `count` this is the *query* to execute.  For `delete` this
+  is a simple `document` with an `_id` field.
 * `options` - The options to associate with the Mongo request.  These correspond
   to the appropriate options as used by the Mongo driver.
 * `metadata` - Optional *metadata* to attach to the version history document that
@@ -65,6 +67,11 @@ Retrieve obviously does not have any interaction with the version history system
 (unless you are retrieving versions).  We provide this since one of the other
 purposes behind this service is to route/proxy all datastore interactions via
 this service.
+
+#### Count
+Count the number of documents matching the specified query document.
+The query document can be empty to get the count of all documents in the specified
+collection.
 
 #### Update
 Update is the most complex scenario.  The service supports the two main update

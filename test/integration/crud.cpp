@@ -23,6 +23,7 @@ namespace spt::itest::crud
   std::string vhdb;
   std::string vhc;
   auto vhoid = bsoncxx::oid{};
+  int64_t count = 0;
 }
 
 SCENARIO( "Simple CRUD test suite", "[crud]" )
@@ -71,6 +72,38 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       spt::itest::crud::vhdb = spt::util::bsonValue<std::string>( "database", *option );
       spt::itest::crud::vhc = spt::util::bsonValue<std::string>( "collection", *option );
       spt::itest::crud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", *option );
+    }
+
+    AND_THEN( "Retriving count of documents" )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "count" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document() ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      REQUIRE( count );
+      spt::itest::crud::count = *count;
     }
 
     THEN( "Retrieving the document by id" )
@@ -304,6 +337,38 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "success" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
+    }
+
+    AND_THEN( "Retriving count of documents after delete" )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "count" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document() ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      REQUIRE( count );
+      REQUIRE( spt::itest::crud::count > *count );
     }
 
     s.close();

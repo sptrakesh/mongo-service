@@ -42,27 +42,23 @@ void Session::doWrite( std::size_t length )
   buffer.commit( length );
 
   const auto doc = model::Document{ buffer, length };
+  buffer.consume( buffer.size() );
+  std::ostream os{ &buffer };
+
   if ( !doc.bson() )
   {
-    buffer.consume( buffer.size() );
-    std::ostream os{ &buffer };
     auto view = spt::model::notBson();
     os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
   }
   else if ( !doc.valid() )
   {
-    buffer.consume( buffer.size() );
-    std::ostream os{ &buffer };
     auto view = spt::model::missingField();
     os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
   }
   else
   {
-    buffer.consume( buffer.size() );
-    std::ostream os{ &buffer };
-
     try
     {
       auto v = db::process( doc );
@@ -79,9 +75,9 @@ void Session::doWrite( std::size_t length )
 
   boost::asio::async_write( socket,
       buffer,
-      [this, self](boost::system::error_code ec, std::size_t /*length*/)
+      [this, self](boost::system::error_code ec, std::size_t length)
       {
-        //document.data.clear();
+        LOG_DEBUG << "Wrote bytes: " << int(length);
         if (!ec)
         {
           doRead();

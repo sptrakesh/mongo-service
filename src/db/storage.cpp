@@ -55,16 +55,16 @@ namespace spt::db::pstorage
             << "Created version for " << dbname << ':' << collname << ':' <<
             id.to_string() << " with id: " << oid.to_string();
         return document{} << "_id" << oid <<
-                          "database" << conf.versionHistoryDatabase <<
-                          "collection" << conf.versionHistoryCollection <<
-                          "entity" << id << finalize;
+          "database" << conf.versionHistoryDatabase <<
+          "collection" << conf.versionHistoryCollection <<
+          "entity" << id << finalize;
       }
       else
       {
         LOG_WARN
-            << "Unable to create version for " << dbname << ':' << collname
-            << ':' <<
-            id.to_string();
+          << "Unable to create version for " << dbname << ':' << collname
+          << ':' <<
+          id.to_string();
       }
     }
     else
@@ -73,9 +73,9 @@ namespace spt::db::pstorage
           << "Created version for " << dbname << ':' << collname << ':' <<
           id.to_string() << " with id: " << oid.to_string();
       return document{} << "_id" << oid <<
-                        "database" << conf.versionHistoryDatabase <<
-                        "collection" << conf.versionHistoryCollection <<
-                        "entity" << id << finalize;
+        "database" << conf.versionHistoryDatabase <<
+        "collection" << conf.versionHistoryCollection <<
+        "entity" << id << finalize;
     }
 
     return model::createVersionFailed();
@@ -124,6 +124,19 @@ namespace spt::db::pstorage
     return options ?
         (*client)[dbname][collname].create_index( doc, *options ) :
         (*client)[dbname][collname].create_index( doc );
+  }
+
+  bsoncxx::document::view_or_value count( const model::Document& model )
+  {
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+
+    auto client = Pool::instance().acquire();
+    const auto count = (*client)[dbname][collname].count_documents( model.document() );
+    return document{} << "count" << count << finalize;
   }
 
   mongocxx::options::find findOpts( const model::Document& model )
@@ -684,6 +697,10 @@ namespace spt::db::pstorage
       else if ( action == "delete" )
       {
         return remove( document );
+      }
+      else if ( action == "count" )
+      {
+        return count( document );
       }
       else if ( action == "index" )
       {
