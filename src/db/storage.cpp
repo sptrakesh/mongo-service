@@ -20,8 +20,8 @@
 
 namespace spt::db::pstorage
 {
-  bsoncxx::document::view_or_value
-  history( bsoncxx::document::view view, mongocxx::pool::entry& client,
+  bsoncxx::document::view_or_value history( bsoncxx::document::view view,
+      mongocxx::pool::entry& client,
       std::optional<bsoncxx::document::view> metadata = std::nullopt )
   {
     using spt::util::bsonValue;
@@ -299,6 +299,12 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        const auto nv = document.skipVersion();
+        if ( nv && *nv )
+        {
+          return bsoncxx::builder::stream::document{}
+              << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        }
         return history( *document.bson(), client, metadata );
       }
       else
@@ -309,6 +315,12 @@ namespace spt::db::pstorage
     else
     {
       LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+      const auto nv = document.skipVersion();
+      if ( nv && *nv )
+      {
+        return bsoncxx::builder::stream::document{}
+            << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      }
       return history( *document.bson(), client, metadata );
     }
 
@@ -419,13 +431,16 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto metadata = model.metadata();
     const auto oid = bsonValue<bsoncxx::oid>( "_id", doc );
+    const auto skip = model.skipVersion();
 
     auto opts = updateOptions( model );
     auto client = Pool::instance().acquire();
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &oid]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
     {
+      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+
       const auto updated = (*client)[dbname][collname].find_one(
           document{} << "_id" << oid << finalize );
       if ( !updated ) return model::notFound();
@@ -476,6 +491,7 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto metadata = model.metadata();
     const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
+    const auto skip = model.skipVersion();
 
     auto client = Pool::instance().acquire();
     const auto options = model.options();
@@ -496,8 +512,10 @@ namespace spt::db::pstorage
       if ( wc ) opts.write_concern( writeConcern( *wc ) );
     }
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &filter]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
     {
+      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+
       const auto updated = (*client)[dbname][collname].find_one( filter );
       if ( !updated ) return model::notFound();
 
@@ -548,6 +566,7 @@ namespace spt::db::pstorage
     const auto dbname = model.database();
     const auto collname = model.collection();
     const auto metadata = model.metadata();
+    const auto skip = model.skipVersion();
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( idopt ) return updateOne( model );
@@ -567,8 +586,10 @@ namespace spt::db::pstorage
 
     const auto result = (*client)[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
 
-    const auto vhd = [&dbname, &collname, &client, &filter, &metadata]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&dbname, &collname, &client, &filter, &metadata, &skip]() -> bsoncxx::document::view_or_value
     {
+      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+
       auto success = bsoncxx::builder::basic::array{};
       auto fail = bsoncxx::builder::basic::array{};
       auto vh = bsoncxx::builder::basic::array{};
@@ -628,6 +649,7 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto doc = model.document();
     const auto metadata = model.metadata();
+    const auto skip = model.skipVersion();
 
     const auto options = model.options();
     auto opts = mongocxx::options::delete_options{};
@@ -651,10 +673,12 @@ namespace spt::db::pstorage
 
     for ( auto d : results ) docs.append( d );
 
-    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh]( auto d )
+    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip]( auto d )
     {
-      const auto vhd = [&client, &dbname, &collname, &metadata, &vh]( auto d )
+      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip]( auto d )
       {
+        if ( skip && *skip ) return;
+
         auto vhd =  history( document{} << "action" << "delete" <<
           "database" << dbname << "collection" << collname <<
           "document" << d << finalize, client, metadata );

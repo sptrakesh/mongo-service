@@ -48,6 +48,9 @@ conform to the following document model:
   operation/request within the overall system.  This value is stored as a *string*
   value in the *metric* document to allow for sensible data types to used as the
   *correlation id*.
+* `skipVersion` - Optional `bool` value to indicate not to create a *version history*
+  document for this `action`.  Useful when creating non-critical data such as
+  logs.
 
 ### Document Payload
 The document payload contains all the information necessary to execute the

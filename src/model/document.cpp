@@ -79,3 +79,8 @@ std::optional<std::string> spt::model::Document::application() const
 {
   return util::bsonValueIfExists<std::string>( "application", *view );
 }
+
+std::optional<bool> spt::model::Document::skipVersion() const
+{
+  return util::bsonValueIfExists<bool>( "skipVersion", *view );
+}

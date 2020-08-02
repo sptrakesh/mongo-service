@@ -32,6 +32,7 @@ namespace spt::model
     [[nodiscard]] std::optional<bsoncxx::document::view> metadata() const;
     [[nodiscard]] std::optional<std::string>application() const;
     [[nodiscard]] std::optional<std::string>correlationId() const;
+    [[nodiscard]] std::optional<bool>skipVersion() const;
 
     [[nodiscard]] std::string json() const;
 
