@@ -128,14 +128,35 @@ namespace spt::db::pstorage
 
   bsoncxx::document::view_or_value count( const model::Document& model )
   {
+    using util::bsonValueIfExists;
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
     const auto dbname = model.database();
     const auto collname = model.collection();
+    const auto opts = model.options();
+
+    auto options = mongocxx::options::count{};
+    if ( opts )
+    {
+      const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts );
+      if ( col ) options.collation( *col );
+
+      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *opts );
+      if ( hint ) options.hint( mongocxx::hint{ *hint } );
+
+      const auto limit = bsonValueIfExists<int64_t>( "limit", *opts );
+      if ( limit ) options.limit( *limit );
+
+      const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts );
+      if ( time ) options.max_time( *time );
+
+      const auto skip = bsonValueIfExists<int64_t>( "skip", *opts );
+      if ( limit ) options.skip( *skip );
+    }
 
     auto client = Pool::instance().acquire();
-    const auto count = (*client)[dbname][collname].count_documents( model.document() );
+    const auto count = (*client)[dbname][collname].count_documents( model.document(), options );
     return document{} << "count" << count << finalize;
   }
 
