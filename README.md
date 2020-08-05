@@ -128,7 +128,28 @@ history database.
 The `document` represents the specification for the *index* to be created.
 Additional options for the index (such as *unique*) can be specified via the
 optional `options` sub-document.
+
+### Document Response
+Create, update and delete actions only return some meta information about the
+action that was performed.  The assumption is that caller already has all the
+document information needed, and there is no need for the service to return
+that information.
+
+The `retrieve` action of course returns the results of executing the *database
+query* encapsulated in the `document` property of the request payload.  The
+following document model is returned as the response:
+* `error` - A `string` value in case an error was encountered as a result of
+  executing the *query*.  Caller should always check for existence of this property.
+* `result` - A *BSON document* that is returned if the *query* included an
+  `_id` property.  In such a case it is assumed that the query is a lookup for
+  a single document.
+* `results` - A *BSON array* with *document(s)* that were retrieved from the
+  database for the *query*.
   
+### Options
+Options specified in the request payload are parsed into the appropriate
+`option` document for the specified `action`.
+
 ### Limitation
 At present only documents with **BSON ObjectId** `_id` is supported.
 
