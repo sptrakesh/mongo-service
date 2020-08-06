@@ -76,11 +76,14 @@ func retrieve() {
   }
 
   c := make(chan result)
+  size := 0
   for i := 0; i < total; i++ {
+    if ids[i] == nil {continue}
     go get(i, c)
+    size++
   }
 
-  for i := 0; i < total; i++ {
+  for i := 0; i < size; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error retrieving document %d %v\n", fn, i, r.err)
@@ -144,11 +147,14 @@ func update() {
   }
 
   c := make(chan result)
+  size := 0
   for i := 0; i < total; i++ {
+    if ids[i] == nil {continue}
     go set(i, c)
+    size++
   }
 
-  for i := 0; i < total; i++ {
+  for i := 0; i < size; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error updating document %d %v\n", fn, i, r.err)
@@ -178,11 +184,14 @@ func updateByQuery() {
   }
 
   c := make(chan result)
+  size := 0
   for i := 0; i < total; i++ {
+    if ids[i] == nil {continue}
     go set(i, c)
+    size++
   }
 
-  for i := 0; i < total; i++ {
+  for i := 0; i < size; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error updating document %d %v\n", fn, i, r.err)
@@ -210,11 +219,14 @@ func delete() {
   }
 
   c := make(chan result)
+  size := 0
   for i := 0; i < total; i++ {
+    if ids[i] == nil {continue}
     go remove(i, c)
+    size++
   }
 
-  for i := 0; i < total; i++ {
+  for i := 0; i < size; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error deleting document %d %v\n", fn, i, r.err)
@@ -225,7 +237,7 @@ func delete() {
 const (
   database = "itest"
   collection = "test"
-  total = 200
+  total = 100
 )
 
 var ids []*bson.ObjectId

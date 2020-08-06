@@ -5,14 +5,14 @@ import (
   "log"
   "net"
   "sync"
-  "time"
 
-  "github.com/sabey/lagoon"
+  "github.com/fatih/pool"
 )
 
 func connectionPool() *mongoClientHolder {
   const fn = "connectionPool"
 
+  /*
   config := func() *lagoon.Config {
     buffer := lagoon.CreateBuffer(200, time.Second * 5)
     return &lagoon.Config{
@@ -24,18 +24,20 @@ func connectionPool() *mongoClientHolder {
       Buffer: buffer,
     }
   }
+   */
 
   ponce.Do(func() {
-    l, err := lagoon.CreateLagoon(config())
-    if err != nil {log.Printf("%v - Error creating lagoon pool %v\n", fn, err)}
-    mongoClient = &mongoClientHolder{l: l}
+    factory := func() (net.Conn, error) { return net.Dial("tcp", fmt.Sprintf("%v:%v", host, port)) }
+    p, err := pool.NewChannelPool(5, 200, factory)
+    if err != nil {log.Printf("%v - Error creating pool %v\n", fn, err)}
+    mongoClient = &mongoClientHolder{p: p}
   })
 
   return mongoClient
 }
 
 func ClosePool() {
-  connectionPool().l.Close()
+  connectionPool().p.Close()
 }
 
 var (

@@ -4,12 +4,12 @@ import (
   "io"
   "log"
 
+  "github.com/fatih/pool"
   "github.com/globalsign/mgo/bson"
-  "github.com/sabey/lagoon"
 )
 
 type mongoClientHolder struct {
-  l *lagoon.Lagoon
+  p pool.Pool
 }
 
 type payload struct {
@@ -97,7 +97,7 @@ func (c *mongoClientHolder) send(m interface{}) ([]byte, error) {
     return nil, err
   }
 
-  con, err := c.l.Dial()
+  con, err := c.p.Get()
   if err != nil {
     log.Printf("%v - Error connecting to mongo service %v\n", fn, err)
     return nil, err

@@ -150,7 +150,7 @@ following document model is returned as the response:
   
 ### Options
 Options specified in the request payload are parsed into the appropriate
-`option` document for the specified `action`.
+`option` document for the specified `actCMakeLists.txtion`.
 
 ### Limitation
 At present only documents with **BSON ObjectId** `_id` is supported.
@@ -159,7 +159,9 @@ At present only documents with **BSON ObjectId** `_id` is supported.
 Integration tests for the service will be developed in a few different languages
 to ensure full interoperability.  The test suites will be available under the
 `test` directory. The following suites are present at present:
-* `C++` - Integration test suite under the `test/integration` directory.
+* `C++`
+    * **Integration** - Integration test suite under the `test/integration` directory.
+    * **Performance** - Performance test suite under the `test/performance` directory.
 * `go` - Simple test program under the `test/go` directory.
     ```shell script
     (cd mongo-service/test/go; go build -o /tmp/gomongo; /tmp/gomongo)
