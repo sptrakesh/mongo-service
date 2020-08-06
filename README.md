@@ -9,6 +9,8 @@
         * [Update](#update)
         * [Delete](#delete)
         * [Index](#index)
+    * [Document Response](#document-response)
+    * [Options](#options)
     * [Limitation](#limitation)
 * [Acknowledgements](#acknowledgements)
     
@@ -152,6 +154,13 @@ Options specified in the request payload are parsed into the appropriate
 
 ### Limitation
 At present only documents with **BSON ObjectId** `_id` is supported.
+
+## Testing
+Integration tests for the service will be developed in a few different languages
+to ensure full interoperability.  The test suites will be available under the
+`test` directory. The following suites are present at present:
+* `C++` - Integration test suite under the `test/integration` directory.
+* `go` - Simple test program under the `test/go` directory.
 
 ## Acknowledgements
 This software has been developed mainly using work other people have contributed.
