@@ -39,12 +39,12 @@ func create() {
   }
 
   c := make(chan result)
-  for i := 0; i < 100; i++ {
+  for i := 0; i < total; i++ {
     go insert(c)
   }
 
-  oids := make([]*bson.ObjectId, 100)
-  for i := 0; i < 100; i++ {
+  oids := make([]*bson.ObjectId, total)
+  for i := 0; i < total; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error creating document %d %v\n", fn, i, r.err)
@@ -76,14 +76,116 @@ func retrieve() {
   }
 
   c := make(chan result)
-  for i := 0; i < 100; i++ {
+  for i := 0; i < total; i++ {
     go get(i, c)
   }
 
-  for i := 0; i < 100; i++ {
+  for i := 0; i < total; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error retrieving document %d %v\n", fn, i, r.err)
+    }
+  }
+}
+
+func retrieveMultiple() {
+  const fn = "crud.retrieveMultiple"
+
+  get := func(i int, c chan result) {
+    r := result{}
+    sort := -1
+    if i % 2 == 0 {sort = 1}
+    opts := bson.M{"sort": bson.M{"_id": sort}, "limit": 100}
+    b, err := connectionPool().queryWithOptions(database, collection, bson.M{}, opts)
+    if err != nil {
+      r.err = err
+      c <- r
+      return
+    }
+
+    if err := bson.Unmarshal(b, &r); err != nil {
+      r.err = err
+    }
+
+    c <- r
+  }
+
+  c := make(chan result)
+  for i := 0; i < total; i++ {
+    go get(i, c)
+  }
+
+  for i := 0; i < total; i++ {
+    r := <-c
+    if r.err != nil {
+      log.Printf("%v - Error retrieving document %d %v\n", fn, i, r.err)
+    }
+  }
+}
+
+func update() {
+  const fn = "crud.update"
+
+  set := func(i int, c chan result) {
+    r := result{}
+    doc := &payload{Database: database, Collection: collection, Document: bson.M{"_id": ids[i], "time": time.Now()}}
+    b, err := connectionPool().update(doc)
+    if err != nil {
+      r.err = err
+      c <- r
+      return
+    }
+
+    if err := bson.Unmarshal(b, &r); err != nil {
+      r.err = err
+    }
+
+    c <- r
+  }
+
+  c := make(chan result)
+  for i := 0; i < total; i++ {
+    go set(i, c)
+  }
+
+  for i := 0; i < total; i++ {
+    r := <-c
+    if r.err != nil {
+      log.Printf("%v - Error updating document %d %v\n", fn, i, r.err)
+    }
+  }
+}
+
+func updateByQuery() {
+  const fn = "crud.updateByQuery"
+
+  set := func(i int, c chan result) {
+    r := result{}
+    doc := &payload{Database: database, Collection: collection,
+      Document: bson.M{"filter": bson.M{"_id": ids[i]}, "update": bson.M{"time": time.Now()}}}
+    b, err := connectionPool().update(doc)
+    if err != nil {
+      r.err = err
+      c <- r
+      return
+    }
+
+    if err := bson.Unmarshal(b, &r); err != nil {
+      r.err = err
+    }
+
+    c <- r
+  }
+
+  c := make(chan result)
+  for i := 0; i < total; i++ {
+    go set(i, c)
+  }
+
+  for i := 0; i < total; i++ {
+    r := <-c
+    if r.err != nil {
+      log.Printf("%v - Error updating document %d %v\n", fn, i, r.err)
     }
   }
 }
@@ -108,11 +210,11 @@ func delete() {
   }
 
   c := make(chan result)
-  for i := 0; i < 100; i++ {
+  for i := 0; i < total; i++ {
     go remove(i, c)
   }
 
-  for i := 0; i < 100; i++ {
+  for i := 0; i < total; i++ {
     r := <-c
     if r.err != nil {
       log.Printf("%v - Error deleting document %d %v\n", fn, i, r.err)
@@ -123,6 +225,7 @@ func delete() {
 const (
   database = "itest"
   collection = "test"
+  total = 200
 )
 
 var ids []*bson.ObjectId

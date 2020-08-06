@@ -104,14 +104,10 @@ func (c *mongoClientHolder) send(m interface{}) ([]byte, error) {
   }
   defer con.Close()
 
-  n, err := con.Write(b)
+  _, err = con.Write(b)
   if err != nil {
     log.Printf("%v - Error sending payload %v\n", fn, err)
     return nil, err
-  }
-
-  if n != len(b) {
-    log.Printf("%v - Transmitted %d out of %d bytes\n", fn, n, len(b))
   }
 
   const bufSize = 8192
@@ -133,6 +129,5 @@ func (c *mongoClientHolder) send(m interface{}) ([]byte, error) {
     length += n
     if n < bufSize {break}
   }
-  log.Printf("%v - Response size: %d\n", fn, length)
   return data[:], nil
 }

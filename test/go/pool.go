@@ -14,13 +14,13 @@ func connectionPool() *mongoClientHolder {
   const fn = "connectionPool"
 
   config := func() *lagoon.Config {
-    buffer := lagoon.CreateBuffer(100, time.Second * 2)
+    buffer := lagoon.CreateBuffer(200, time.Second * 5)
     return &lagoon.Config{
       Dial: func() (net.Conn, error) {
         return net.DialTimeout("tcp", fmt.Sprintf("%v:%v", host, port), time.Second * 5)
       },
       DialInitial: 1,
-      IdleTimeout: time.Second * time.Duration(60),
+      IdleTimeout: time.Second * time.Duration(600),
       Buffer: buffer,
     }
   }

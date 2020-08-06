@@ -161,6 +161,9 @@ to ensure full interoperability.  The test suites will be available under the
 `test` directory. The following suites are present at present:
 * `C++` - Integration test suite under the `test/integration` directory.
 * `go` - Simple test program under the `test/go` directory.
+    ```shell script
+    (cd mongo-service/test/go; go build -o /tmp/gomongo; /tmp/gomongo)
+    ```
 
 ## Acknowledgements
 This software has been developed mainly using work other people have contributed.

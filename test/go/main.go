@@ -12,6 +12,9 @@ func main() {
 
   create()
   retrieve()
+  retrieveMultiple()
+  update()
+  updateByQuery()
   delete()
   ClosePool()
 }
