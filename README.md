@@ -177,12 +177,12 @@ an associated version history document in the database.  All operations also
 create a corresponding metric document in the database.  Thus a *CRUD* operation
 involves approximately 12 database operations internally.
 
-The tests are set up to *run* each *CRUD* operations `10` times, and a *run*
-is repeated a second time to get better average and variability numbers.  Seperate
-runs are set up with `10, 50, 100, 500` and `1000` concurrent threads.  All
-testing is conducted against the simple [docker stack](docker/stack.yml) running
-on the same machine.  A key goal of the test is to ensure that no errors are
-encountered while running the test.
+The tests are set up to *run* each set of *CRUD* operations `10` times (*iterations*),
+and a *run* is repeated a second time to get better average and variability numbers.
+Separate runs are set up with `10, 50, 100, 500` and `1000` concurrent threads.
+All testing is conducted against the simple [docker stack](docker/stack.yml)
+running on the same machine.  A key goal of the test is to ensure that no errors
+are encountered while running the test.
 
 The following numbers were achieved on my laptop during normal use (plenty of
 other applications and processes running).
