@@ -13,6 +13,7 @@
     * [Options](#options)
     * [Limitation](#limitation)
 * [Testing](#testing)
+    * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
 * [Acknowledgements](#acknowledgements)
     
@@ -168,6 +169,13 @@ to ensure full interoperability.  The test suites will be available under the
     ```shell script
     (cd mongo-service/test/go; go build -o /tmp/gomongo; /tmp/gomongo)
     ```
+
+### Connection Pool
+A simple connection pool [implementation](test/integration/pool.h) is available
+in the integration test directory, along with its associated test suite.  At
+present, the implementation does not check for any status.  A proper implementation
+would require some enhancement to avoid putting failed connections back into
+the pool.
 
 ### Performance Test
 The performance test suite performs a simple *CRUD* operation using the service.
