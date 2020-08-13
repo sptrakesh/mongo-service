@@ -4,22 +4,57 @@
 
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <deque>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
+#include <shared_mutex>
+#include <thread>
 
 namespace spt::pool
 {
+  struct Configuration
+  {
+    Configuration() = default;
+
+    Configuration(Configuration&&) = default;
+    Configuration& operator=(Configuration&&) = default;
+
+    Configuration(const Configuration&) = delete;
+    Configuration& operator=(const Configuration&) = delete;
+
+    uint32_t initialSize{ 1 };
+    uint32_t maxPoolSize{ 25 };
+    uint32_t maxConnections{ 100 };
+    std::chrono::seconds maxIdleTime{ 300 };
+  };
+
   template <typename Connection>
   struct Pool {
     using Ptr = std::unique_ptr<Connection>;
     using Factory = std::function<Ptr()>;
 
+    struct ConnectionWrapper
+    {
+      explicit ConnectionWrapper( Ptr con ) : con{ std::move( con ) } {}
+
+      ConnectionWrapper( ConnectionWrapper&& c ) = default;
+      ConnectionWrapper& operator=(ConnectionWrapper&&) = default;
+
+      ConnectionWrapper(const ConnectionWrapper&) = delete;
+      ConnectionWrapper& operator=(const ConnectionWrapper&) = delete;
+
+      operator bool() const { return con.operator bool(); }
+
+      Ptr con;
+      std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
+    };
+
     struct Proxy
     {
-      explicit Proxy( Ptr c, Pool<Connection>* p ) :
+      explicit Proxy( ConnectionWrapper c, Pool<Connection>* p ) :
         con{ std::move( c ) }, pool{ p } {}
 
       ~Proxy()
@@ -27,40 +62,35 @@ namespace spt::pool
         if ( con ) pool->release( std::move( con ) );
       }
 
-      Proxy( Proxy&& p )
-      {
-        con = std::move( p.con );
-        p.con = nullptr;
-        pool = p.pool;
-        p.pool = nullptr;
-      }
-
-      Proxy& operator=( Proxy&& p )
-      {
-        con = std::move( p.con );
-        p.con = nullptr;
-        pool = p.pool;
-        p.pool = nullptr;
-      }
+      Proxy( Proxy&& p ) = default;
+      Proxy& operator=( Proxy&& p ) = default;
 
       Proxy(const Proxy&) = delete;
       Proxy& operator=(const Proxy&) = delete;
 
-      Connection& operator*() { return *con.get(); }
-      Connection* operator->() { return con.get(); }
+      Connection& operator*() { return *con.con.get(); }
+      Connection* operator->() { return con.con.get(); }
 
     private:
-      Ptr con;
+      ConnectionWrapper con;
       Pool<Connection>* pool;
     };
 
-    explicit Pool( Factory c, uint32_t initial = 1, uint32_t max = 25 ) :
-      creator{ c }, initialSize{ initial }, maxSize{ max }
+    explicit Pool( Factory c, Configuration conf = {} ) :
+      creator{ c }, configuration{ std::move( conf ) }
     {
-      for ( uint32_t i = 0; i < initialSize; ++i )
+      for ( uint32_t i = 0; i < configuration.initialSize; ++i )
       {
         available.emplace_back( c() );
       }
+
+      thread = std::thread{ &Pool<Connection>::ttlMonitor, this };
+    }
+
+    ~Pool()
+    {
+      stop.store( true );
+      thread.join();
     }
 
     Pool( const Pool& ) = delete;
@@ -68,34 +98,77 @@ namespace spt::pool
 
     std::optional<Proxy> acquire()
     {
-      if ( total >= maxSize ) return std::nullopt;
+      if ( total >= configuration.maxConnections ) return std::nullopt;
 
-      auto lock = std::lock_guard( mutex );
+      auto lock = std::unique_lock( mutex );
       ++total;
 
-      if ( available.empty() ) return Proxy{ creator(), this };
+      if ( available.empty() ) return Proxy{ ConnectionWrapper{ creator() }, this };
 
       auto con = std::move( available.front() );
       available.pop_front();
       return Proxy{ std::move( con ), this };
     }
 
-    void release( Ptr c )
+    void release( ConnectionWrapper c )
     {
-      auto lock = std::lock_guard( mutex );
+      auto lock = std::unique_lock( mutex );
       --total;
-      available.emplace_back( std::move( c ) );
+      if ( !c ) return;
+      c.time = std::chrono::system_clock::now();
+      if ( available.size() < configuration.maxPoolSize ) available.emplace_back( std::move( c ) );
     }
 
-    [[nodiscard]] uint32_t inactive() const { return available.size(); }
-    [[nodiscard]] uint32_t active() const { return total; }
+    [[nodiscard]] uint32_t inactive() const
+    {
+      auto lock = std::shared_lock( mutex );
+      return available.size();
+    }
+
+    [[nodiscard]] uint32_t active() const
+    {
+      auto lock = std::shared_lock( mutex );
+      return total;
+    }
 
   private:
+    void removeExpired()
+    {
+      auto end = false;
+      auto now = std::chrono::system_clock::now();
+
+      while ( !end )
+      {
+        auto lock = std::unique_lock( mutex );
+        for ( auto iter = std::begin( available ); iter != std::end( available ); ++iter )
+        {
+          const auto diff = std::chrono::duration_cast<std::chrono::seconds>( now - iter->time );
+          if ( diff > configuration.maxIdleTime )
+          {
+            available.erase( iter );
+            break;
+          }
+        }
+
+        end = true;
+      }
+    }
+
+    void ttlMonitor()
+    {
+      while ( !stop.load() )
+      {
+        removeExpired();
+        std::this_thread::sleep_for( std::chrono::seconds{ 1 } );
+      }
+    }
+
     Factory creator;
-    std::deque<Ptr> available;
-    std::mutex mutex;
+    Configuration configuration;
+    std::deque<ConnectionWrapper> available;
+    std::thread thread;
+    mutable std::shared_mutex mutex;
+    std::atomic_bool stop{ false };
     uint32_t total = 0;
-    uint32_t initialSize;
-    uint32_t maxSize;
   };
 }
