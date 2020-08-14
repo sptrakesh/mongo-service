@@ -349,14 +349,19 @@ implementation is based on a *factory* function that can create valid connection
 as needed.
 
 The pool is managed using a `std::deque`.  Connections returned to the pool are
-added to the *back*, while acquiring a connection pops it from the *front* of
-the `deque`.
+added to the *back* (least idle), while acquiring a connection pops it from the
+*front* (most idle) of the `deque`.
   
 #### Configuration
 Configuration is via a simple structure for common options such as initial size,
 max pool size, max connection size, and maximum idle time for a connection.  It
-supports a very rudimentary validity check of the connection before adding it
-back to the pool.
+supports a simple validity check (via a mandatory `bool valid()` function)
+of the connection before adding it back to the pool.
+
+A `maxIdleTime` property is used to close connections that have been idling more
+than the specified time.  The `initialSize` property is also used as a *minimum*
+pool size configuration.  The *minimum* size is always maintained regardless of
+*idle* time.
 
 #### Proxy
 Acquiring a connection from the pool returns a `std::optional<Proxy>` instance.

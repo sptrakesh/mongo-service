@@ -134,20 +134,21 @@ namespace spt::pool
   private:
     void removeExpired()
     {
+      if ( inactive() <= configuration.initialSize ) return;
       auto end = false;
       auto now = std::chrono::system_clock::now();
 
       while ( !end )
       {
         auto lock = std::unique_lock( mutex );
+
         for ( auto iter = std::begin( available ); iter != std::end( available ); ++iter )
         {
           const auto diff = std::chrono::duration_cast<std::chrono::seconds>( now - iter->time );
-          if ( diff > configuration.maxIdleTime )
-          {
-            available.erase( iter );
-            break;
-          }
+          if ( diff < configuration.maxIdleTime ) return;
+
+          available.erase( iter );
+          break;
         }
 
         end = true;
