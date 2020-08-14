@@ -70,16 +70,94 @@ with the *create* action.  If using *unacknowledged* writes, the auto-generated
 with the `_id` set within the service.  This involves a wasteful copy of data,
 and hence we enforce the requirement on client specified `_id` value.
 
+Sample request payload:
+```json
+{
+  "action": "create",
+  "database": "<database name>",
+  "collection": "<collection name>",
+  "document": {
+    "_id": {
+      "$oid": "5f35e5e1e799c52186039122"
+    },
+    "intValue": 123,
+    "floatValue": 123.0,
+    "boolValue": true,
+    "stringValue": "abc123",
+    "nested": {"key":  "value"}
+  }
+}
+```
+
+Sample response payload:
+```json
+{
+  "_id": {
+    "$oid": "5f35e5e1e799c52186039122"
+  },
+  "database": "versionHistory",
+  "collection": "entities",
+  "entity": {
+    "$oid": "5f35e5e19e48c37186539141"
+  }
+}
+```
+
 #### Retrieve
 Retrieve obviously does not have any interaction with the version history system
 (unless you are retrieving versions).  We provide this since one of the other
 purposes behind this service is to route/proxy all datastore interactions via
 this service.
 
+Sample retrieve payload:
+```json
+{
+  "action": "retrieve",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "_id": {
+      "$oid": "5f35e6d8c7e3a976365b3751"
+    }
+  }
+}
+```
+
+Sample response:
+```json
+{
+  "result": {
+    "_id": {
+      "$oid": "5f35e5e1e799c52186039122"
+    },
+    "intValue": 123,
+    "floatValue": 123.0,
+    "boolValue": true,
+    "stringValue": "abc123",
+    "nested": {"key":  "value"}
+  }
+}
+```
+
 #### Count
 Count the number of documents matching the specified query document.
 The query document can be empty to get the count of all documents in the specified
 collection.
+
+Sample count payload:
+```json
+{
+  "action": "count",
+  "database": "itest",
+  "collection": "test",
+  "document": {}
+}
+```
+
+Sample response:
+```json
+{ "count" : 11350 }
+```
 
 #### Update
 Update is the most complex scenario.  The service supports the two main update
@@ -100,7 +178,7 @@ update request was made:
 * *Single-Document* - For single document updates the full updated stored document
  (`document`) and basic information about the associated version history document
  (`history`) are returned.
-* *Multi-Document* - For multi-document updates, a list BSON object ids for
+* *Multi-Document* - For multi-document updates, an array of BSON object ids for
 successful updates (`success`), failed updates (`failure`), and the basic
 information about the version history documents (`history`).
  
@@ -108,6 +186,66 @@ information about the version history documents (`history`).
 The simple and direct update use case.  If the `document` has an `_id` property,
 the remaining properties are merged into the stored document.  A version history
 document with the resulting stored document is also created.
+
+Sample update request by `_id`:
+```json
+{
+  "action": "update",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "key1": "value1",
+    "_id": {
+      "$oid": "5f35e887bb516401e02b4701"
+    }
+  }
+}
+```
+
+Sample response:
+```json
+{
+  "document": {
+    "_id": {
+      "$oid": "5f35e887bb516401e02b4701"
+    },
+    "key": "value",
+    "key1": "value1"
+  },
+  "history": {
+    "_id": {
+      "$oid": "5f35e887e799c5218603915b"
+    },
+    "database": "versionHistory",
+    "collection": "entities",
+    "entity": {
+      "$oid": "5f35e887bb516401e02b4701"
+    }
+  }
+}
+```
+
+##### Update without version history
+Sample request payload:
+```json
+{
+  "action": "update",
+  "database": "itest",
+  "collection": "test",
+  "skipVersion": true,
+  "document": {
+    "key1": "value1",
+    "_id": {
+      "$oid": "5f35e932d3698352cb3bd2d1"
+    }
+  }
+}
+```
+
+In this case, only a placeholder response is returned as follows:
+```json
+{ "skipVersion" : true }
+```
 
 ##### Replace Document
 If the `document` has a `replace` sub-document, then the existing document as
@@ -128,6 +266,40 @@ to delete from the `database`:`collection`.  The query is executed to retrieve
 the candidate documents, and the documents removed from the specified
 `database:collection`.  The retrieved documents are then written to the version
 history database.
+
+Sample delete request:
+```json
+{
+  "action": "delete",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "_id": {
+      "$oid": "5f35ea61aa4ef01184492d71"
+    }
+  }
+}
+```
+
+Sample delete response:
+```json
+{
+  "success": [{
+    "$oid": "5f35ea61aa4ef01184492d71"
+  }],
+  "failure": [],
+  "history": [{
+    "_id": {
+      "$oid": "5f35ea61e799c521860391a9"
+    },
+    "database": "versionHistory",
+    "collection": "entities",
+    "entity": {
+      "$oid": "5f35ea61aa4ef01184492d71"
+    }
+  }]
+}
+```
 
 #### Index
 The `document` represents the specification for the *index* to be created.

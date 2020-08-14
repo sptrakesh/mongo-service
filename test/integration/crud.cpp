@@ -371,6 +371,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << std::endl;
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "success" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
