@@ -344,10 +344,29 @@ to ensure full interoperability.  The test suites will be available under the
 
 ### Connection Pool
 A simple connection pool [implementation](test/integration/pool.h) is available
-in the integration test directory, along with its associated test suite.  At
-present, the implementation does not check for any status.  A proper implementation
-would require some enhancement to avoid putting failed connections back into
-the pool.
+in the integration test directory, along with its associated test suite.  The
+implementation is based on a *factory* function that can create valid connections
+as needed.
+
+The pool is managed using a `std::deque`.  Connections returned to the pool are
+added to the *back*, while acquiring a connection pops it from the *front* of
+the `deque`.
+  
+#### Configuration
+Configuration is via a simple structure for common options such as initial size,
+max pool size, max connection size, and maximum idle time for a connection.  It
+supports a very rudimentary validity check of the connection before adding it
+back to the pool.
+
+#### Proxy
+Acquiring a connection from the pool returns a `std::optional<Proxy>` instance.
+If the maximum number of connections has been reached, `std::nullopt` is returned.
+The *Proxy* implements RAII by returning the connection to the pool when the
+instance is destroyed.
+
+#### ConnectionWrapper
+A wrapper is used to associate a last used timestamp to the *connection*.  This
+is used to enforce maximum idle time policy on the underlying *connection*.
 
 ### Performance Test
 The performance test suite performs a simple *CRUD* operation using the service.

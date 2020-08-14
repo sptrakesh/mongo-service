@@ -114,7 +114,7 @@ namespace spt::pool
     {
       auto lock = std::unique_lock( mutex );
       --total;
-      if ( !c ) return;
+      if ( !c || !c.con->valid() ) return;
       c.time = std::chrono::system_clock::now();
       if ( available.size() < configuration.maxPoolSize ) available.emplace_back( std::move( c ) );
     }

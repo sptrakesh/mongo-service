@@ -38,9 +38,12 @@ namespace spt::itest::pool
     }
 
     tcp::socket& socket() { return s; }
+    bool valid() const { return v; }
+    void setValid( bool valid ) { this->v = valid; }
 
   private:
     tcp::socket s;
+    bool v{ true };
   };
 
   std::unique_ptr<Connection> create()
@@ -204,6 +207,18 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       REQUIRE( pool.inactive() == 0 );
       REQUIRE( pool.active() == 2 );
+    }
+
+    AND_WHEN( "Invalid connections are not added to pool" )
+    {
+      {
+        auto copt1 = pool.acquire();
+        (*copt1)->setValid( false );
+        auto copt2 = pool.acquire();
+        (*copt2)->setValid( false );
+        REQUIRE( pool.active() == 2 );
+      }
+      REQUIRE( pool.inactive() == 0 );
     }
 
     AND_WHEN( "Connection TTL works" )
