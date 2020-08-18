@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "../../src/log/NanoLog.h"
+
 #include <atomic>
 #include <chrono>
 #include <deque>
@@ -32,7 +34,8 @@ namespace spt::pool
   };
 
   template <typename Connection>
-  struct Pool {
+  struct Pool
+  {
     using Ptr = std::unique_ptr<Connection>;
     using Factory = std::function<Ptr()>;
 
@@ -50,6 +53,7 @@ namespace spt::pool
 
       Ptr con;
       std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
+      uint32_t count;
     };
 
     struct Proxy
@@ -82,6 +86,7 @@ namespace spt::pool
       for ( uint32_t i = 0; i < configuration.initialSize; ++i )
       {
         available.emplace_back( c() );
+        ++created;
       }
 
       thread = std::thread{ &Pool<Connection>::ttlMonitor, this };
@@ -103,10 +108,15 @@ namespace spt::pool
       auto lock = std::unique_lock( mutex );
       ++total;
 
-      if ( available.empty() ) return Proxy{ ConnectionWrapper{ creator() }, this };
+      if ( available.empty() )
+      {
+        ++created;
+        return Proxy{ ConnectionWrapper{ creator() }, this };
+      }
 
       auto con = std::move( available.front() );
       available.pop_front();
+      ++con.count;
       return Proxy{ std::move( con ), this };
     }
 
@@ -131,27 +141,32 @@ namespace spt::pool
       return total;
     }
 
+    [[nodiscard]] uint32_t totalCreated() const
+    {
+      return created;
+    }
+
   private:
     void removeExpired()
     {
-      if ( inactive() <= configuration.initialSize ) return;
       auto end = false;
       auto now = std::chrono::system_clock::now();
 
       while ( !end )
       {
+        if ( inactive() <= configuration.initialSize ) return;
         auto lock = std::unique_lock( mutex );
+        auto iter = std::begin( available );
+        if ( iter == std::end( available ) ) break;
 
-        for ( auto iter = std::begin( available ); iter != std::end( available ); ++iter )
+        const auto diff = std::chrono::duration_cast<std::chrono::seconds>( now - iter->time );
+        if ( diff < configuration.maxIdleTime ) end = true;
+        else
         {
-          const auto diff = std::chrono::duration_cast<std::chrono::seconds>( now - iter->time );
-          if ( diff < configuration.maxIdleTime ) return;
-
+          LOG_INFO << "Removing connection idling for " << diff.count() <<
+            " seconds and used " << iter->count << " times";
           available.erase( iter );
-          break;
         }
-
-        end = true;
       }
     }
 
@@ -171,5 +186,6 @@ namespace spt::pool
     mutable std::shared_mutex mutex;
     std::atomic_bool stop{ false };
     uint32_t total = 0;
+    uint32_t created = 0;
   };
 }

@@ -20,6 +20,23 @@ using tcp = boost::asio::ip::tcp;
 
 namespace spt::itest::pool
 {
+  struct InitLogger
+  {
+    static InitLogger& instance()
+    {
+      static InitLogger lg;
+      return lg;
+    }
+
+    ~InitLogger() = default;
+
+  private:
+    InitLogger()
+    {
+      nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp", "pool-test", true );
+    }
+  };
+
   struct Connection
   {
     Connection( boost::asio::io_context& ioc, std::string_view host, std::string_view port ) :
@@ -80,6 +97,8 @@ namespace spt::itest::pool
 
 SCENARIO( "Simple connection pool test suite", "[pool]" )
 {
+  spt::itest::pool::InitLogger::instance();
+
   GIVEN( "A connection pool to Mongo Service" )
   {
     auto config = spt::pool::Configuration{};
@@ -105,6 +124,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       REQUIRE( pool.active() == 0 );
       REQUIRE( pool.inactive() == 1 );
+      REQUIRE( pool.totalCreated() == 1 );
       auto copt = pool.acquire();
       REQUIRE( copt );
       const auto isize = (*copt)->socket().send( buffer.data() );
@@ -123,6 +143,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       REQUIRE( pool.inactive() == 0 );
       REQUIRE( pool.active() == 1 );
+      REQUIRE( pool.totalCreated() == 1 );
     }
 
     AND_WHEN( "Pool is capped by maximum" )
@@ -135,35 +156,42 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
         REQUIRE( copt1 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 1 );
+        REQUIRE( pool.totalCreated() == 1 );
 
         auto copt2 = pool.acquire();
         REQUIRE( copt2 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 2 );
+        REQUIRE( pool.totalCreated() == 2 );
 
         auto copt3 = pool.acquire();
         REQUIRE( copt3 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 3 );
+        REQUIRE( pool.totalCreated() == 3 );
 
         auto copt4 = pool.acquire();
         REQUIRE( copt4 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 4 );
+        REQUIRE( pool.totalCreated() == 4 );
 
         auto copt5 = pool.acquire();
         REQUIRE( copt5 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 5 );
+        REQUIRE( pool.totalCreated() == 5 );
 
         auto copt6 = pool.acquire();
         REQUIRE_FALSE( copt6 );
         REQUIRE( pool.inactive() == 0 );
         REQUIRE( pool.active() == 5 );
+        REQUIRE( pool.totalCreated() == 5 );
       }
 
       REQUIRE( pool.inactive() == 3 );
       REQUIRE( pool.active() == 0 );
+      REQUIRE( pool.totalCreated() == 5 );
     }
 
     AND_WHEN( "Reusing connections from pool" )
@@ -173,6 +201,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
         auto copt2 = pool.acquire();
       }
 
+      REQUIRE( pool.totalCreated() == 2 );
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
@@ -207,6 +236,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       REQUIRE( pool.inactive() == 0 );
       REQUIRE( pool.active() == 2 );
+      REQUIRE( pool.totalCreated() == 2 );
     }
 
     AND_WHEN( "Invalid connections are not added to pool" )

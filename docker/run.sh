@@ -4,7 +4,7 @@ STACK=spt
 DATA_DIR=$SPT_DATA_DIR
 if [ -z "$DATA_DIR" ]
 then
-  DATA_DIR='/private/var/tmp/spt'
+  DATA_DIR=$HOME/tmp/spt
 fi
 
 Directory() {
