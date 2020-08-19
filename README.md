@@ -33,7 +33,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index`.
+  `create|retrieve|update|delete|count|index|dropIndex`.
 * `database` - The Mongo database the action is to be performed against.
 * `collection` - The Mongo collection the action is to be performed against.
 * `document` - The document payload to associate with the database operation.
@@ -305,6 +305,17 @@ Sample delete response:
 The `document` represents the specification for the *index* to be created.
 Additional options for the index (such as *unique*) can be specified via the
 optional `options` sub-document.
+
+#### Drop Index
+The `document` represents the *index* specification for the 
+[dropIndexes](https://docs.mongodb.com/master/reference/command/dropIndexes/#dbcmd.dropIndexes)
+command. Additional options for the index (such as *write concern*) can be specified
+via the optional `options` sub-document.
+
+One of the following properties **must** be specified in the `document`:
+* `name` - The `name` of the *index* to drop.  Should be a `string` value.
+* `specification` - The full document specification of the index that was created.
+* `names` - An *array* of index names to drop.
 
 ### Document Response
 Create, update and delete actions only return some meta information about the

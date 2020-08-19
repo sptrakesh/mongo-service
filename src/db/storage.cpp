@@ -126,6 +126,38 @@ namespace spt::db::pstorage
         (*client)[dbname][collname].create_index( doc );
   }
 
+  bsoncxx::document::view_or_value dropIndex( const model::Document& model )
+  {
+    using util::bsonValueIfExists;
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto options = model.options();
+
+    auto cmd = document{};
+    cmd << "dropIndexes" << model.collection();
+
+    const auto name = bsonValueIfExists<std::string>( "name", doc );
+    if ( name ) cmd << "index" << *name;
+
+    const auto spec = bsonValueIfExists<bsoncxx::document::view>( "specification", doc );
+    if ( spec ) cmd << "index" << *spec;
+
+    const auto names = bsonValueIfExists<bsoncxx::array::view>( "names", doc );
+    if ( names ) cmd << "index" << *names;
+
+    auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+    if ( wc ) cmd << "writeConcern" << writeConcern( *wc ).to_document();
+
+    auto comment = bsonValueIfExists<std::string>( "comment", *options );
+    if ( comment ) cmd << "comment" << *comment;
+
+    auto client = Pool::instance().acquire();
+    return (*client)[dbname].run_command( cmd << finalize );
+  }
+
   bsoncxx::document::view_or_value count( const model::Document& model )
   {
     using util::bsonValueIfExists;
@@ -750,6 +782,10 @@ namespace spt::db::pstorage
       else if ( action == "index" )
       {
         return index( document );
+      }
+      else if ( action == "dropIndex" )
+      {
+        return dropIndex( document );
       }
 
       return bsoncxx::document::value{ model::invalidAction() };
