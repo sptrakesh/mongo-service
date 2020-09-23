@@ -55,16 +55,16 @@ namespace spt::db::pstorage
             << "Created version for " << dbname << ':' << collname << ':' <<
             id.to_string() << " with id: " << oid.to_string();
         return document{} << "_id" << oid <<
-          "database" << conf.versionHistoryDatabase <<
-          "collection" << conf.versionHistoryCollection <<
-          "entity" << id << finalize;
+                          "database" << conf.versionHistoryDatabase <<
+                          "collection" << conf.versionHistoryCollection <<
+                          "entity" << id << finalize;
       }
       else
       {
         LOG_WARN
-          << "Unable to create version for " << dbname << ':' << collname
-          << ':' <<
-          id.to_string();
+            << "Unable to create version for " << dbname << ':' << collname
+            << ':' <<
+            id.to_string();
       }
     }
     else
@@ -73,9 +73,9 @@ namespace spt::db::pstorage
           << "Created version for " << dbname << ':' << collname << ':' <<
           id.to_string() << " with id: " << oid.to_string();
       return document{} << "_id" << oid <<
-        "database" << conf.versionHistoryDatabase <<
-        "collection" << conf.versionHistoryCollection <<
-        "entity" << id << finalize;
+                        "database" << conf.versionHistoryDatabase <<
+                        "collection" << conf.versionHistoryCollection <<
+                        "entity" << id << finalize;
     }
 
     return model::createVersionFailed();
@@ -122,8 +122,8 @@ namespace spt::db::pstorage
 
     auto client = Pool::instance().acquire();
     return options ?
-        (*client)[dbname][collname].create_index( doc, *options ) :
-        (*client)[dbname][collname].create_index( doc );
+        ( *client )[dbname][collname].create_index( doc, *options ) :
+        ( *client )[dbname][collname].create_index( doc );
   }
 
   bsoncxx::document::view_or_value dropIndex( const model::Document& model )
@@ -142,20 +142,23 @@ namespace spt::db::pstorage
     const auto name = bsonValueIfExists<std::string>( "name", doc );
     if ( name ) cmd << "index" << *name;
 
-    const auto spec = bsonValueIfExists<bsoncxx::document::view>( "specification", doc );
+    const auto spec = bsonValueIfExists<bsoncxx::document::view>(
+        "specification", doc );
     if ( spec ) cmd << "index" << *spec;
 
-    const auto names = bsonValueIfExists<bsoncxx::array::view>( "names", doc );
+    const auto names = bsonValueIfExists<bsoncxx::array::view>( "names",
+        doc );
     if ( names ) cmd << "index" << *names;
 
-    auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
+    auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+        *options );
     if ( wc ) cmd << "writeConcern" << writeConcern( *wc ).to_document();
 
     auto comment = bsonValueIfExists<std::string>( "comment", *options );
     if ( comment ) cmd << "comment" << *comment;
 
     auto client = Pool::instance().acquire();
-    return (*client)[dbname].run_command( cmd << finalize );
+    return ( *client )[dbname].run_command( cmd << finalize );
   }
 
   bsoncxx::document::view_or_value count( const model::Document& model )
@@ -171,16 +174,19 @@ namespace spt::db::pstorage
     auto options = mongocxx::options::count{};
     if ( opts )
     {
-      const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts );
+      const auto col = bsonValueIfExists<bsoncxx::document::view>(
+          "collation", *opts );
       if ( col ) options.collation( *col );
 
-      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *opts );
+      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint",
+          *opts );
       if ( hint ) options.hint( mongocxx::hint{ *hint } );
 
       const auto limit = bsonValueIfExists<int64_t>( "limit", *opts );
       if ( limit ) options.limit( *limit );
 
-      const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts );
+      const auto time = bsonValueIfExists<std::chrono::milliseconds>(
+          "maxTime", *opts );
       if ( time ) options.max_time( *time );
 
       const auto skip = bsonValueIfExists<int64_t>( "skip", *opts );
@@ -188,7 +194,8 @@ namespace spt::db::pstorage
     }
 
     auto client = Pool::instance().acquire();
-    const auto count = (*client)[dbname][collname].count_documents( model.document(), options );
+    const auto count = ( *client )[dbname][collname].count_documents(
+        model.document(), options );
     return document{} << "count" << count << finalize;
   }
 
@@ -201,41 +208,49 @@ namespace spt::db::pstorage
 
     if ( options )
     {
-      const auto partial = bsonValueIfExists<bool>( "partialResults", *options );
+      const auto partial = bsonValueIfExists<bool>( "partialResults",
+          *options );
       if ( partial ) opts.allow_partial_results( *partial );
 
       const auto size = bsonValueIfExists<int32_t>( "batchSize", *options );
       if ( size ) opts.batch_size( *size );
 
-      const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation",
+          *options );
       if ( co ) opts.collation( *co );
 
       const auto com = bsonValueIfExists<std::string>( "comment", *options );
       if ( com ) opts.comment( *com );
 
-      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *options );
+      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint",
+          *options );
       if ( hint ) opts.hint( { *hint } );
 
       const auto limit = bsonValueIfExists<int64_t>( "limit", *options );
       if ( limit ) opts.limit( *limit );
 
-      const auto max = bsonValueIfExists<bsoncxx::document::view>( "max", *options );
+      const auto max = bsonValueIfExists<bsoncxx::document::view>( "max",
+          *options );
       if ( max ) opts.max( *max );
 
-      const auto maxTime = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *options );
+      const auto maxTime = bsonValueIfExists<std::chrono::milliseconds>(
+          "maxTime", *options );
       if ( maxTime ) opts.max_time( *maxTime );
 
-      const auto min = bsonValueIfExists<bsoncxx::document::view>( "min", *options );
+      const auto min = bsonValueIfExists<bsoncxx::document::view>( "min",
+          *options );
       if ( min ) opts.min( *min );
 
-      const auto projection = bsonValueIfExists<bsoncxx::document::view>( "projection", *options );
+      const auto projection = bsonValueIfExists<bsoncxx::document::view>(
+          "projection", *options );
       if ( projection ) opts.projection( *projection );
 
-      const auto rp = bsonValueIfExists<int32_t>( "readPreference", *options );
+      const auto rp = bsonValueIfExists<int32_t>( "readPreference",
+          *options );
       if ( rp )
       {
         auto p = mongocxx::read_preference{};
-        p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
+        p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ));
         opts.read_preference( p );
       }
 
@@ -248,7 +263,8 @@ namespace spt::db::pstorage
       const auto skip = bsonValueIfExists<int64_t>( "skip", *options );
       if ( skip ) opts.skip( *skip );
 
-      const auto sort = bsonValueIfExists<bsoncxx::document::view>( "sort", *options );
+      const auto sort = bsonValueIfExists<bsoncxx::document::view>( "sort",
+          *options );
       if ( sort ) opts.sort( *sort );
     }
 
@@ -269,11 +285,12 @@ namespace spt::db::pstorage
     const auto opts = findOpts( model );
 
     auto client = Pool::instance().acquire();
-    const auto res = (*client)[dbname][collname].find_one(
+    const auto res = ( *client )[dbname][collname].find_one(
         document{} << "_id" << id << finalize, opts );
     if ( res ) return document{} << "result" << res->view() << finalize;
 
-    LOG_WARN << "Document not found: " << dbname << ':' << collname << ':' << id.to_string();
+    LOG_WARN << "Document not found: " << dbname << ':' << collname << ':'
+             << id.to_string();
     return model::notFound();
   }
 
@@ -290,11 +307,12 @@ namespace spt::db::pstorage
 
     const auto opts = findOpts( model );
     auto client = Pool::instance().acquire();
-    auto cursor = (*client)[model.database()][model.collection()].find( doc, opts );
+    auto cursor = ( *client )[model.database()][model.collection()].find( doc,
+        opts );
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto d : cursor ) array.append( d );
-    return bsoncxx::builder::basic::make_document( kvp("results", array) );
+    return bsoncxx::builder::basic::make_document( kvp( "results", array ));
   }
 
   bsoncxx::document::view_or_value create( const model::Document& document )
@@ -319,18 +337,20 @@ namespace spt::db::pstorage
       auto ordered = bsonValueIfExists<bool>( "ordered", *options );
       if ( ordered ) opts.ordered( *ordered );
 
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ));
     }
 
     auto client = Pool::instance().acquire();
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
-    const auto result = (*client)[dbname][collname].insert_one( doc, opts );
-    if ( opts.write_concern()->is_acknowledged() )
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+    const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
+    if ( opts.write_concern()->is_acknowledged())
     {
       if ( result )
       {
-        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        LOG_INFO << "Created document " << dbname << ':' << collname << ':'
+                 << idopt->to_string();
         const auto nv = document.skipVersion();
         if ( nv && *nv )
         {
@@ -341,12 +361,14 @@ namespace spt::db::pstorage
       }
       else
       {
-        LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
+        LOG_WARN << "Unable to create document " << dbname << ':' << collname
+                 << ':' << idopt->to_string();
       }
     }
     else
     {
-      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+      LOG_INFO << "Created document " << dbname << ':' << collname << ':'
+               << idopt->to_string();
       const auto nv = document.skipVersion();
       if ( nv && *nv )
       {
@@ -374,46 +396,35 @@ namespace spt::db::pstorage
     {
       if ( e.key() == "_id" ) continue;
 
-      switch ( e.type() )
+      switch ( e.type())
       {
-      case bsoncxx::type::k_array:
-        d << e.key() << e.get_array();
+      case bsoncxx::type::k_array:d << e.key() << e.get_array();
         break;
-      case bsoncxx::type::k_bool:
-        d << e.key() << e.get_bool();
+      case bsoncxx::type::k_bool:d << e.key() << e.get_bool();
         break;
-      case bsoncxx::type::k_date:
-        d << e.key() << e.get_date();
+      case bsoncxx::type::k_date:d << e.key() << e.get_date();
         break;
-      case bsoncxx::type::k_decimal128:
-        d << e.key() << e.get_decimal128();
+      case bsoncxx::type::k_decimal128:d << e.key() << e.get_decimal128();
         break;
-      case bsoncxx::type::k_document:
-        d << e.key() << e.get_document();
+      case bsoncxx::type::k_document:d << e.key() << e.get_document();
         break;
-      case bsoncxx::type::k_double:
-        d << e.key() << e.get_double();
+      case bsoncxx::type::k_double:d << e.key() << e.get_double();
         break;
-      case bsoncxx::type::k_int32:
-        d << e.key() << e.get_int32();
+      case bsoncxx::type::k_int32:d << e.key() << e.get_int32();
         break;
-      case bsoncxx::type::k_int64:
-        d << e.key() << e.get_int64();
+      case bsoncxx::type::k_int64:d << e.key() << e.get_int64();
         break;
-      case bsoncxx::type::k_oid:
-        d << e.key() << e.get_oid();
+      case bsoncxx::type::k_oid:d << e.key() << e.get_oid();
         break;
-      case bsoncxx::type::k_null:
-        d << e.key() << e.get_null();
+      case bsoncxx::type::k_null:d << e.key() << e.get_null();
         break;
-      case bsoncxx::type::k_timestamp:
-        d << e.key() << e.get_timestamp();
+      case bsoncxx::type::k_timestamp:d << e.key() << e.get_timestamp();
         break;
       case bsoncxx::type::k_utf8:
         d << e.key() << bsonValue<std::string>( e.key(), doc );
         break;
       default:
-        LOG_WARN << "Un-mapped bson type: " << bsoncxx::to_string( e.type() );
+        LOG_WARN << "Un-mapped bson type: " << bsoncxx::to_string( e.type());
         d << e.key() << bsoncxx::types::b_null{};
       }
     }
@@ -434,16 +445,19 @@ namespace spt::db::pstorage
       auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
       if ( validate ) opts.bypass_document_validation( *validate );
 
-      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation",
+          *options );
       if ( col ) opts.collation( *col );
 
       auto upsert = bsonValueIfExists<bool>( "upsert", *options );
       if ( upsert ) opts.upsert( *upsert );
 
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ));
 
-      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options );
+      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters",
+          *options );
       if ( af ) opts.array_filters( *af );
     }
 
@@ -467,43 +481,52 @@ namespace spt::db::pstorage
 
     auto opts = updateOptions( model );
     auto client = Pool::instance().acquire();
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
     const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
     {
-      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip )
+        return document{} << "skipVersion" << true
+                          << bsoncxx::builder::stream::finalize;
 
-      const auto updated = (*client)[dbname][collname].find_one(
+      const auto updated = ( *client )[dbname][collname].find_one(
           document{} << "_id" << oid << finalize );
       if ( !updated ) return model::notFound();
-      if ( bsonValueIfExists<std::string>( "error", *updated ) ) return { updated.value() };
+      if ( bsonValueIfExists<std::string>( "error", *updated ))
+        return { updated.value() };
 
-      auto vhd =  history( document{} << "action" << "update" <<
-        "database" << dbname << "collection" << collname <<
-        "document" << updated->view() << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+      auto vhd = history( document{} << "action" << "update" <<
+                                     "database" << dbname << "collection"
+                                     << collname <<
+                                     "document" << updated->view()
+                                     << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
 
-      return bsoncxx::document::view_or_value {
-        document{} << "document" << updated->view() << "history" << vhd << finalize };
+      return bsoncxx::document::view_or_value{
+          document{} << "document" << updated->view() << "history" << vhd
+                     << finalize };
     };
 
-    const auto result = (*client)[dbname][collname].update_one(
+    const auto result = ( *client )[dbname][collname].update_one(
         document{} << "_id" << oid << finalize, updateDoc( doc ), opts );
-    if ( opts.write_concern()->is_acknowledged() )
+    if ( opts.write_concern()->is_acknowledged())
     {
       if ( result )
       {
-        LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
+        LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
+                 << oid.to_string();
         return vhd();
       }
       else
       {
-        LOG_WARN << "Unable to update document " << dbname << ':' << collname << ':' << oid.to_string();
+        LOG_WARN << "Unable to update document " << dbname << ':' << collname
+                 << ':' << oid.to_string();
       }
     }
     else
     {
-      LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
+      LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
+               << oid.to_string();
       return vhd();
     }
 
@@ -534,52 +557,60 @@ namespace spt::db::pstorage
       auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
       if ( validate ) opts.bypass_document_validation( *validate );
 
-      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation",
+          *options );
       if ( col ) opts.collation( *col );
 
       auto upsert = bsonValueIfExists<bool>( "upsert", *options );
       if ( upsert ) opts.upsert( *upsert );
 
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ));
     }
 
     const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
     {
-      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip )
+        return document{} << "skipVersion" << true
+                          << bsoncxx::builder::stream::finalize;
 
-      const auto updated = (*client)[dbname][collname].find_one( filter );
+      const auto updated = ( *client )[dbname][collname].find_one( filter );
       if ( !updated ) return model::notFound();
 
-      auto vhd =  history( document{} << "action" << "replace" <<
-       "database" << dbname << "collection" << collname <<
-       "document" << updated->view() << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+      auto vhd = history( document{} << "action" << "replace" <<
+                                     "database" << dbname << "collection"
+                                     << collname <<
+                                     "document" << updated->view()
+                                     << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
 
-      return document{} << "document" << updated->view() << "history" << vhd << finalize;
+      return document{} << "document" << updated->view() << "history" << vhd
+                        << finalize;
     };
 
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
-    const auto result = (*client)[dbname][collname].replace_one( filter,
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+    const auto result = ( *client )[dbname][collname].replace_one( filter,
         bsonValue<bsoncxx::document::view>( "replace", doc ), opts );
-    if ( opts.write_concern()->is_acknowledged() )
+    if ( opts.write_concern()->is_acknowledged())
     {
       if ( result )
       {
         LOG_INFO << "Updated document in " << dbname << ':' << collname <<
-          " with filter " << bsoncxx::to_json( filter );
+                 " with filter " << bsoncxx::to_json( filter );
         return vhd();
       }
       else
       {
-        LOG_INFO << "Unable to update document in " << dbname << ':' << collname <<
-          " with filter " << bsoncxx::to_json( filter );
+        LOG_INFO
+            << "Unable to update document in " << dbname << ':' << collname <<
+            " with filter " << bsoncxx::to_json( filter );
       }
     }
     else
     {
       LOG_INFO << "Updated document in " << dbname << ':' << collname <<
-        " with filter " << bsoncxx::to_json( filter );
+               " with filter " << bsoncxx::to_json( filter );
       return vhd();
     }
 
@@ -603,64 +634,77 @@ namespace spt::db::pstorage
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( idopt ) return updateOne( model );
 
-    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", doc );
+    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter",
+        doc );
     if ( !filter ) return model::invalidAUpdate();
 
-    const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", doc );
+    const auto replace = bsonValueIfExists<bsoncxx::document::view>(
+        "replace", doc );
     if ( replace ) return replaceOne( model );
 
-    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", doc );
+    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update",
+        doc );
     if ( !update ) return model::invalidAUpdate();
 
     auto client = Pool::instance().acquire();
     auto opts = updateOptions( model );
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
-    const auto result = (*client)[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
+    const auto result = ( *client )[dbname][collname].update_many( *filter,
+        updateDoc( *update ), opts );
 
     const auto vhd = [&dbname, &collname, &client, &filter, &metadata, &skip]() -> bsoncxx::document::view_or_value
     {
-      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip )
+        return document{} << "skipVersion" << true
+                          << bsoncxx::builder::stream::finalize;
 
       auto success = bsoncxx::builder::basic::array{};
       auto fail = bsoncxx::builder::basic::array{};
       auto vh = bsoncxx::builder::basic::array{};
-      auto results = (*client)[dbname][collname].find( *filter );
+      auto results = ( *client )[dbname][collname].find( *filter );
 
       auto docs = bsoncxx::builder::basic::array{};
       for ( auto d : results ) docs.append( d );
 
-      for ( auto d : docs.view() )
+      for ( auto d : docs.view())
       {
-        auto vhd =  history( document{} << "action" << "update" <<
-          "database" << dbname << "collection" << collname <<
-          "document" << d.get_document().view() << finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ) ) fail.append( d["_id"].get_oid() );
+        auto vhd = history( document{} << "action" << "update" <<
+                                       "database" << dbname << "collection"
+                                       << collname <<
+                                       "document" << d.get_document().view()
+                                       << finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", vhd ))
+          fail.append( d["_id"].get_oid());
         else
         {
-          success.append( d["_id"].get_oid() );
+          success.append( d["_id"].get_oid());
           vh.append( vhd );
         }
       }
 
-      return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
+      return document{} << "success" << success << "failure" << fail
+                        << "history" << vh << finalize;
     };
 
-    if ( opts.write_concern()->is_acknowledged() )
+    if ( opts.write_concern()->is_acknowledged())
     {
       if ( result )
       {
-        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        LOG_INFO << "Created document " << dbname << ':' << collname << ':'
+                 << idopt->to_string();
         return vhd();
       }
       else
       {
-        LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
+        LOG_WARN << "Unable to create document " << dbname << ':' << collname
+                 << ':' << idopt->to_string();
       }
     }
     else
     {
-      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+      LOG_INFO << "Created document " << dbname << ':' << collname << ':'
+               << idopt->to_string();
       return vhd();
     }
 
@@ -687,57 +731,67 @@ namespace spt::db::pstorage
     auto opts = mongocxx::options::delete_options{};
     if ( options )
     {
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ) );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ));
 
-      auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      auto co = bsonValueIfExists<bsoncxx::document::view>( "collation",
+          *options );
       if ( co ) opts.collation( *co );
     }
 
     auto client = Pool::instance().acquire();
-    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
     auto docs = bsoncxx::builder::basic::array{};
     auto success = bsoncxx::builder::basic::array{};
     auto fail = bsoncxx::builder::basic::array{};
     auto vh = bsoncxx::builder::basic::array{};
-    auto results = (*client)[dbname][collname].find( doc );
+    auto results = ( *client )[dbname][collname].find( doc );
 
     for ( auto d : results ) docs.append( d );
 
-    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip]( auto d )
+    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip](
+        auto d )
     {
-      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip]( auto d )
+      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip](
+          auto d )
       {
         if ( skip && *skip ) return;
 
-        auto vhd =  history( document{} << "action" << "delete" <<
-          "database" << dbname << "collection" << collname <<
-          "document" << d << finalize, client, metadata );
+        auto vhd = history( document{} << "action" << "delete" <<
+                                       "database" << dbname << "collection"
+                                       << collname <<
+                                       "document" << d << finalize, client,
+            metadata );
         vh.append( vhd );
       };
 
       const auto oid = bsonValue<bsoncxx::oid>( "_id", d );
-      const auto res = (*client)[dbname][collname].delete_one(
+      const auto res = ( *client )[dbname][collname].delete_one(
           document{} << "_id" << oid << finalize, opts );
 
-      if ( opts.write_concern()->is_acknowledged() )
+      if ( opts.write_concern()->is_acknowledged())
       {
         if ( res )
         {
-          LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
+          LOG_INFO << "Deleted document " << dbname << ':' << collname << ':'
+                   << oid.to_string();
           success.append( oid );
           vhd( d );
         }
         else
         {
-          LOG_WARN << "Unable to delete document " << dbname << ':' << collname << ':' << oid.to_string();
+          LOG_WARN
+              << "Unable to delete document " << dbname << ':' << collname
+              << ':' << oid.to_string();
           fail.append( oid );
         }
       }
       else
       {
-        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
+        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':'
+                 << oid.to_string();
         success.append( oid );
         vhd( d );
       }
@@ -749,7 +803,62 @@ namespace spt::db::pstorage
       rm( item );
     }
 
-    return document{} << "success" << success << "failure" << fail << "history" << vh << finalize;
+    return document{} << "success" << success << "failure" << fail
+                      << "history" << vh << finalize;
+  }
+
+  bsoncxx::document::view_or_value bulk( const model::Document& model )
+  {
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+    using spt::util::bsonValueIfExists;
+
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+
+    const auto insert = bsonValueIfExists<bsoncxx::array::view>( "insert", doc );
+    auto icount = 0;
+    const auto rem = bsonValueIfExists<bsoncxx::array::view>( "delete", doc );
+    auto rcount = 0;
+
+    if ( !insert && !rem ) return model::withMessage( "Bulk insert missing arrays." );
+
+    auto client = Pool::instance().acquire();
+    auto bw = ( *client )[dbname][collname].create_bulk_write();
+
+    if ( insert )
+    {
+      for ( auto e : *insert )
+      {
+        bw.append( mongocxx::model::insert_one{ e.get_document().view() } );
+        ++icount;
+      }
+    }
+
+    if ( rem )
+    {
+      for ( auto e : *rem )
+      {
+        bw.append( mongocxx::model::delete_one{ e.get_document().view() } );
+        ++rcount;
+      }
+    }
+
+    auto r = bw.execute();
+    if ( client->write_concern().is_acknowledged() )
+    {
+      if ( !r )
+      {
+        LOG_WARN << "Error executing bulk statements";
+        return model::withMessage( "Error executing bulk statements." );
+      }
+
+      return document{} << "create" << r->inserted_count() <<
+        "delete" << r->deleted_count() << finalize;
+    }
+
+    return document{} << "create" << icount << "delete" << rcount << finalize;
   }
 
   bsoncxx::document::view_or_value process( const model::Document& document )
@@ -786,6 +895,10 @@ namespace spt::db::pstorage
       else if ( action == "dropIndex" )
       {
         return dropIndex( document );
+      }
+      else if ( action == "bulk" )
+      {
+        return bulk( document );
       }
 
       return bsoncxx::document::value{ model::invalidAction() };

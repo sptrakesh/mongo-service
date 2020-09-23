@@ -9,6 +9,8 @@
         * [Update](#update)
         * [Delete](#delete)
         * [Index](#index)
+        * [Drop Index](#drop-index)
+        * [Bulk Write](#bulk-write)
     * [Document Response](#document-response)
     * [Options](#options)
     * [Limitation](#limitation)
@@ -33,7 +35,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropIndex`.
+  `create|retrieve|update|delete|count|index|dropIndex|bulk`.
 * `database` - The Mongo database the action is to be performed against.
 * `collection` - The Mongo collection the action is to be performed against.
 * `document` - The document payload to associate with the database operation.
@@ -316,6 +318,45 @@ One of the following properties **must** be specified in the `document`:
 * `name` - The `name` of the *index* to drop.  Should be a `string` value.
 * `specification` - The full document specification of the index that was created.
 * `names` - An *array* of index names to drop.
+
+#### Bulk Write
+Bulk insert of documents is allowed.  In this mode *version history* is not
+maintained at present.
+
+The *documents* to insert or delete in bulk must be specified as
+*BSON array* properties in the `document` part of the payload.  Multiple arrays
+may be specified as appropriate.
+
+* `insert` - Array of documents which are to be inserted.
+* `delete` - Array of document specifications which represent the deletes.
+
+Sample bulk create payload:
+```json
+{
+  "action": "bulk",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "insert": [{
+      "_id": {
+        "$oid": "5f6ba5f9de326c57bd64efb1"
+      },
+      "key": "value1"
+    },
+    {
+      "_id": {
+        "$oid": "5f6ba5f9de326c57bd64efb2"
+      },
+      "key": "value2"
+    }]
+  }
+}
+```
+
+Sample response for the above payload:
+```json
+{ "create" : 2, "delete" : 0 }
+```
 
 ### Document Response
 Create, update and delete actions only return some meta information about the
