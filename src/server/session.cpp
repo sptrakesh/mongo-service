@@ -59,10 +59,6 @@ void Session::doWrite( std::size_t length )
   }
   else
   {
-    auto v = db::process( doc );
-    auto view = v.view();
-    os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
-    /*
     try
     {
       auto v = db::process( doc );
@@ -75,7 +71,6 @@ void Session::doWrite( std::size_t length )
       auto view = model::unexpectedError();
       os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     }
-     */
   }
 
   boost::asio::async_write( socket,
