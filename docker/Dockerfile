@@ -19,6 +19,7 @@ RUN addgroup spt \
   && chown spt:spt /opt/spt/logs /opt/spt/data
 
 COPY docker/scripts/entrypoint.sh /opt/spt/bin
+COPY docker/scripts/gdb.sh /tmp
 
 WORKDIR /opt/spt
 ENV LD_LIBRARY_PATH=/usr/lib

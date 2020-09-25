@@ -58,7 +58,7 @@ Service()
     chown spt:spt $LOGDIR
   fi
 
-  echo "Starting up MaxMind DB websocket server"
+  echo "Starting up Mongo socket server"
   /opt/spt/bin/mongo-service --console true --dir ${LOGDIR}/ \
     --mongo-uri $MONGO_URI \
     --version-history-database $VERSION_HISTORY_DATABASE \

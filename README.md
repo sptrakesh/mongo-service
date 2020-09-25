@@ -11,6 +11,7 @@
         * [Index](#index)
         * [Drop Index](#drop-index)
         * [Bulk Write](#bulk-write)
+        * [Aggregation Pipeline](#aggregation-pipeline)
     * [Document Response](#document-response)
     * [Options](#options)
     * [Limitation](#limitation)
@@ -35,7 +36,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropIndex|bulk`.
+  `create|retrieve|update|delete|count|index|dropIndex|bulk|pipeline`.
 * `database` - The Mongo database the action is to be performed against.
 * `collection` - The Mongo collection the action is to be performed against.
 * `document` - The document payload to associate with the database operation.
@@ -357,6 +358,15 @@ Sample response for the above payload:
 ```json
 { "create" : 2, "delete" : 0 }
 ```
+
+#### Aggregation Pipeline
+Basic support for using *aggregation pipeline* features.  This feature will be
+expanded as use cases expand over a period of time.  At present, only simple
+*match* and *group* combination is implemented.
+
+The `document` in the payload must include two sub-documents with the `match`
+and `group` specifications.  The matching documents will be returned in a
+`results` array in the response.
 
 ### Document Response
 Create, update and delete actions only return some meta information about the

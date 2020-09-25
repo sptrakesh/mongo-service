@@ -3,6 +3,7 @@
 //
 
 #include "document.h"
+#include "log/NanoLog.h"
 #include "util/bson.h"
 
 #include <bsoncxx/json.hpp>
@@ -27,7 +28,9 @@ bool spt::model::Document::valid() const
   auto find = [this]( std::string_view key )
   {
     auto it = view->find( key );
-    return it != view->end();
+    auto result = it != view->end();
+    if ( !result ) LOG_DEBUG << "Document does not have required property: " << key;
+    return result;
   };
 
   return find( "action" ) && find( "database" ) &&

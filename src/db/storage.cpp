@@ -302,8 +302,14 @@ namespace spt::db::pstorage
     using bsoncxx::builder::basic::kvp;
 
     const auto doc = model.document();
-    const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( idopt ) return retrieveOne( model );
+    if ( doc.find( "_id" ) != doc.end() )
+    {
+      if ( bsoncxx::v_noabi::type::k_oid == doc["_id"].type() )
+      {
+        LOG_DEBUG << "_id property is of type oid";
+        return retrieveOne( model );
+      }
+    }
 
     const auto opts = findOpts( model );
     auto client = Pool::instance().acquire();
@@ -760,10 +766,10 @@ namespace spt::db::pstorage
         if ( skip && *skip ) return;
 
         auto vhd = history( document{} << "action" << "delete" <<
-                                       "database" << dbname << "collection"
-                                       << collname <<
-                                       "document" << d << finalize, client,
-            metadata );
+          "database" << dbname <<
+          "collection" << collname <<
+          "document" << d << finalize,
+          client, metadata );
         vh.append( vhd );
       };
 
@@ -861,6 +867,41 @@ namespace spt::db::pstorage
     return document{} << "create" << icount << "delete" << rcount << finalize;
   }
 
+  bsoncxx::document::view_or_value pipeline( const model::Document& model )
+  {
+    using spt::util::bsonValueIfExists;
+
+    LOG_DEBUG << "Executing aggregation pipeline query";
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+
+    const auto match = bsonValueIfExists<bsoncxx::document::view>( "match", doc );
+    if ( ! match )
+    {
+      LOG_WARN << "No match document specified";
+      return model::withMessage( "No match document in payload." );
+    }
+
+    const auto group = bsonValueIfExists<bsoncxx::document::view>( "group", doc );
+    if ( ! group )
+    {
+      LOG_WARN << "No group document specified";
+      return model::withMessage( "No group document in payload." );
+    }
+
+    auto pipeline = mongocxx::pipeline{};
+    pipeline.match( *match );
+    pipeline.group( *group );
+
+    auto client = Pool::instance().acquire();
+    auto aggregate = ( *client )[dbname][collname].aggregate( pipeline );
+
+    auto array = bsoncxx::builder::basic::array{};
+    for ( auto&& d : aggregate ) array.append( d );
+    return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
+  }
+
   bsoncxx::document::view_or_value process( const model::Document& document )
   {
     using spt::util::bsonValue;
@@ -899,6 +940,10 @@ namespace spt::db::pstorage
       else if ( action == "bulk" )
       {
         return bulk( document );
+      }
+      else if ( action == "pipeline" )
+      {
+        return pipeline( document );
       }
 
       return bsoncxx::document::value{ model::invalidAction() };
@@ -953,7 +998,13 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
   metric.duration = delta;
 
   auto doc = document.document();
-  metric.id = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
+  if ( doc.find( "_id" ) != doc.end() )
+  {
+    if ( bsoncxx::type::k_oid == doc["_id"].type() )
+    {
+      metric.id = util::bsonValue<bsoncxx::oid>( "_id", doc );
+    }
+  }
 
   metric.application = document.application();
   metric.correlationId = document.correlationId();

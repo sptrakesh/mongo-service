@@ -49,7 +49,7 @@ void Session::doWrite( std::size_t length )
   {
     auto view = spt::model::notBson();
     os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
-    LOG_DEBUG << "Invalid bson received.  Returning not bson message...";
+    LOG_DEBUG << "Invalid bson received. Length: " << int(length) << ". Returning not bson message...";
   }
   else if ( !doc.valid() )
   {
@@ -59,6 +59,10 @@ void Session::doWrite( std::size_t length )
   }
   else
   {
+    auto v = db::process( doc );
+    auto view = v.view();
+    os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
+    /*
     try
     {
       auto v = db::process( doc );
@@ -71,6 +75,7 @@ void Session::doWrite( std::size_t length )
       auto view = model::unexpectedError();
       os.write( reinterpret_cast<const char*>( view.data() ), view.length() );
     }
+     */
   }
 
   boost::asio::async_write( socket,
