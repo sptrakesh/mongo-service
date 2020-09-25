@@ -11,10 +11,12 @@
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
+#include <bsoncxx/builder/basic/array.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 
 #include <iostream>
+#include <vector>
 
 using tcp = boost::asio::ip::tcp;
 
@@ -22,6 +24,7 @@ namespace spt::itest::bulk
 {
   const auto oid1 = bsoncxx::oid{};
   const auto oid2 = bsoncxx::oid{};
+  std::vector<bsoncxx::oid> oids;
   int64_t count = 0;
 }
 
@@ -191,6 +194,120 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
       REQUIRE( count );
       REQUIRE( spt::itest::bulk::count > *count );
+    }
+
+    AND_THEN( "Creating a large batch of documents" )
+    {
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::open_array;
+      using bsoncxx::builder::stream::close_array;
+      using bsoncxx::builder::stream::open_document;
+      using bsoncxx::builder::stream::close_document;
+      using bsoncxx::builder::stream::finalize;
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      spt::itest::bulk::oids.reserve( 100 );
+      auto arr = basic::array{};
+      for ( auto i = 0; i < 100; ++i )
+      {
+        spt::itest::bulk::oids.push_back( bsoncxx::oid{} );
+        arr.append(
+            document{} <<
+              "_id" << spt::itest::bulk::oids.back() <<
+              "iter" << i <<
+              "key1" << "value1" <<
+              "key2" << "value2" <<
+              "key3" << "value3" <<
+              "key4" << "value4" <<
+              "key5" << "value5" <<
+              "sub1" <<
+                open_document <<
+                  "key1" << "value1" <<
+                  "key2" << "value2" <<
+                  "key3" << "value3" <<
+                  "key4" << "value4" <<
+                  "key5" << "value5" <<
+                close_document <<
+              "sub2" <<
+                open_document <<
+                  "key1" << "value1" <<
+                  "key2" << "value2" <<
+                  "key3" << "value3" <<
+                  "key4" << "value4" <<
+                  "key5" << "value5" <<
+                close_document <<
+              "sub3" <<
+                open_document <<
+                  "key1" << "value1" <<
+                  "key2" << "value2" <<
+                  "key3" << "value3" <<
+                  "key4" << "value4" <<
+                  "key5" << "value5" <<
+                close_document <<
+            finalize
+            );
+      }
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "bulk" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document( kvp( "insert", arr.extract() ) ) ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+      REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "delete" ) != option->end() );
+    }
+
+    AND_THEN( "Deleting a large batch of documents" )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
+
+      auto arr = basic::array{};
+      for ( auto& id : spt::itest::bulk::oids )
+      {
+        arr.append( basic::make_document( kvp( "_id", id ) ) );
+      }
+
+      boost::asio::streambuf buffer;
+      std::ostream os{ &buffer };
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "bulk" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document( kvp( "delete", arr.view() ) ) ) );
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = s.send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = s.receive( buffer.prepare( 1024 ) );
+      buffer.commit( osize );
+
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( option.has_value() );
+      std::cout << bsoncxx::to_json( *option ) << '\n';
+      REQUIRE( option->find( "error" ) == option->end() );
+      REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "delete" ) != option->end() );
     }
 
     s.close();
