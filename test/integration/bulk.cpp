@@ -207,11 +207,12 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      spt::itest::bulk::oids.reserve( 100 );
+      const auto size = 1000;
+      spt::itest::bulk::oids.reserve( size );
       auto arr = basic::array{};
-      for ( auto i = 0; i < 100; ++i )
+      for ( auto i = 0; i < size; ++i )
       {
-        spt::itest::bulk::oids.push_back( bsoncxx::oid{} );
+        spt::itest::bulk::oids.emplace_back( bsoncxx::oid{} );
         arr.append(
             document{} <<
               "_id" << spt::itest::bulk::oids.back() <<

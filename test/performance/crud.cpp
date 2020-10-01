@@ -54,7 +54,7 @@ private:
     bsoncxx::document::value document = basic::make_document(
         kvp( "action", "create" ),
         kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
+        kvp( "collection", "ptest" ),
         kvp( "document", basic::make_document(
             kvp( "time", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
             kvp( "_id", id ) ) ) );
@@ -84,7 +84,7 @@ private:
     bsoncxx::document::value document = basic::make_document(
         kvp( "action", "retrieve" ),
         kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
+        kvp( "collection", "ptest" ),
         kvp( "document", basic::make_document( kvp( "_id", id ) ) ) );
     os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
@@ -112,7 +112,7 @@ private:
     bsoncxx::document::value document = basic::make_document(
         kvp( "action", "update" ),
         kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
+        kvp( "collection", "ptest" ),
         kvp( "document", basic::make_document(
             kvp( "time", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
             kvp( "_id", id ) ) ) );
@@ -142,7 +142,7 @@ private:
     bsoncxx::document::value document = basic::make_document(
         kvp( "action", "delete" ),
         kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
+        kvp( "collection", "ptest" ),
         kvp( "document", basic::make_document( kvp( "_id", id ) ) ) );
     os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 

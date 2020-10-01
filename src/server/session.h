@@ -19,9 +19,12 @@ namespace spt::server
 
   private:
     void doRead();
+    void readMore( std::shared_ptr<Session> session );
     void doWrite( std::size_t length );
 
     boost::asio::ip::tcp::socket socket;
     boost::asio::streambuf buffer;
+    std::size_t documentSize = 0;
+    std::size_t totalRead = 0;
   };
 }

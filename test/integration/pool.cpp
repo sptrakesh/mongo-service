@@ -39,10 +39,10 @@ namespace spt::itest::pool
 
   struct Connection
   {
-    Connection( boost::asio::io_context& ioc, std::string_view host, std::string_view port ) :
-        s{ ioc }
+    Connection( boost::asio::io_context& ioc, std::string_view h, std::string_view p ) :
+        s{ ioc }, resolver( ioc ),
+        host{ h.data(), h.size() }, port{ p.data(), p.size() }
     {
-      tcp::resolver resolver( ioc );
       boost::asio::connect( s, resolver.resolve( host, port ) );
     }
 
@@ -54,12 +54,20 @@ namespace spt::itest::pool
       s.close();
     }
 
-    tcp::socket& socket() { return s; }
+    tcp::socket& socket()
+    {
+      if ( ! s.is_open() ) boost::asio::connect( s, resolver.resolve( host, port ) );
+      return s;
+    }
+
     bool valid() const { return v; }
     void setValid( bool valid ) { this->v = valid; }
 
   private:
     tcp::socket s;
+    tcp::resolver resolver;
+    std::string host;
+    std::string port;
     bool v{ true };
   };
 
