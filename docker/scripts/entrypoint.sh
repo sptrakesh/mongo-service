@@ -48,6 +48,12 @@ Defaults()
     METRIC_COLLECTION="metrics"
     echo "METRIC_COLLECTION not set.  Will default to $METRIC_COLLECTION"
   fi
+
+  if [ -z "$LOG_LEVEL" ]
+  then
+    LOG_LEVEL="info"
+    echo "LOG_LEVEL not set.  Will default to $LOG_LEVEL"
+  fi
 }
 
 Service()
@@ -65,7 +71,7 @@ Service()
     --version-history-collection $VERSION_HISTORY_COLLECTION \
     --metric-database $METRIC_DATABASE \
     --metric-collection $METRIC_COLLECTION \
-    --port $PORT --threads $THREADS
+    --port $PORT --threads $THREADS --log-level $LOG_LEVEL
 }
 
 Check && Defaults && Service

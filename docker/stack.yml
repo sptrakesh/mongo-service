@@ -21,5 +21,6 @@ services:
       - VERSION_HISTORY_DATABASE=versionHistory
       - VERSION_HISTORY_COLLECTION=entities
       - METRICS_COLLECTION=metrics
+      - LOG_LEVEL=debug
     volumes:
       - $DATA_DIR/mongo-service:/opt/spt/logs
