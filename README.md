@@ -1,5 +1,6 @@
 # Mongo Service
 
+* [Command Line Options](#command-line-options)
 * [Version History](#version-history)
 * [Protocol](#protocol)
     * [Document Payload](#document-payload)
@@ -24,6 +25,32 @@ A TCP service for routing all requests to **MongoDB** via a centralised service.
 A few common features made available by this service are:
 * All documents are versioned in a *version history* collection.
 * All operations are timed and the metrics stored in a *metrics* collection.
+
+## Command Line Options
+The service can be configured via the following command line options:
+
+* `port` - Specify the port the service is to bind to via the `-p` or `--port`
+option.  Default is `2020`.
+* `threads` - The number of **Boost ASIO IO Context** threads to use via the
+`-n` or `--threads` option.  Default is the value returned by `std::thread::hardware_concurrency`.
+* `mongoUri` - The full **MongoDB** *connection uri* to use.  This should include
+the *user credentials* as well.  Specify via the `-m` or `--mongo-uri` option.
+**Mandatory** option to start the service.
+* `versionHistoryDatabase` - The data to use to store *version history* documents.
+Specify via the `-d` or `--version-history-database` option.  Default `versionHistory`.
+* `versionHistoryCollection` - The collection to store version history documents
+in.  Specify via the `-c` or `--version-history-collection` option.  Default `entities`.
+* `metricsDatabase` - The database in which to store request processing metrics
+to.  Specify via the `-s` or `--metrics-database` option.  Default `versionHistory`.
+* `metricsCollection` - The collection in which to store the metric documents.
+Specify via the `-t` or `--metrics-collection` option.  Default `metrics`.
+* `logLevel` - The logging level for the service.  Specify via `-l` or `--log-level`
+option.  Default `info`.  Allowed values - `debug, info, warn, critical`.
+* `console` - Whether log messages are to be echoed to the `console` as well.
+Specify `true` via the `-c` or `--console` option.  Default `false`.
+* `dir` - Specify the output directory under which log files are to be stored
+via the `-o` or `--dir` option.  Note that a trailing slash `/` is **mandatory**.
+Default `logs/`.
 
 ## Version History
 All documents stored in the database will automatically be *versioned* on save.

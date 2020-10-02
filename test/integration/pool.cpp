@@ -54,6 +54,26 @@ namespace spt::itest::pool
       s.close();
     }
 
+    std::optional<bsoncxx::document::value> execute(
+        const bsoncxx::document::view_or_value& document, std::size_t bufSize = 4096 )
+    {
+      std::ostream os{ &buffer };
+      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+
+      const auto isize = socket().send( buffer.data() );
+      buffer.consume( isize );
+
+      const auto osize = socket().receive( buffer.prepare( bufSize ) );
+      buffer.commit( osize );
+
+      const auto option = bsoncxx::validate(
+          reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      buffer.consume( buffer.size() );
+
+      if ( !option ) return std::nullopt;
+      return bsoncxx::document::value{ *option };
+    }
+
     tcp::socket& socket()
     {
       if ( ! s.is_open() ) boost::asio::connect( s, resolver.resolve( host, port ) );
@@ -66,6 +86,7 @@ namespace spt::itest::pool
   private:
     tcp::socket s;
     tcp::resolver resolver;
+    boost::asio::streambuf buffer;
     std::string host;
     std::string port;
     bool v{ true };
@@ -82,23 +103,13 @@ namespace spt::itest::pool
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    boost::asio::streambuf buffer;
-    std::ostream os{ &buffer };
     bsoncxx::document::value document = basic::make_document(
         kvp( "action", "count" ),
         kvp( "database", "itest" ),
         kvp( "collection", "test" ),
         kvp( "document", basic::make_document() ) );
-    os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
-
     auto copt = pool.acquire();
-    const auto isize = (*copt)->socket().send( buffer.data() );
-    buffer.consume( isize );
-
-    const auto osize = (*copt)->socket().receive( buffer.prepare( 128 * 1024 ) );
-    buffer.commit( osize );
-
-    const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+    const auto option = (*copt)->execute( document.view() );
     std::cout << bsoncxx::to_json( *option ) << '\n';
   }
 }
@@ -121,33 +132,25 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
       REQUIRE( pool.active() == 0 );
       REQUIRE( pool.inactive() == 1 );
       REQUIRE( pool.totalCreated() == 1 );
       auto copt = pool.acquire();
       REQUIRE( copt );
-      const auto isize = (*copt)->socket().send( buffer.data() );
-      buffer.consume( isize );
 
-      const auto osize = (*copt)->socket().receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = (*copt)->execute( document.view() );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "count" ) != option->end() );
+
+      const auto ov = option->view();
+      REQUIRE( ov.find( "error" ) == ov.end() );
+      REQUIRE( ov.find( "count" ) != ov.end() );
 
       REQUIRE( pool.inactive() == 0 );
       REQUIRE( pool.active() == 1 );
@@ -213,14 +216,11 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
       REQUIRE( pool.inactive() == 2 );
       REQUIRE( pool.active() == 0 );
@@ -228,19 +228,13 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
       REQUIRE( copt1 );
       auto copt2 = pool.acquire();
       REQUIRE( copt2 );
-      const auto isize = (*copt2)->socket().send( buffer.data() );
-      buffer.consume( isize );
 
-      const auto osize = (*copt2)->socket().receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = (*copt2)->execute( document.view() );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "count" ) != option->end() );
+      const auto ov = option->view();
+      REQUIRE( ov.find( "error" ) == ov.end() );
+      REQUIRE( ov.find( "count" ) != ov.end() );
 
       REQUIRE( pool.inactive() == 0 );
       REQUIRE( pool.active() == 2 );

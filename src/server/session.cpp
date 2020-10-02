@@ -24,14 +24,15 @@ void Session::doRead()
 {
   auto self{ shared_from_this() };
   buffer.consume( buffer.size() );
-  readMore( std::move( self ) );
+  readMore();
 }
 
-void spt::server::Session::readMore( std::shared_ptr<Session> session )
+void spt::server::Session::readMore()
 {
+  auto self{ shared_from_this() };
   constexpr auto maxBytes = 128 * 1024;
   socket.async_receive( buffer.prepare( maxBytes ),
-      [this, session]( boost::system::error_code ec, std::size_t length )
+      [this, self]( boost::system::error_code ec, std::size_t length )
       {
         if ( !ec )
         {
@@ -42,7 +43,7 @@ void spt::server::Session::readMore( std::shared_ptr<Session> session )
 
 void Session::doWrite( std::size_t length )
 {
-  constexpr auto maxBytes = 1024 * 1024;
+  constexpr auto maxBytes = 8 * 1024 * 1024;
   auto self{ shared_from_this() };
 
   const auto docSize = [this, length]()
@@ -58,7 +59,11 @@ void Session::doWrite( std::size_t length )
   buffer.commit( length );
   totalRead += length;
   if ( documentSize == 0 ) documentSize = docSize();
-  if ( documentSize < maxBytes && documentSize != totalRead ) return readMore( std::move( self ) );
+  if ( documentSize < maxBytes && documentSize != totalRead )
+  {
+    LOG_DEBUG << "Document size: " << int(documentSize) << " totalRead: " << int(totalRead);
+    return readMore();
+  }
 
   const auto doc = model::Document{ buffer, totalRead };
   buffer.consume( buffer.size() );

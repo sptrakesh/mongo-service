@@ -29,6 +29,7 @@ namespace spt::model
     std::string mongoUri;
     std::string versionHistoryDatabase{ "versionHistory" };
     std::string versionHistoryCollection{ "entities" };
+    std::string logLevel{ "info" };
     int port = 2000;
     int threads = std::thread::hardware_concurrency();
 

@@ -207,7 +207,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      const auto size = 1000;
+      const auto size = 10000;
       spt::itest::bulk::oids.reserve( size );
       auto arr = basic::array{};
       for ( auto i = 0; i < size; ++i )
