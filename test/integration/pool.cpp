@@ -63,11 +63,30 @@ namespace spt::itest::pool
       const auto isize = socket().send( buffer.data() );
       buffer.consume( isize );
 
-      const auto osize = socket().receive( buffer.prepare( bufSize ) );
+      const auto documentSize = [this]( std::size_t length )
+      {
+        if ( length < 5 ) return length;
+
+        const auto data = reinterpret_cast<const uint8_t*>( buffer.data().data() );
+        uint32_t len;
+        memcpy( &len, data, sizeof(len) );
+        return std::size_t( len );
+      };
+
+      auto osize = socket().receive( buffer.prepare( bufSize ) );
       buffer.commit( osize );
+      std::size_t read = osize;
+
+      const auto docSize = documentSize( osize );
+      while ( read != docSize )
+      {
+        osize = socket().receive( buffer.prepare( bufSize ) );
+        buffer.commit( osize );
+        read += osize;
+      }
 
       const auto option = bsoncxx::validate(
-          reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+          reinterpret_cast<const uint8_t*>( buffer.data().data() ), docSize );
       buffer.consume( buffer.size() );
 
       if ( !option ) return std::nullopt;

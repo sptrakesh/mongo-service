@@ -1009,6 +1009,7 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
   metric.application = document.application();
   metric.correlationId = document.correlationId();
   metric.message = bsonValueIfExists<std::string>( "error", value.view() );
+  metric.size = value.view().length();
 
   auto& conf = model::Configuration::instance();
   auto client = Pool::instance().acquire();

@@ -18,6 +18,7 @@ bsoncxx::document::value spt::model::Metric::bson() const
   doc << "action" << action <<
     "database" << database <<
     "collection" << collection <<
+    "size" << int64_t( size ) <<
     "time" << duration.count() <<
     "timestamp" << bsoncxx::types::b_int64{
       std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now().time_since_epoch() ).count() };

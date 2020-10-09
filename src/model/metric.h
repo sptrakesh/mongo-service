@@ -23,6 +23,7 @@ namespace spt::model
     std::optional<std::string> message;
     std::optional<bsoncxx::oid> id;
     std::chrono::nanoseconds duration;
+    std::size_t size;
 
     [[nodiscard]] bsoncxx::document::value bson() const;
   };
