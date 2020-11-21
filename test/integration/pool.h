@@ -154,7 +154,6 @@ namespace spt::pool
 
       while ( !end )
       {
-        if ( inactive() <= configuration.initialSize ) return;
         auto lock = std::unique_lock( mutex );
         auto iter = std::begin( available );
         if ( iter == std::end( available ) ) break;

@@ -16,6 +16,7 @@ namespace spt::model
   bsoncxx::document::view insertError();
   bsoncxx::document::view invalidAUpdate();
   bsoncxx::document::view updateError();
+  bsoncxx::document::view notModifyable();
   bsoncxx::document::view unexpectedError();
   bsoncxx::document::view createVersionFailed();
   bsoncxx::document::view notFound();

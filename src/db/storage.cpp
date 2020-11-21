@@ -51,31 +51,30 @@ namespace spt::db::pstorage
     {
       if ( vr )
       {
-        LOG_INFO
-            << "Created version for " << dbname << ':' << collname << ':' <<
-            id.to_string() << " with id: " << oid.to_string();
+        LOG_INFO <<
+          "Created version for " << dbname << ':' << collname << ':' <<
+          id.to_string() << " with id: " << oid.to_string();
         return document{} << "_id" << oid <<
-                          "database" << conf.versionHistoryDatabase <<
-                          "collection" << conf.versionHistoryCollection <<
-                          "entity" << id << finalize;
+          "database" << conf.versionHistoryDatabase <<
+          "collection" << conf.versionHistoryCollection <<
+          "entity" << id << finalize;
       }
       else
       {
         LOG_WARN
-            << "Unable to create version for " << dbname << ':' << collname
-            << ':' <<
-            id.to_string();
+          << "Unable to create version for " << dbname << ':' << collname
+          << ':' << id.to_string();
       }
     }
     else
     {
       LOG_INFO
-          << "Created version for " << dbname << ':' << collname << ':' <<
-          id.to_string() << " with id: " << oid.to_string();
+        << "Created version for " << dbname << ':' << collname << ':' <<
+        id.to_string() << " with id: " << oid.to_string();
       return document{} << "_id" << oid <<
-                        "database" << conf.versionHistoryDatabase <<
-                        "collection" << conf.versionHistoryCollection <<
-                        "entity" << id << finalize;
+        "database" << conf.versionHistoryDatabase <<
+        "collection" << conf.versionHistoryCollection <<
+        "entity" << id << finalize;
     }
 
     return model::createVersionFailed();
@@ -113,6 +112,61 @@ namespace spt::db::pstorage
     return w;
   }
 
+  mongocxx::options::index indexOpts( const model::Document& model )
+  {
+    using spt::util::bsonValueIfExists;
+
+    const auto options = model.options();
+    auto opts = mongocxx::options::index{};
+
+    if ( options )
+    {
+      const auto background = bsonValueIfExists<bool>( "background", *options );
+      if ( background ) opts.background( *background );
+
+      const auto unique = bsonValueIfExists<bool>( "unique", *options );
+      if ( unique ) opts.unique( *unique );
+
+      const auto hidden = bsonValueIfExists<bool>( "hidden", *options );
+      if ( hidden ) opts.hidden( *hidden );
+
+      const auto name = bsonValueIfExists<std::string>( "name", *options );
+      if ( name ) opts.name( *name );
+
+      const auto sparse = bsonValueIfExists<bool>( "sparse", *options );
+      if ( sparse ) opts.sparse( *sparse );
+
+      const auto expireAfterSeconds = bsonValueIfExists<int32_t>( "expireAfterSeconds", *options );
+      if ( expireAfterSeconds ) opts.expire_after( std::chrono::seconds{ *expireAfterSeconds } );
+
+      const auto version = bsonValueIfExists<int32_t>( "version", *options );
+      if ( version ) opts.version( *version );
+
+      const auto weights = bsonValueIfExists<bsoncxx::document::view>( "weights", *options );
+      if ( weights ) opts.weights( *weights );
+
+      const auto language_override = bsonValueIfExists<std::string>( "languageOverride", *options );
+      if ( language_override ) opts.language_override( *language_override );
+
+      const auto partial_filter_expression = bsonValueIfExists<bsoncxx::document::view>( "partialFilterExpression", *options );
+      if ( partial_filter_expression ) opts.partial_filter_expression( *partial_filter_expression );
+
+      const auto twod_sphere_version = bsonValueIfExists<int32_t>( "twodSphereVersion", *options );
+      if ( twod_sphere_version ) opts.twod_sphere_version( static_cast<uint8_t>( *twod_sphere_version ) );
+
+      const auto twod_bits_precision = bsonValueIfExists<int32_t>( "twodBitsPrecision", *options );
+      if ( twod_bits_precision ) opts.twod_bits_precision( static_cast<uint8_t>( *twod_bits_precision ) );
+
+      const auto twod_location_min = bsonValueIfExists<double>( "twodLocationMin", *options );
+      if ( twod_location_min ) opts.twod_location_min( *twod_location_min );
+
+      const auto twod_location_max = bsonValueIfExists<double>( "twodLocationMax", *options );
+      if ( twod_location_max ) opts.twod_location_max( *twod_location_max );
+    }
+
+    return opts;
+  }
+
   bsoncxx::document::view_or_value index( const model::Document& model )
   {
     const auto doc = model.document();
@@ -120,9 +174,10 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto options = model.options();
 
+    LOG_INFO << "Creating index " << model.json();
     auto client = Pool::instance().acquire();
     return options ?
-        ( *client )[dbname][collname].create_index( doc, *options ) :
+        ( *client )[dbname][collname].create_index( doc, indexOpts( model ) ) :
         ( *client )[dbname][collname].create_index( doc );
   }
 
@@ -330,6 +385,13 @@ namespace spt::db::pstorage
     const auto collname = document.collection();
     const auto metadata = document.metadata();
 
+    const auto& conf = model::Configuration::instance();
+    if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
+    {
+      LOG_WARN << "Attempting to create in version history " << document.json();
+      return model::notModifyable();
+    }
+
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( !idopt ) return model::missingId();
 
@@ -360,15 +422,16 @@ namespace spt::db::pstorage
         const auto nv = document.skipVersion();
         if ( nv && *nv )
         {
-          return bsoncxx::builder::stream::document{}
-              << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+          return bsoncxx::builder::stream::document{} <<
+            "_id" << *idopt <<
+            "skipVersion" << true << bsoncxx::builder::stream::finalize;
         }
         return history( *document.bson(), client, metadata );
       }
       else
       {
         LOG_WARN << "Unable to create document " << dbname << ':' << collname
-                 << ':' << idopt->to_string();
+          << ':' << idopt->to_string();
       }
     }
     else
@@ -378,8 +441,9 @@ namespace spt::db::pstorage
       const auto nv = document.skipVersion();
       if ( nv && *nv )
       {
-        return bsoncxx::builder::stream::document{}
-            << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        return bsoncxx::builder::stream::document{} <<
+          "_id" << *idopt <<
+          "skipVersion" << true << bsoncxx::builder::stream::finalize;
       }
       return history( *document.bson(), client, metadata );
     }
@@ -578,21 +642,27 @@ namespace spt::db::pstorage
     const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
     {
       if ( skip && *skip )
-        return document{} << "skipVersion" << true
-                          << bsoncxx::builder::stream::finalize;
+      {
+        return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      }
 
       const auto updated = ( *client )[dbname][collname].find_one( filter );
-      if ( !updated ) return model::notFound();
+      if ( !updated )
+      {
+        LOG_WARN << "Updated document not found in " <<
+          dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
+        return model::notFound();
+      }
 
       auto vhd = history( document{} << "action" << "replace" <<
-                                     "database" << dbname << "collection"
-                                     << collname <<
-                                     "document" << updated->view()
-                                     << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
+        "database" << dbname <<
+        "collection" << collname <<
+        "document" << updated->view()
+        << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
 
       return document{} << "document" << updated->view() << "history" << vhd
-                        << finalize;
+        << finalize;
     };
 
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
@@ -603,20 +673,19 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Updated document in " << dbname << ':' << collname <<
-                 " with filter " << bsoncxx::to_json( filter );
+          " with filter " << bsoncxx::to_json( filter );
         return vhd();
       }
       else
       {
-        LOG_INFO
-            << "Unable to update document in " << dbname << ':' << collname <<
-            " with filter " << bsoncxx::to_json( filter );
+        LOG_INFO << "Unable to update document in " << dbname << ':' << collname <<
+          " with filter " << bsoncxx::to_json( filter );
       }
     }
     else
     {
       LOG_INFO << "Updated document in " << dbname << ':' << collname <<
-               " with filter " << bsoncxx::to_json( filter );
+        " with filter " << bsoncxx::to_json( filter );
       return vhd();
     }
 
@@ -636,6 +705,13 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto metadata = model.metadata();
     const auto skip = model.skipVersion();
+
+    const auto& conf = model::Configuration::instance();
+    if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
+    {
+      LOG_WARN << "Attempting to update in version history " << model.json();
+      return model::notModifyable();
+    }
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( idopt ) return updateOne( model );
@@ -663,7 +739,7 @@ namespace spt::db::pstorage
     {
       if ( skip && *skip )
         return document{} << "skipVersion" << true
-                          << bsoncxx::builder::stream::finalize;
+          << bsoncxx::builder::stream::finalize;
 
       auto success = bsoncxx::builder::basic::array{};
       auto fail = bsoncxx::builder::basic::array{};
@@ -732,6 +808,13 @@ namespace spt::db::pstorage
     const auto doc = model.document();
     const auto metadata = model.metadata();
     const auto skip = model.skipVersion();
+
+    const auto& conf = model::Configuration::instance();
+    if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
+    {
+      LOG_WARN << "Attempting to delete from version history " << model.json();
+      return model::notModifyable();
+    }
 
     const auto options = model.options();
     auto opts = mongocxx::options::delete_options{};

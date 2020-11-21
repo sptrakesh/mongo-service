@@ -117,7 +117,11 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
+#ifdef __APPLE__
+      const auto value = view[key].get_string().value;
+#else
       const auto value = view[key].get_utf8().value;
+#endif
       return std::string( value.data(), value.size() );
     }
 

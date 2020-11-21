@@ -284,6 +284,30 @@ if an attempt is made to replace multiple documents (the query filter must retur
 a single document).  A version history document is created with the replaced
 document.
 
+The following sample shows an example of performing a `replace` action.
+```json
+{
+  "action": "update",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "filter": {
+      "_id": { "$oid": "5f3bc9e2502422053e08f9f1" }
+    },
+    "replace": {
+      "_id": { "$oid": "5f3bc9e2502422053e08f9f1" },
+      "key": "value",
+      "key1": "value1"
+    }
+  },
+  "options": { "upsert": true },
+  "application": "version-history-api",
+  "metadata": {
+    "revertedFrom": { "$oid": "5f3bc9e29ba4f45f810edf29" }
+  }
+}
+```
+
 ##### Update Document
 If the `document` has a `update` sub-document, then existing document(s) are
 updated with the information contained in it.  This is a *merge* operation where
@@ -304,9 +328,7 @@ Sample delete request:
   "database": "itest",
   "collection": "test",
   "document": {
-    "_id": {
-      "$oid": "5f35ea61aa4ef01184492d71"
-    }
+    "_id": { "$oid": "5f35ea61aa4ef01184492d71" }
   }
 }
 ```

@@ -57,11 +57,27 @@ bsoncxx::document::view spt::model::insertError()
   return document.view();
 }
 
-bsoncxx::document::view spt::model::unexpectedError()
+bsoncxx::document::view spt::model::invalidAUpdate()
 {
   using bsoncxx::document::value;
   using bsoncxx::builder::basic::kvp;
-  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Unexpected error encountered.") );
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Invalid update document.") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::updateError()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error updating document.") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::notModifyable()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Cannot edit version history.") );
   return document.view();
 }
 
@@ -81,19 +97,11 @@ bsoncxx::document::view spt::model::notFound()
   return document.view();
 }
 
-bsoncxx::document::view spt::model::updateError()
+bsoncxx::document::view spt::model::unexpectedError()
 {
   using bsoncxx::document::value;
   using bsoncxx::builder::basic::kvp;
-  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error updating document.") );
-  return document.view();
-}
-
-bsoncxx::document::view spt::model::invalidAUpdate()
-{
-  using bsoncxx::document::value;
-  using bsoncxx::builder::basic::kvp;
-  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Invalid update document.") );
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Unexpected error encountered.") );
   return document.view();
 }
 

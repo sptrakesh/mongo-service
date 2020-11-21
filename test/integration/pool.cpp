@@ -281,7 +281,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
       REQUIRE( pool.inactive() == 2 );
       std::cout << "Sleeping 6s to test TTL" << std::endl;
       std::this_thread::sleep_for( std::chrono::seconds{ 6 } );
-      REQUIRE( pool.inactive() == 1 );
+      REQUIRE( pool.inactive() == 0 );
     }
 
     AND_WHEN( "Using pool from multiple threads" )

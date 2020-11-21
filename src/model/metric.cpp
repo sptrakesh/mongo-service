@@ -4,7 +4,7 @@
 
 #include "metric.h"
 
-#include <bsoncxx/types/value.hpp>
+#include <bsoncxx/types.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 
 #include <chrono>
