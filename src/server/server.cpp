@@ -14,7 +14,9 @@ Server::Server( boost::asio::io_context& ioc ) :
   acceptor{ ioc, tcp::endpoint( tcp::v4(),
       static_cast<short>( model::Configuration::instance().port ) ) }
 {
-  //acceptor.set_option( tcp::acceptor::reuse_address( true ) );
+#ifdef __APPLE__
+  acceptor.set_option( tcp::acceptor::reuse_address( true ) );
+#endif
   doAccept();
 }
 
@@ -23,9 +25,9 @@ void Server::doAccept()
   acceptor.async_accept(
       [this]( boost::system::error_code ec, tcp::socket socket )
       {
-        LOG_DEBUG << "Accepting connection from " << socket.remote_endpoint().address().to_string();
         if ( !ec )
         {
+          LOG_DEBUG << "Accepting connection from " << socket.remote_endpoint().address().to_string();
           std::make_shared<Session>( std::move(socket) )->start();
         }
         else

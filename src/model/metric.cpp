@@ -14,14 +14,17 @@ bsoncxx::document::value spt::model::Metric::bson() const
   using bsoncxx::builder::stream::document;
   using bsoncxx::builder::stream::finalize;
 
+  const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now().time_since_epoch() );
+  const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>( ns );
+
   auto doc = document{};
   doc << "action" << action <<
     "database" << database <<
     "collection" << collection <<
     "size" << int64_t( size ) <<
     "time" << duration.count() <<
-    "timestamp" << bsoncxx::types::b_int64{
-      std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now().time_since_epoch() ).count() };
+    "timestamp" << bsoncxx::types::b_int64{ ns.count() } <<
+    "date" << bsoncxx::types::b_date{ ms };
 
   if ( id ) doc << "entityId" << *id;
   if ( application ) doc << "application" << *application;

@@ -16,6 +16,7 @@
     * [Document Response](#document-response)
     * [Options](#options)
     * [Limitation](#limitation)
+* [Metrics](#metrics)
 * [Testing](#testing)
     * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
@@ -440,6 +441,39 @@ Options specified in the request payload are parsed into the appropriate
 
 ### Limitation
 At present only documents with **BSON ObjectId** `_id` is supported.
+
+## Metrics
+Metrics are collected in the specified `database` and `collection` combination
+(or their defaults).  No TTL index is set on this (as it is left to the user's
+requirements).  A `date` property is stored to create a TTL index as required.
+
+The schema for a metric is as follows:
+```json
+{
+  "_id": ObjectId("5fd4b7e55f1ba96a695d1446"),
+  "action": "retrieve",
+  "database": "wpreading2",
+  "collection": "databaseVersion",
+  "size": 88,
+  "time": 414306,
+  "timestamp": 437909021088978,
+  "date": Date(437909021),
+  "application": "bootstrap"
+}
+```
+
+* **action** - The database action performed by the client.
+* **database** - The database against which the action was performed.
+* **collection** - The collection against which the action was performed.
+* **size** - The total size of the response document.
+* **time** - The time in `nanoseconds` for the action (includes any interaction
+  with version history).
+* **timestamp** - The time since UNIX epoch in `nanoseconds` for use when exporting
+  to other timeseries databases.
+* **date** - The BSON date at which the metric was created.  Use to define a TTL
+  index as appropriate.
+* **application** - The application that invoked the service if specified in the
+  request payload.
 
 ## Testing
 Integration tests for the service will be developed in a few different languages

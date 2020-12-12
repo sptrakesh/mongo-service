@@ -372,7 +372,7 @@ namespace spt::db::pstorage
         opts );
 
     auto array = bsoncxx::builder::basic::array{};
-    for ( auto d : cursor ) array.append( d );
+    for ( auto&& d : cursor ) array.append( d );
     return bsoncxx::builder::basic::make_document( kvp( "results", array ));
   }
 
@@ -462,7 +462,7 @@ namespace spt::db::pstorage
     auto d = document{};
     d << "$set" << open_document;
 
-    for ( auto e : doc )
+    for ( auto&& e : doc )
     {
       if ( e.key() == "_id" ) continue;
 
@@ -555,9 +555,7 @@ namespace spt::db::pstorage
 
     const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
     {
-      if ( skip && *skip )
-        return document{} << "skipVersion" << true
-                          << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
 
       const auto updated = ( *client )[dbname][collname].find_one(
           document{} << "_id" << oid << finalize );
@@ -566,15 +564,15 @@ namespace spt::db::pstorage
         return { updated.value() };
 
       auto vhd = history( document{} << "action" << "update" <<
-                                     "database" << dbname << "collection"
-                                     << collname <<
-                                     "document" << updated->view()
-                                     << finalize, client, metadata );
+        "database" << dbname <<
+        "collection" << collname <<
+        "document" << updated->view()
+        << finalize, client, metadata );
       if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
 
       return bsoncxx::document::view_or_value{
-          document{} << "document" << updated->view() << "history" << vhd
-                     << finalize };
+        document{} << "document" << updated->view() << "history" << vhd
+        << finalize };
     };
 
     const auto result = ( *client )[dbname][collname].update_one(
@@ -584,19 +582,19 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
-                 << oid.to_string();
+          << oid.to_string();
         return vhd();
       }
       else
       {
         LOG_WARN << "Unable to update document " << dbname << ':' << collname
-                 << ':' << oid.to_string();
+          << ':' << oid.to_string();
       }
     }
     else
     {
       LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
-               << oid.to_string();
+        << oid.to_string();
       return vhd();
     }
 
@@ -747,15 +745,14 @@ namespace spt::db::pstorage
       auto results = ( *client )[dbname][collname].find( *filter );
 
       auto docs = bsoncxx::builder::basic::array{};
-      for ( auto d : results ) docs.append( d );
+      for ( auto&& d : results ) docs.append( d );
 
-      for ( auto d : docs.view())
+      for ( auto&& d : docs.view())
       {
         auto vhd = history( document{} << "action" << "update" <<
-                                       "database" << dbname << "collection"
-                                       << collname <<
-                                       "document" << d.get_document().view()
-                                       << finalize, client, metadata );
+          "database" << dbname << "collection" << collname <<
+          "document" << d.get_document().view()
+          << finalize, client, metadata );
         if ( bsonValueIfExists<std::string>( "error", vhd ))
           fail.append( d["_id"].get_oid());
         else
@@ -766,7 +763,7 @@ namespace spt::db::pstorage
       }
 
       return document{} << "success" << success << "failure" << fail
-                        << "history" << vh << finalize;
+        << "history" << vh << finalize;
     };
 
     if ( opts.write_concern()->is_acknowledged())
@@ -774,19 +771,18 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Created document " << dbname << ':' << collname << ':'
-                 << idopt->to_string();
+          << idopt->to_string();
         return vhd();
       }
       else
       {
         LOG_WARN << "Unable to create document " << dbname << ':' << collname
-                 << ':' << idopt->to_string();
+          << ':' << idopt->to_string();
       }
     }
     else
     {
-      LOG_INFO << "Created document " << dbname << ':' << collname << ':'
-               << idopt->to_string();
+      LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
       return vhd();
     }
 
@@ -820,12 +816,10 @@ namespace spt::db::pstorage
     auto opts = mongocxx::options::delete_options{};
     if ( options )
     {
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-          *options );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
       if ( wc ) opts.write_concern( writeConcern( *wc ));
 
-      auto co = bsonValueIfExists<bsoncxx::document::view>( "collation",
-          *options );
+      auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
       if ( co ) opts.collation( *co );
     }
 
@@ -838,10 +832,9 @@ namespace spt::db::pstorage
     auto vh = bsoncxx::builder::basic::array{};
     auto results = ( *client )[dbname][collname].find( doc );
 
-    for ( auto d : results ) docs.append( d );
+    for ( auto&& d : results ) docs.append( d );
 
-    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip](
-        auto d )
+    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip]( auto d )
     {
       const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip](
           auto d )
@@ -864,36 +857,32 @@ namespace spt::db::pstorage
       {
         if ( res )
         {
-          LOG_INFO << "Deleted document " << dbname << ':' << collname << ':'
-                   << oid.to_string();
+          LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
           success.append( oid );
           vhd( d );
         }
         else
         {
-          LOG_WARN
-              << "Unable to delete document " << dbname << ':' << collname
-              << ':' << oid.to_string();
+          LOG_WARN << "Unable to delete document " << dbname << ':' << collname << ':' << oid.to_string();
           fail.append( oid );
         }
       }
       else
       {
-        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':'
-                 << oid.to_string();
+        LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
         success.append( oid );
         vhd( d );
       }
     };
 
-    for ( auto d : docs.view() )
+    for ( auto&& d : docs.view() )
     {
       const auto item = d.get_document().view();
       rm( item );
     }
 
     return document{} << "success" << success << "failure" << fail
-                      << "history" << vh << finalize;
+      << "history" << vh << finalize;
   }
 
   bsoncxx::document::view_or_value bulk( const model::Document& model )
