@@ -117,7 +117,7 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
-      const auto value = view[key].get_string().value;
+      const auto value = view[key].get_utf8().value;
       return std::string( value.data(), value.size() );
     }
 
