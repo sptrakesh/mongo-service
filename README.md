@@ -371,15 +371,20 @@ One of the following properties **must** be specified in the `document`:
 * `names` - An *array* of index names to drop.
 
 #### Bulk Write
-Bulk insert of documents is allowed.  In this mode *version history* is not
-maintained at present.
+Bulk insert/delete documents.  Corresponding version history documents for
+inserted and/or deleted documents are created unless `skipVersion` is specified.
 
 The *documents* to insert or delete in bulk must be specified as
 *BSON array* properties in the `document` part of the payload.  Multiple arrays
 may be specified as appropriate.
 
-* `insert` - Array of documents which are to be inserted.
-* `delete` - Array of document specifications which represent the deletes.
+* `insert` - Array of documents which are to be inserted.  All documents **must**
+  have a BSON ObjectId `_id` property.
+* `delete` - Array of document specifications which represent the deletes.  Deletes
+  are slow since the query specifications are used to retrieve the documents being
+  deleted and create the corresponding version history documents.  Retrieving the
+  documents in a loop adds significant processing time.  For example the bulk
+  delete test (deleting 10000 documents) takes about 15 seconds to run.
 
 Sample bulk create payload:
 ```json
@@ -399,6 +404,11 @@ Sample bulk create payload:
         "$oid": "5f6ba5f9de326c57bd64efb2"
       },
       "key": "value2"
+    }],
+    "delete": [{
+      "_id": {
+        "$oid": "5f6ba5f9de326c57bd64efb1"
+      }
     }]
   }
 }
@@ -406,7 +416,7 @@ Sample bulk create payload:
 
 Sample response for the above payload:
 ```json
-{ "create" : 2, "delete" : 0 }
+{ "create" : 2, "history": 3, "delete" : 1 }
 ```
 
 #### Aggregation Pipeline

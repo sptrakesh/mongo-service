@@ -15,6 +15,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 
+#include <chrono>
 #include <iostream>
 #include <vector>
 
@@ -85,6 +86,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "history" ) != option->end() );
       REQUIRE( option->find( "delete" ) != option->end() );
     }
 
@@ -161,6 +163,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "history" ) != option->end() );
       REQUIRE( option->find( "delete" ) != option->end() );
     }
 
@@ -272,6 +275,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "history" ) != option->end() );
       REQUIRE( option->find( "delete" ) != option->end() );
     }
 
@@ -295,11 +299,15 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           kvp( "document", basic::make_document( kvp( "delete", arr.view() ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
+      const auto st = std::chrono::steady_clock::now();
       const auto isize = s.send( buffer.data() );
       buffer.consume( isize );
 
       const auto osize = s.receive( buffer.prepare( 1024 ) );
       buffer.commit( osize );
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::seconds>( et - st );
+      std::cout << "Deleting " << spt::itest::bulk::oids.size() << " documents took " << int(delta.count()) << " seconds";
 
       REQUIRE( isize != osize );
 
@@ -308,6 +316,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
+      REQUIRE( option->find( "history" ) != option->end() );
       REQUIRE( option->find( "delete" ) != option->end() );
     }
 

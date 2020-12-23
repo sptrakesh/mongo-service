@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <sstream>
+#include <vector>
 
 namespace spt::db::pstorage
 {
@@ -967,9 +968,12 @@ namespace spt::db::pstorage
     const auto doc = model.document();
     const auto dbname = model.database();
     const auto collname = model.collection();
+    const auto metadata = model.metadata();
+    const auto skip = model.skipVersion();
 
     const auto insert = bsonValueIfExists<bsoncxx::array::view>( "insert", doc );
     auto icount = 0;
+    auto ihcount = 0;
     const auto rem = bsonValueIfExists<bsoncxx::array::view>( "delete", doc );
     auto rcount = 0;
 
@@ -983,14 +987,47 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
+    const auto& conf = model::Configuration::instance();
     auto bw = ( *client )[dbname][collname].create_bulk_write();
+    auto bwh = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].create_bulk_write();
+    std::vector<bsoncxx::document::value> histv;
 
     if ( insert )
     {
       for ( auto e : *insert )
       {
-        bw.append( mongocxx::model::insert_one{ e.get_document().view() } );
-        ++icount;
+        const auto dv = e.get_document().view();
+        const auto oid = util::bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+        if ( oid )
+        {
+          bw.append( mongocxx::model::insert_one{ dv } );
+          ++icount;
+        }
+      }
+
+      if ( !skip || !*skip )
+      {
+        histv.reserve( icount );
+
+        for ( auto e : *insert )
+        {
+          const auto dv = e.get_document().view();
+          const auto oid = util::bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+          if ( oid )
+          {
+            auto d = document{};
+            d << "_id" << bsoncxx::oid{} <<
+              "database" << dbname <<
+              "collection" << collname <<
+              "action" << "create" <<
+              "entity" << dv <<
+              "created" << bsoncxx::types::b_date{ std::chrono::system_clock::now() };
+            if ( metadata ) d << "metadata" << *metadata;
+            histv.emplace_back( d << finalize );
+            bwh.append( mongocxx::model::insert_one{ histv.back().view() } );
+            ++ihcount;
+          }
+        }
       }
     }
 
@@ -1001,9 +1038,46 @@ namespace spt::db::pstorage
         bw.append( mongocxx::model::delete_one{ e.get_document().view() } );
         ++rcount;
       }
+
+      if ( !skip || !*skip )
+      {
+        if ( histv.empty() ) histv.reserve( rcount );
+
+        for ( auto e : *rem )
+        {
+          auto res = ( *client )[dbname][collname].find( e.get_document().view() );
+          for ( auto&& d : res )
+          {
+            auto vhd = document{};
+            vhd << "_id" << bsoncxx::oid{} <<
+              "database" << dbname <<
+              "collection" << collname <<
+              "action" << "delete" <<
+              "entity" << d <<
+              "created" << bsoncxx::types::b_date{ std::chrono::system_clock::now() };
+            if ( metadata ) vhd << "metadata" << *metadata;
+            histv.emplace_back( vhd << finalize );
+            bwh.append( mongocxx::model::delete_one{ histv.back().view() } );
+            ++ihcount;
+          }
+        }
+      }
     }
 
     auto r = bw.execute();
+    auto ihc = 0;
+    if ( !skip || !*skip )
+    {
+      if ( !histv.empty() )
+      {
+        auto rh = bwh.execute();
+        if ( client->write_concern().is_acknowledged() )
+        {
+          ihc = rh->inserted_count();
+        }
+      }
+    }
+
     if ( client->write_concern().is_acknowledged() )
     {
       if ( !r )
@@ -1012,11 +1086,17 @@ namespace spt::db::pstorage
         return model::withMessage( "Error executing bulk statements." );
       }
 
-      return document{} << "create" << r->inserted_count() <<
+      return document{} <<
+        "create" << r->inserted_count() <<
+        "history" << ihc <<
         "delete" << r->deleted_count() << finalize;
     }
 
-    return document{} << "create" << icount << "delete" << rcount << finalize;
+    return document{} <<
+      "create" << icount <<
+      "history" << ihcount <<
+      "delete" << rcount <<
+      finalize;
   }
 
   bsoncxx::document::view_or_value pipeline( const model::Document& model )
@@ -1172,14 +1252,15 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
 
   auto& conf = model::Configuration::instance();
   auto cliento = Pool::instance().acquire();
-  if ( !cliento )
+  if ( cliento )
+  {
+    auto& client = *cliento;
+    (*client)[conf.versionHistoryDatabase][conf.metricsCollection].insert_one( metric.bson() );
+  }
+  else
   {
     LOG_WARN << "Connection pool exhausted";
-    return model::poolExhausted();
   }
-
-  auto& client = *cliento;
-  (*client)[conf.versionHistoryDatabase][conf.metricsCollection].insert_one( metric.bson() );
 
   return value;
 }
