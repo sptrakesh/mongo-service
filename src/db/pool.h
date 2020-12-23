@@ -14,7 +14,7 @@ namespace spt::db
   struct Pool
   {
     static Pool& instance();
-    mongocxx::pool::entry acquire();
+    std::optional<mongocxx::pool::entry> acquire();
 
     Pool( const Pool& ) = delete;
     Pool& operator=( const Pool& ) = delete;

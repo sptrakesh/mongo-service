@@ -175,7 +175,14 @@ namespace spt::db::pstorage
     const auto options = model.options();
 
     LOG_INFO << "Creating index " << model.json();
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     return options ?
         ( *client )[dbname][collname].create_index( doc, indexOpts( model ) ) :
         ( *client )[dbname][collname].create_index( doc );
@@ -205,14 +212,24 @@ namespace spt::db::pstorage
         doc );
     if ( names ) cmd << "index" << *names;
 
-    auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-        *options );
-    if ( wc ) cmd << "writeConcern" << writeConcern( *wc ).to_document();
+    if ( options )
+    {
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) cmd << "writeConcern" << writeConcern( *wc ).to_document();
 
-    auto comment = bsonValueIfExists<std::string>( "comment", *options );
-    if ( comment ) cmd << "comment" << *comment;
+      auto comment = bsonValueIfExists<std::string>( "comment", *options );
+      if ( comment ) cmd << "comment" << *comment;
+    }
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     return ( *client )[dbname].run_command( cmd << finalize );
   }
 
@@ -248,7 +265,14 @@ namespace spt::db::pstorage
       if ( limit ) options.skip( *skip );
     }
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     const auto count = ( *client )[dbname][collname].count_documents(
         model.document(), options );
     return document{} << "count" << count << finalize;
@@ -339,7 +363,14 @@ namespace spt::db::pstorage
     const auto id = bsonValue<bsoncxx::oid>( "_id", doc );
     const auto opts = findOpts( model );
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     const auto res = ( *client )[dbname][collname].find_one(
         document{} << "_id" << id << finalize, opts );
     if ( res ) return document{} << "result" << res->view() << finalize;
@@ -367,7 +398,14 @@ namespace spt::db::pstorage
     }
 
     const auto opts = findOpts( model );
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     auto cursor = ( *client )[model.database()][model.collection()].find( doc,
         opts );
 
@@ -410,7 +448,14 @@ namespace spt::db::pstorage
       if ( wc ) opts.write_concern( writeConcern( *wc ));
     }
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
     const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
     if ( opts.write_concern()->is_acknowledged())
@@ -550,7 +595,14 @@ namespace spt::db::pstorage
     const auto skip = model.skipVersion();
 
     auto opts = updateOptions( model );
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
     const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
@@ -616,7 +668,14 @@ namespace spt::db::pstorage
     const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
     const auto skip = model.skipVersion();
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     const auto options = model.options();
     auto opts = mongocxx::options::replace{};
 
@@ -726,7 +785,14 @@ namespace spt::db::pstorage
         doc );
     if ( !update ) return model::invalidAUpdate();
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     auto opts = updateOptions( model );
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
@@ -823,7 +889,14 @@ namespace spt::db::pstorage
       if ( co ) opts.collation( *co );
     }
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
     auto docs = bsoncxx::builder::basic::array{};
@@ -902,7 +975,14 @@ namespace spt::db::pstorage
 
     if ( !insert && !rem ) return model::withMessage( "Bulk insert missing arrays." );
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     auto bw = ( *client )[dbname][collname].create_bulk_write();
 
     if ( insert )
@@ -966,7 +1046,14 @@ namespace spt::db::pstorage
     pipeline.match( *match );
     pipeline.group( *group );
 
-    auto client = Pool::instance().acquire();
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
     auto aggregate = ( *client )[dbname][collname].aggregate( pipeline );
 
     auto array = bsoncxx::builder::basic::array{};
@@ -1084,7 +1171,14 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
   metric.size = value.view().length();
 
   auto& conf = model::Configuration::instance();
-  auto client = Pool::instance().acquire();
+  auto cliento = Pool::instance().acquire();
+  if ( !cliento )
+  {
+    LOG_WARN << "Connection pool exhausted";
+    return model::poolExhausted();
+  }
+
+  auto& client = *cliento;
   (*client)[conf.versionHistoryDatabase][conf.metricsCollection].insert_one( metric.bson() );
 
   return value;

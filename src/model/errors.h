@@ -20,5 +20,6 @@ namespace spt::model
   bsoncxx::document::view unexpectedError();
   bsoncxx::document::view createVersionFailed();
   bsoncxx::document::view notFound();
+  bsoncxx::document::view poolExhausted();
   bsoncxx::document::value withMessage( std::string_view message );
 }

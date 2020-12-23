@@ -8,6 +8,7 @@
 
 #include <bsoncxx/builder/stream/document.hpp>
 
+#include <future>
 #include <sstream>
 
 using spt::db::Pool;
@@ -26,6 +27,10 @@ Pool::Pool()
   }
   LOG_INFO << "Mongo host(s): " << os.str();
   LOG_INFO << "Mongo user: " << uri.username();
+  if ( uri.max_pool_size() )
+  {
+    LOG_INFO << "Max pool size: " << *uri.max_pool_size();
+  }
 
   pool = std::make_unique<mongocxx::pool>( uri );
   index();
@@ -37,9 +42,21 @@ Pool& Pool::instance()
   return instance;
 }
 
-mongocxx::pool::entry Pool::acquire()
+std::optional<mongocxx::pool::entry> Pool::acquire()
 {
-  return pool->acquire();
+  const auto fn = [this]() { return pool->acquire(); };
+  std::future<mongocxx::pool::entry> future = std::async( std::launch::async, fn );
+  if ( !future.valid() )
+  {
+    LOG_WARN << "Error waiting for connection";
+    return std::nullopt;
+  }
+
+  auto status = future.wait_for( std::chrono::milliseconds{ 100 } );
+  if ( status == std::future_status::ready ) return future.get();
+
+  LOG_WARN << "Future timed out";
+  return std::nullopt;
 }
 
 void spt::db::Pool::index()
@@ -47,11 +64,18 @@ void spt::db::Pool::index()
   using bsoncxx::builder::stream::document;
   using bsoncxx::builder::stream::finalize;
 
-  auto& config = model::Configuration::instance();
-  auto client = acquire();
+  const auto& config = model::Configuration::instance();
+  auto cliento = acquire();
 
   try
   {
+    if ( !cliento )
+    {
+      LOG_WARN << "Unable to get connection";
+      return;
+    }
+
+    auto& client = *cliento;
     auto vdb = ( *client )[config.versionHistoryDatabase];
     vdb[config.versionHistoryCollection].create_index(
         document{} << "database" << 1 << finalize );

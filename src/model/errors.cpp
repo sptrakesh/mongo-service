@@ -105,6 +105,14 @@ bsoncxx::document::view spt::model::unexpectedError()
   return document.view();
 }
 
+bsoncxx::document::view spt::model::poolExhausted()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Pool exhausted.") );
+  return document.view();
+}
+
 bsoncxx::document::value spt::model::withMessage( std::string_view message )
 {
   using bsoncxx::builder::basic::kvp;
