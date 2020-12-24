@@ -707,11 +707,11 @@ namespace spt::db::pstorage
       if ( oid )
       {
         auto vhd = history( document{} <<
-            "action" << "replace" <<
-            "database" << dbname <<
-            "collection" << collname <<
-            "document" << replace <<
-            finalize, client, metadata );
+          "action" << "replace" <<
+          "database" << dbname <<
+          "collection" << collname <<
+          "document" << replace <<
+          finalize, client, metadata );
         if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
 
         return document{} << "document" << replace << "history" << vhd << finalize;
@@ -727,11 +727,11 @@ namespace spt::db::pstorage
         }
 
         auto vhd = history( document{} <<
-            "action" << "replace" <<
-            "database" << dbname <<
-            "collection" << collname <<
-            "document" << updated->view() <<
-            finalize, client, metadata );
+          "action" << "replace" <<
+          "database" << dbname <<
+          "collection" << collname <<
+          "document" << updated->view() <<
+          finalize, client, metadata );
         if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
 
         return document{} << "document" << updated->view() << "history" << vhd << finalize;
@@ -973,10 +973,6 @@ namespace spt::db::pstorage
   bsoncxx::document::view_or_value bulk( const model::Document& model )
   {
     using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::open_array;
-    using bsoncxx::builder::stream::close_array;
-    using bsoncxx::builder::stream::open_document;
-    using bsoncxx::builder::stream::close_document;
     using bsoncxx::builder::stream::finalize;
     using spt::util::bsonValueIfExists;
 
