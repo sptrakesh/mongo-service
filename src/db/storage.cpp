@@ -667,6 +667,8 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto metadata = model.metadata();
     const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
+    const auto replace = bsonValue<bsoncxx::document::view>( "replace", doc );
+    const auto oid = bsonValueIfExists<bsoncxx::document::view>( "_id", replace );
     const auto skip = model.skipVersion();
 
     auto cliento = Pool::instance().acquire();
@@ -685,48 +687,60 @@ namespace spt::db::pstorage
       auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
       if ( validate ) opts.bypass_document_validation( *validate );
 
-      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation",
-          *options );
+      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
       if ( col ) opts.collation( *col );
 
       auto upsert = bsonValueIfExists<bool>( "upsert", *options );
       if ( upsert ) opts.upsert( *upsert );
 
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-          *options );
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options );
       if ( wc ) opts.write_concern( writeConcern( *wc ));
     }
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &replace, &oid, &skip]() -> bsoncxx::document::view_or_value
     {
       if ( skip && *skip )
       {
         return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
       }
 
-      const auto updated = ( *client )[dbname][collname].find_one( filter );
-      if ( !updated )
+      if ( oid )
       {
-        LOG_WARN << "Updated document not found in " <<
-          dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
-        return model::notFound();
+        auto vhd = history( document{} <<
+            "action" << "replace" <<
+            "database" << dbname <<
+            "collection" << collname <<
+            "document" << replace <<
+            finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+
+        return document{} << "document" << replace << "history" << vhd << finalize;
       }
+      else
+      {
+        const auto updated = ( *client )[dbname][collname].find_one( filter );
+        if ( !updated )
+        {
+          LOG_WARN << "Updated document not found in " <<
+            dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
+          return model::notFound();
+        }
 
-      auto vhd = history( document{} << "action" << "replace" <<
-        "database" << dbname <<
-        "collection" << collname <<
-        "document" << updated->view()
-        << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+        auto vhd = history( document{} <<
+            "action" << "replace" <<
+            "database" << dbname <<
+            "collection" << collname <<
+            "document" << updated->view() <<
+            finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
 
-      return document{} << "document" << updated->view() << "history" << vhd
-        << finalize;
+        return document{} << "document" << updated->view() << "history" << vhd << finalize;
+      }
     };
 
-    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
-    const auto result = ( *client )[dbname][collname].replace_one( filter,
-        bsonValue<bsoncxx::document::view>( "replace", doc ), opts );
-    if ( opts.write_concern()->is_acknowledged())
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern() );
+    const auto result = ( *client )[dbname][collname].replace_one( filter, replace, opts );
+    if ( opts.write_concern()->is_acknowledged() )
     {
       if ( result )
       {
