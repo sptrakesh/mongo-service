@@ -973,6 +973,10 @@ namespace spt::db::pstorage
   bsoncxx::document::view_or_value bulk( const model::Document& model )
   {
     using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::open_array;
+    using bsoncxx::builder::stream::close_array;
+    using bsoncxx::builder::stream::open_document;
+    using bsoncxx::builder::stream::close_document;
     using bsoncxx::builder::stream::finalize;
     using spt::util::bsonValueIfExists;
 
@@ -1068,7 +1072,7 @@ namespace spt::db::pstorage
               "created" << bsoncxx::types::b_date{ std::chrono::system_clock::now() };
             if ( metadata ) vhd << "metadata" << *metadata;
             histv.emplace_back( vhd << finalize );
-            bwh.append( mongocxx::model::delete_one{ histv.back().view() } );
+            bwh.append( mongocxx::model::insert_one{ histv.back().view() } );
             ++ihcount;
           }
         }
