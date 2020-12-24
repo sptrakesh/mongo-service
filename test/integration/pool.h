@@ -10,6 +10,7 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <future>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
@@ -111,7 +112,21 @@ namespace spt::pool
       if ( available.empty() )
       {
         ++created;
-        return Proxy{ ConnectionWrapper{ creator() }, this };
+        std::future<Ptr> future = std::async( std::launch::async, creator );
+        if ( !future.valid() )
+        {
+          LOG_WARN << "Error waiting for connection";
+          return std::nullopt;
+        }
+
+        auto status = future.wait_for( std::chrono::milliseconds{ 100 } );
+        if ( status == std::future_status::ready )
+        {
+          return Proxy{ ConnectionWrapper{ future.get() }, this };
+        }
+
+        LOG_WARN << "Future timed out";
+        return std::nullopt;
       }
 
       auto con = std::move( available.front() );
