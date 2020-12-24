@@ -774,16 +774,13 @@ namespace spt::db::pstorage
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( idopt ) return updateOne( model );
 
-    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter",
-        doc );
+    const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", doc );
     if ( !filter ) return model::invalidAUpdate();
 
-    const auto replace = bsonValueIfExists<bsoncxx::document::view>(
-        "replace", doc );
+    const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", doc );
     if ( replace ) return replaceOne( model );
 
-    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update",
-        doc );
+    const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", doc );
     if ( !update ) return model::invalidAUpdate();
 
     auto cliento = Pool::instance().acquire();
@@ -795,7 +792,7 @@ namespace spt::db::pstorage
 
     auto& client = *cliento;
     auto opts = updateOptions( model );
-    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
     const auto result = ( *client )[dbname][collname].update_many( *filter,
         updateDoc( *update ), opts );
@@ -814,17 +811,17 @@ namespace spt::db::pstorage
       auto docs = bsoncxx::builder::basic::array{};
       for ( auto&& d : results ) docs.append( d );
 
-      for ( auto&& d : docs.view())
+      for ( auto&& d : docs.view() )
       {
         auto vhd = history( document{} << "action" << "update" <<
           "database" << dbname << "collection" << collname <<
           "document" << d.get_document().view()
           << finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ))
-          fail.append( d["_id"].get_oid());
+        if ( bsonValueIfExists<std::string>( "error", vhd ) )
+          fail.append( d["_id"].get_oid() );
         else
         {
-          success.append( d["_id"].get_oid());
+          success.append( d["_id"].get_oid() );
           vh.append( vhd );
         }
       }

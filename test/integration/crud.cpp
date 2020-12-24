@@ -282,7 +282,9 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document(
-              kvp( "key1", "value1" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "key1", "value1" ),
+              kvp( "date", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
+              kvp( "_id", spt::itest::crud::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
       const auto isize = s.send( buffer.data() );

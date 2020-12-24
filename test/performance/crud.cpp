@@ -71,6 +71,7 @@ private:
     else
     {
       if ( option->find( "error" ) != option->end() ) ++failures;
+      if ( option->empty() ) ++failures;
     }
   }
 
@@ -99,6 +100,7 @@ private:
     else
     {
       if ( option->find( "error" ) != option->end() ) ++failures;
+      if ( option->empty() ) ++failures;
     }
   }
 
@@ -129,6 +131,7 @@ private:
     else
     {
       if ( option->find( "error" ) != option->end() ) ++failures;
+      if ( option->empty() ) ++failures;
     }
   }
 
@@ -157,6 +160,7 @@ private:
     else
     {
       if ( option->find( "error" ) != option->end() ) ++failures;
+      if ( option->empty() ) ++failures;
     }
   }
 

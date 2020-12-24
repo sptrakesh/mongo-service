@@ -247,8 +247,8 @@ Sample response:
     "_id": {
       "$oid": "5f35e887e799c5218603915b"
     },
-    "database": "versionHistory",
-    "collection": "entities",
+    "database": "itest",
+    "collection": "test",
     "entity": {
       "$oid": "5f35e887bb516401e02b4701"
     }
