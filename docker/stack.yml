@@ -17,10 +17,11 @@ services:
     ports:
       - "2000:2000"
     environment:
-      - "MONGO_URI=mongodb://test:test@mongo/admin?authSource=admin&compressors=snappy&w=1"
+      - "MONGO_URI=mongodb://test:test@mongo/admin?authSource=admin&compressors=snappy&w=1&maxPoolSize=1000&maxIdleTimeMS=30000"
       - VERSION_HISTORY_DATABASE=versionHistory
       - VERSION_HISTORY_COLLECTION=entities
       - METRICS_COLLECTION=metrics
       - LOG_LEVEL=debug
+      - THREADS=16
     volumes:
       - $DATA_DIR/mongo-service:/opt/spt/logs

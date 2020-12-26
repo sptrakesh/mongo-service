@@ -668,7 +668,7 @@ namespace spt::db::pstorage
     const auto metadata = model.metadata();
     const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
     const auto replace = bsonValue<bsoncxx::document::view>( "replace", doc );
-    const auto oid = bsonValueIfExists<bsoncxx::document::view>( "_id", replace );
+    const auto oid = bsonValueIfExists<bsoncxx::oid>( "_id", replace );
     const auto skip = model.skipVersion();
 
     auto cliento = Pool::instance().acquire();
