@@ -314,6 +314,9 @@ If the `document` has a `update` sub-document, then existing document(s) are
 updated with the information contained in it.  This is a *merge* operation where
 only the fields specified in the `update` are set on the candidate document(s).
 A version history document is created for each updated document.
+
+If the input `filter` sub-document has an `_id` property, and is of type BSON
+Object Id, then a single document update is made.
  
 #### Delete
 The `document` represents the *query* to execute to find the candidate documents

@@ -512,7 +512,7 @@ namespace spt::db::pstorage
     {
       if ( e.key() == "_id" ) continue;
 
-      switch ( e.type())
+      switch ( e.type() )
       {
       case bsoncxx::type::k_array:d << e.key() << e.get_array();
         break;
@@ -648,6 +648,78 @@ namespace spt::db::pstorage
     {
       LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
         << oid.to_string();
+      return vhd();
+    }
+
+    return model::updateError();
+  }
+
+  bsoncxx::document::view_or_value updateOneByFilter( const model::Document& model,
+      const bsoncxx::oid& oid )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto doc = model.document();
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto metadata = model.metadata();
+    const auto skip = model.skipVersion();
+
+    auto opts = updateOptions( model );
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
+    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+
+    const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
+    {
+      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+
+      const auto updated = ( *client )[dbname][collname].find_one(
+          document{} << "_id" << oid << finalize );
+      if ( !updated ) return model::notFound();
+      if ( bsonValueIfExists<std::string>( "error", *updated ))
+        return { updated.value() };
+
+      auto vhd = history( document{} << "action" << "update" <<
+        "database" << dbname <<
+        "collection" << collname <<
+        "document" << updated->view()
+        << finalize, client, metadata );
+      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
+
+      return bsoncxx::document::view_or_value{
+          document{} << "document" << updated->view() << "history" << vhd << finalize };
+    };
+
+    const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
+    const auto upd = bsonValue<bsoncxx::document::view>( "update", doc );
+    const auto result = ( *client )[dbname][collname].update_one( filter, updateDoc( upd ), opts );
+    if ( opts.write_concern()->is_acknowledged() )
+    {
+      if ( result )
+      {
+        LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
+        return vhd();
+      }
+      else
+      {
+        LOG_WARN << "Unable to update document " << dbname << ':' << collname
+          << ':' << oid.to_string();
+      }
+    }
+    else
+    {
+      LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
       return vhd();
     }
 
@@ -797,6 +869,16 @@ namespace spt::db::pstorage
     const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", doc );
     if ( !update ) return model::invalidAUpdate();
 
+    auto iter = filter->find( "_id" );
+    if ( iter != filter->end() )
+    {
+      if ( iter->type() == bsoncxx::type::k_oid )
+      {
+        const auto fid = iter->get_oid().value;
+        return updateOneByFilter( model, fid );
+      }
+    }
+
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
     {
@@ -844,7 +926,7 @@ namespace spt::db::pstorage
         << "history" << vh << finalize;
     };
 
-    if ( opts.write_concern()->is_acknowledged())
+    if ( opts.write_concern()->is_acknowledged() )
     {
       if ( result )
       {
