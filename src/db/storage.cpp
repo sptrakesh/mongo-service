@@ -8,6 +8,7 @@
 #include "model/configuration.h"
 #include "model/errors.h"
 #include "model/metric.h"
+#include "queue/queuemanager.h"
 #include "util/bson.h"
 
 #include <bsoncxx/json.hpp>
@@ -1342,18 +1343,7 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
   metric.correlationId = document.correlationId();
   metric.message = bsonValueIfExists<std::string>( "error", value.view() );
   metric.size = value.view().length();
-
-  auto& conf = model::Configuration::instance();
-  auto cliento = Pool::instance().acquire();
-  if ( cliento )
-  {
-    auto& client = *cliento;
-    (*client)[conf.versionHistoryDatabase][conf.metricsCollection].insert_one( metric.bson() );
-  }
-  else
-  {
-    LOG_WARN << "Connection pool exhausted";
-  }
+  queue::QueueManager::instance().publish( std::move( metric ) );
 
   return value;
 }

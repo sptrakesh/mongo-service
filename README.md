@@ -665,6 +665,8 @@ The following are the components used to build this software:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the
 `TCP socket` server implementation.
 * **[MongoCXX](http://mongocxx.org/)** - MongoDB C++ driver.
+* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
+  free concurrent queue implementation for metrics.
 * **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used
 for the server.  I modified the implementation for daily rolling log files.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.

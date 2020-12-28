@@ -15,6 +15,14 @@ namespace spt::model
 {
   struct Metric
   {
+    Metric() = default;
+    ~Metric() = default;
+    Metric( Metric&& ) = default;
+    Metric& operator=( Metric&& ) = default;
+
+    Metric( const Metric& ) = delete;
+    Metric& operator=( const Metric& ) = delete;
+
     std::string action;
     std::string database;
     std::string collection;

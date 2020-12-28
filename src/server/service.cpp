@@ -5,6 +5,8 @@
 #include "service.h"
 #include "server.h"
 #include "model/configuration.h"
+#include "queue/queuemanager.h"
+#include "queue/poller.h"
 #include "log/NanoLog.h"
 
 #include <boost/asio/dispatch.hpp>
@@ -29,16 +31,21 @@ int spt::server::run()
     Server s{ ioc };
 
     std::vector<std::thread> v;
-    v.reserve( configuration.threads - 1 );
+    v.reserve( configuration.threads  );
     for( auto i = configuration.threads - 1; i > 0; --i )
     {
       v.emplace_back( [&ioc] { ioc.run(); } );
     }
 
+    queue::QueueManager::instance();
+    auto poller = queue::Poller{};
+    v.emplace_back( std::thread{ &spt::queue::Poller::run, &poller } );
+
     LOG_INFO << "TCP service started";
     ioc.run();
 
     LOG_INFO << "TCP service stopping";
+    poller.stop();
     for ( auto& t : v ) t.join();
     LOG_INFO << "All I/O threads stopped";
   }
