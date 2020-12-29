@@ -458,14 +458,14 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
-    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
     const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
-    if ( opts.write_concern()->is_acknowledged())
+    if ( opts.write_concern()->is_acknowledged() )
     {
       if ( result )
       {
         LOG_INFO << "Created document " << dbname << ':' << collname << ':'
-                 << idopt->to_string();
+          << idopt->to_string();
         const auto nv = document.skipVersion();
         if ( nv && *nv )
         {
@@ -484,7 +484,7 @@ namespace spt::db::pstorage
     else
     {
       LOG_INFO << "Created document " << dbname << ':' << collname << ':'
-               << idopt->to_string();
+        << idopt->to_string();
       const auto nv = document.skipVersion();
       if ( nv && *nv )
       {

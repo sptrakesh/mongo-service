@@ -23,6 +23,7 @@ namespace spt::model
     Metric( const Metric& ) = delete;
     Metric& operator=( const Metric& ) = delete;
 
+    bsoncxx::oid _id;
     std::string action;
     std::string database;
     std::string collection;

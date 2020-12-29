@@ -14,7 +14,7 @@ QueueManager& QueueManager::instance()
   return mgr;
 }
 
-QueueManager::QueueManager() : ctoken{ queue }
+QueueManager::QueueManager() : token{ queue }
 {
   LOG_INFO << "Queue manager initialised.";
 }
@@ -26,6 +26,6 @@ void QueueManager::publish( Metric&& metric )
 
 bool QueueManager::consume( Metric& metric )
 {
-  return queue.try_dequeue( ctoken, metric );
+  return queue.try_dequeue( token, metric );
 }
 

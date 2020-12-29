@@ -25,6 +25,6 @@ namespace spt::queue
     QueueManager();
 
     moodycamel::ConcurrentQueue<model::Metric> queue;
-    moodycamel::ConsumerToken ctoken;
+    moodycamel::ConsumerToken token;
   };
 }
