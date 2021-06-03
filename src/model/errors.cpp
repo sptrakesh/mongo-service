@@ -97,6 +97,14 @@ bsoncxx::document::view spt::model::notFound()
   return document.view();
 }
 
+bsoncxx::document::view spt::model::transactionError()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Error executing transaction.") );
+  return document.view();
+}
+
 bsoncxx::document::view spt::model::unexpectedError()
 {
   using bsoncxx::document::value;

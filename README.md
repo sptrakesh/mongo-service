@@ -13,6 +13,7 @@
         * [Drop Index](#drop-index)
         * [Bulk Write](#bulk-write)
         * [Aggregation Pipeline](#aggregation-pipeline)
+        * [Transaction](#transaction)
     * [Document Response](#document-response)
     * [Options](#options)
     * [Limitation](#limitation)
@@ -63,28 +64,30 @@ it has been *deleted* or not).
 ## Protocol
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
-* `action` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropIndex|bulk|pipeline`.
-* `database` - The Mongo database the action is to be performed against.
-* `collection` - The Mongo collection the action is to be performed against.
-* `document` - The document payload to associate with the database operation.
+* `action (string)` - The type of database action being performed.  One of 
+  `create|retrieve|update|delete|count|index|dropIndex|bulk|pipeline|transaction`.
+* `database (string)` - The Mongo database the action is to be performed against.
+    - Not needed for `transaction` action.
+* `collection (string)` - The Mongo collection the action is to be performed against.
+    - Not needed for `transaction` action.
+* `document (document)` - The document payload to associate with the database operation.
   For `create` and `update` this is assumed to be the documet that is being saved.
   For `retrieve` or `count` this is the *query* to execute.  For `delete` this
   is a simple `document` with an `_id` field.
-* `options` - The options to associate with the Mongo request.  These correspond
+* `options (document)` - The options to associate with the Mongo request.  These correspond
   to the appropriate options as used by the Mongo driver.
-* `metadata` - Optional *metadata* to attach to the version history document that
+* `metadata (document)` - Optional *metadata* to attach to the version history document that
   is created (not relevant for `retrieve` obviously).  This typically will include
   information about the user performing the action, any other information as
   relevant in the system that uses this service.
 * `application` - Optional name of the *application* accessing the service.
   Helps to retrieve database metrics for a specific *application*.
-* `correlationId` - Optional *correlation id* to associate with the metric record
+* `correlationId (string)` - Optional *correlation id* to associate with the metric record
   created by this action.  This is useful for tracing logs originating from a single
   operation/request within the overall system.  This value is stored as a *string*
   value in the *metric* document to allow for sensible data types to used as the
   *correlation id*.
-* `skipVersion` - Optional `bool` value to indicate not to create a *version history*
+* `skipVersion (bool)` - Optional `bool` value to indicate not to create a *version history*
   document for this `action`.  Useful when creating non-critical data such as
   logs.
 
@@ -427,9 +430,25 @@ Basic support for using *aggregation pipeline* features.  This feature will be
 expanded as use cases expand over a period of time.  At present, only simple
 *match* and *group* combination is implemented.
 
-The `document` in the payload must include two sub-documents with the `match`
+The `document` in the payload **must** include two sub-documents with the `match`
 and `group` specifications.  The matching documents will be returned in a
 `results` array in the response.
+
+#### Transaction
+Execute a sequence of actions in a **transaction**.  Nest the individual actions
+that are to be performed in the **transaction** within the `document` sub-document.
+
+The `document` in the payload **must** include a `steps` *array* of documents.
+Each document in the array represents the full specification for the *step* in
+the *transaction*.  The *document* specification is very similar to the normal
+*document* specification for using the service.
+
+The specification for the *step* document in the `steps` array is:
+* `action (string)` - The type of action to perform.  Should be one of `create|update|delete`.
+* `database (string)` - The database in which the *step* is to be performed.
+* `collection (string)` - The collection in which the *step* is to be performed.
+* `document (document)` - The BSON specification for executing the `action`.
+* `skipVersion (bool)` - Do not create version history document for this action.
 
 ### Document Response
 Create, update and delete actions only return some meta information about the

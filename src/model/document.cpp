@@ -11,10 +11,12 @@
 
 using spt::model::Document;
 
-Document::Document( const boost::asio::streambuf& buffer, std::size_t length )
+Document::Document( const boost::asio::streambuf& buffer, std::size_t length ) :
+    view{ bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), length ) }
 {
-  view = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), length );
 }
+
+Document::Document( bsoncxx::document::view view ) : view{ view } {}
 
 std::optional<bsoncxx::document::view> Document::bson() const
 {
@@ -23,7 +25,7 @@ std::optional<bsoncxx::document::view> Document::bson() const
 
 bool spt::model::Document::valid() const
 {
-  if (!view) return false;
+  if ( !view ) return false;
 
   auto find = [this]( std::string_view key )
   {
@@ -33,8 +35,16 @@ bool spt::model::Document::valid() const
     return result;
   };
 
-  return find( "action" ) && find( "database" ) &&
-    find( "collection" ) && find( "document" );
+  const auto action = util::bsonValueIfExists<std::string>( "action", *view );
+  if ( !action )
+  {
+    LOG_DEBUG << "Document does not have action property";
+    return false;
+  }
+
+  return action == "transaction" ? find( "document" ) :
+    find( "action" ) && find( "database" ) &&
+      find( "collection" ) && find( "document" );
 }
 
 std::string spt::model::Document::action() const

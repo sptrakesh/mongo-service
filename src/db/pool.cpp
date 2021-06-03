@@ -52,7 +52,7 @@ std::optional<mongocxx::pool::entry> Pool::acquire()
     return std::nullopt;
   }
 
-  auto status = future.wait_for( std::chrono::milliseconds{ 100 } );
+  auto status = future.wait_for( std::chrono::seconds { 1 } );
   if ( status == std::future_status::ready ) return future.get();
 
   LOG_WARN << "Future timed out";
@@ -82,11 +82,7 @@ void spt::db::Pool::index()
     vdb[config.versionHistoryCollection].create_index(
         document{} << "collection" << 1 << finalize );
     vdb[config.versionHistoryCollection].create_index(
-        document{} << "action" << 1 << finalize );
-    vdb[config.versionHistoryCollection].create_index(
         document{} << "entity._id" << 1 << finalize );
-    vdb[config.versionHistoryCollection].create_index(
-        document{} << "created" << 1 << finalize );
 
     auto mdb = ( *client )[config.metricsDatabase];
     mdb[config.metricsCollection].create_index(

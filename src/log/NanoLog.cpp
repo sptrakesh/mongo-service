@@ -293,7 +293,15 @@ namespace nanolog
 
   NanoLogLine& NanoLogLine::operator<<(std::string_view arg)
   {
-    encode_c_string(arg.data(), arg.length());
+    const auto length = arg.size();
+    resize_buffer_if_needed(1 + length + 1);
+    char * b = buffer();
+    auto type_id = TupleIndex < char *, SupportedTypes >::value;
+    *reinterpret_cast<uint8_t*>(b++) = static_cast<uint8_t>(type_id);
+    memcpy(b, arg.data(), length);
+    memset(b + length, 0, 1);
+    m_bytes_used += 1 + length + 1;
+
     return *this;
   }
 

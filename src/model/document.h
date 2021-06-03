@@ -14,6 +14,7 @@ namespace spt::model
   struct Document
   {
     explicit Document( const boost::asio::streambuf& buffer, std::size_t length );
+    explicit Document( bsoncxx::document::view view );
     ~Document() = default;
     Document(Document&&) = default;
     Document& operator=(Document&&) = default;

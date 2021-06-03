@@ -373,12 +373,11 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
-    const auto res = ( *client )[dbname][collname].find_one(
-        document{} << "_id" << id << finalize, opts );
+    const auto res = ( *client )[dbname][collname].find_one( doc, opts );
     if ( res ) return document{} << "result" << res->view() << finalize;
 
     LOG_WARN << "Document not found: " << dbname << ':' << collname << ':'
-             << id.to_string();
+      << id.to_string() << ". " << bsoncxx::to_json( doc );
     return model::notFound();
   }
 
@@ -408,12 +407,33 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
-    auto cursor = ( *client )[model.database()][model.collection()].find( doc,
-        opts );
+    auto cursor = ( *client )[model.database()][model.collection()].find( doc, opts );
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto&& d : cursor ) array.append( d );
     return bsoncxx::builder::basic::make_document( kvp( "results", array ));
+  }
+
+  mongocxx::options::insert insertOpts( const model::Document& document )
+  {
+    using spt::util::bsonValueIfExists;
+
+    const auto options = document.options();
+    auto opts = mongocxx::options::insert{};
+    if ( options )
+    {
+      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
+      if ( validate ) opts.bypass_document_validation( *validate );
+
+      auto ordered = bsonValueIfExists<bool>( "ordered", *options );
+      if ( ordered ) opts.ordered( *ordered );
+
+      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
+          *options );
+      if ( wc ) opts.write_concern( writeConcern( *wc ));
+    }
+
+    return opts;
   }
 
   bsoncxx::document::view_or_value create( const model::Document& document )
@@ -435,21 +455,6 @@ namespace spt::db::pstorage
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
     if ( !idopt ) return model::missingId();
 
-    const auto options = document.options();
-    auto opts = mongocxx::options::insert{};
-    if ( options )
-    {
-      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
-      if ( validate ) opts.bypass_document_validation( *validate );
-
-      auto ordered = bsonValueIfExists<bool>( "ordered", *options );
-      if ( ordered ) opts.ordered( *ordered );
-
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-          *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ));
-    }
-
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
     {
@@ -458,7 +463,10 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
+
+    auto opts = insertOpts( document );
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
+
     const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
     if ( opts.write_concern()->is_acknowledged() )
     {
@@ -614,15 +622,14 @@ namespace spt::db::pstorage
       const auto updated = ( *client )[dbname][collname].find_one(
           document{} << "_id" << oid << finalize );
       if ( !updated ) return model::notFound();
-      if ( bsonValueIfExists<std::string>( "error", *updated ))
-        return { updated.value() };
+      if ( bsonValueIfExists<std::string>( "error", *updated ) ) return { updated.value() };
 
       auto vhd = history( document{} << "action" << "update" <<
         "database" << dbname <<
         "collection" << collname <<
         "document" << updated->view()
         << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
 
       return bsoncxx::document::view_or_value{
         document{} << "document" << updated->view() << "history" << vhd
@@ -669,6 +676,7 @@ namespace spt::db::pstorage
     const auto collname = model.collection();
     const auto metadata = model.metadata();
     const auto skip = model.skipVersion();
+    const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
 
     auto opts = updateOptions( model );
     auto cliento = Pool::instance().acquire();
@@ -681,12 +689,11 @@ namespace spt::db::pstorage
     auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
     {
       if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
 
-      const auto updated = ( *client )[dbname][collname].find_one(
-          document{} << "_id" << oid << finalize );
+      const auto updated = ( *client )[dbname][collname].find_one( filter );
       if ( !updated ) return model::notFound();
       if ( bsonValueIfExists<std::string>( "error", *updated ))
         return { updated.value() };
@@ -702,7 +709,6 @@ namespace spt::db::pstorage
           document{} << "document" << updated->view() << "history" << vhd << finalize };
     };
 
-    const auto filter = bsonValue<bsoncxx::document::view>( "filter", doc );
     const auto upd = bsonValue<bsoncxx::document::view>( "update", doc );
     const auto result = ( *client )[dbname][collname].update_one( filter, updateDoc( upd ), opts );
     if ( opts.write_concern()->is_acknowledged() )
@@ -1004,8 +1010,7 @@ namespace spt::db::pstorage
 
     const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip]( auto d )
     {
-      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip](
-          auto d )
+      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip]( auto d )
       {
         if ( skip && *skip ) return;
 
@@ -1227,12 +1232,150 @@ namespace spt::db::pstorage
       return model::poolExhausted();
     }
 
-    auto& client = *cliento;
+    const auto& client = *cliento;
     auto aggregate = ( *client )[dbname][collname].aggregate( pipeline );
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto&& d : aggregate ) array.append( d );
     return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
+  }
+
+  bsoncxx::document::view_or_value transaction( const model::Document& model )
+  {
+    using spt::util::bsonValue;
+    using spt::util::bsonValueIfExists;
+
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::open_document;
+    using bsoncxx::builder::stream::close_document;
+    using bsoncxx::builder::stream::finalize;
+
+    LOG_DEBUG << "Executing transaction";
+    const auto array = util::bsonValueIfExists<bsoncxx::array::view>( "items", model.document() );
+    if ( !array )
+    {
+      LOG_WARN << "No items array in transaction payload";
+      return model::missingField();
+    }
+
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    const auto& client = *cliento;
+    const auto& conf = model::Configuration::instance();
+    const auto now = std::chrono::system_clock::now();
+    auto vhidc = bsoncxx::builder::basic::array{};
+    auto vhidd = bsoncxx::builder::basic::array{};
+    auto created = 0;
+    auto deleted = 0;
+    auto updated = 0;
+
+    const auto cb = [&]( mongocxx::client_session* session )
+    {
+      for ( auto&& d : *array )
+      {
+        const auto doc = model::Document{ d.get_document().view() };
+        if ( !doc.valid() ) continue;
+
+        const auto dv = doc.document();
+        const auto action = doc.action();
+        const auto dbname = doc.database();
+        const auto collname = doc.collection();
+        const auto skip = doc.skipVersion();
+
+        const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+        if ( !idopt )
+        {
+          LOG_WARN << "Document id not specified " << doc.json();
+          session->abort_transaction();
+          break;
+        }
+
+        if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
+        {
+          LOG_WARN << "Attempting to create in version history " << doc.json();
+          session->abort_transaction();
+          break;
+        }
+
+        if ( action == "create" )
+        {
+          ( *client )[dbname][collname].insert_one( *session, dv );
+          ++created;
+
+          if ( !skip || !*skip )
+          {
+            auto oid = bsoncxx::oid{};
+            ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+                *session,
+                document{} <<
+                  "_id" << oid <<
+                  "database" << dbname <<
+                  "collection" << collname <<
+                  "action" << action <<
+                  "entity" << dv <<
+                  "created" << bsoncxx::types::b_date{ now } <<
+                  finalize );
+            vhidc.append( oid );
+          }
+        }
+        else if ( doc.action() == "update" )
+        {
+        }
+        else if ( doc.action() == "delete" )
+        {
+          if ( !skip || !*skip )
+          {
+            auto results = ( *client )[dbname][collname].find( *session, dv );
+            for ( auto&& e : results )
+            {
+              auto oid = bsoncxx::oid{};
+              ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+                  *session,
+                  document{} <<
+                    "_id" << oid <<
+                    "database" << dbname <<
+                    "collection" << collname <<
+                    "action" << action <<
+                    "entity" << e <<
+                    "created" << bsoncxx::types::b_date{ now } <<
+                    finalize );
+              vhidd.append( oid );
+            }
+          }
+
+          auto dr = ( *client )[dbname][collname].delete_many( *session, dv );
+          if ( dr ) deleted += dr->deleted_count();
+          else ++deleted;
+        }
+      }
+    };
+
+    auto session = client->start_session();
+    try
+    {
+      session.with_transaction( cb );
+    }
+    catch ( const mongocxx::exception& e )
+    {
+      LOG_WARN << "Error executing transaction " << e.what();
+      return model::transactionError();
+    }
+
+    return document{} <<
+      "created" << created <<
+      "updated" << updated <<
+      "deleted" << deleted <<
+      "versionHistory" <<
+        open_document <<
+          "created" << vhidc.extract() <<
+          "deleted" << vhidd.extract() <<
+        close_document <<
+      finalize;
   }
 
   bsoncxx::document::view_or_value process( const model::Document& document )
@@ -1277,6 +1420,10 @@ namespace spt::db::pstorage
       else if ( action == "pipeline" )
       {
         return pipeline( document );
+      }
+      else if ( action == "transaction" )
+      {
+        return transaction( document );
       }
 
       return bsoncxx::document::value{ model::invalidAction() };
