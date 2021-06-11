@@ -123,6 +123,9 @@ namespace spt::db::pstorage
 
     if ( options )
     {
+      const auto collation = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
+      if ( collation ) opts.collation( *collation );
+
       const auto background = bsonValueIfExists<bool>( "background", *options );
       if ( background ) opts.background( *background );
 
