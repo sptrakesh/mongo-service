@@ -201,31 +201,8 @@ namespace spt::db::pstorage
 
     const auto doc = model.document();
     const auto dbname = model.database();
+    const auto collname = model.collection();
     const auto options = model.options();
-
-    auto cmd = document{};
-    cmd << "dropIndexes" << model.collection();
-
-    const auto name = bsonValueIfExists<std::string>( "name", doc );
-    if ( name ) cmd << "index" << *name;
-
-    const auto spec = bsonValueIfExists<bsoncxx::document::view>(
-        "specification", doc );
-    if ( spec ) cmd << "index" << *spec;
-
-    const auto names = bsonValueIfExists<bsoncxx::array::view>( "names",
-        doc );
-    if ( names ) cmd << "index" << *names;
-
-    if ( options )
-    {
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-          *options );
-      if ( wc ) cmd << "writeConcern" << writeConcern( *wc ).to_document();
-
-      auto comment = bsonValueIfExists<std::string>( "comment", *options );
-      if ( comment ) cmd << "comment" << *comment;
-    }
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
@@ -235,7 +212,43 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
-    return ( *client )[dbname].run_command( cmd << finalize );
+
+    const auto name = bsonValueIfExists<std::string>( "name", doc );
+    if ( name )
+    {
+      try
+      {
+        ( *client )[dbname][collname].indexes().drop_one( *name );
+      }
+      catch ( const mongocxx::exception& ex )
+      {
+        LOG_WARN << "Error dropping index " << *name << ". " << ex.what();
+        std::string m{ ex.what() };
+        return model::withMessage( m );
+      }
+    }
+
+    const auto spec = bsonValueIfExists<bsoncxx::document::view>( "specification", doc );
+    if ( spec )
+    {
+      try
+      {
+        if ( options )
+        {
+          ( *client )[dbname][collname].indexes().drop_one(
+              *spec, indexOpts( model ) );
+        }
+        else ( *client )[dbname][collname].indexes().drop_one( *spec );
+      }
+      catch ( const mongocxx::exception& ex )
+      {
+        LOG_WARN << "Error dropping index " << *name << ". " << ex.what() << ". " << bsoncxx::to_json( *spec );
+        std::string m{ ex.what() };
+        return model::withMessage( m );
+      }
+    }
+
+    return document{} << "dropIndex" << true << finalize;
   }
 
   bsoncxx::document::view_or_value count( const model::Document& model )
@@ -299,38 +312,33 @@ namespace spt::db::pstorage
       const auto size = bsonValueIfExists<int32_t>( "batchSize", *options );
       if ( size ) opts.batch_size( *size );
 
-      const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation",
-          *options );
+      const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options );
       if ( co ) opts.collation( *co );
 
       const auto com = bsonValueIfExists<std::string>( "comment", *options );
       if ( com ) opts.comment( *com );
 
-      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint",
-          *options );
+      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *options );
       if ( hint ) opts.hint( { *hint } );
 
       const auto limit = bsonValueIfExists<int64_t>( "limit", *options );
       if ( limit ) opts.limit( *limit );
 
-      const auto max = bsonValueIfExists<bsoncxx::document::view>( "max",
-          *options );
+      const auto max = bsonValueIfExists<bsoncxx::document::view>( "max", *options );
       if ( max ) opts.max( *max );
 
       const auto maxTime = bsonValueIfExists<std::chrono::milliseconds>(
           "maxTime", *options );
       if ( maxTime ) opts.max_time( *maxTime );
 
-      const auto min = bsonValueIfExists<bsoncxx::document::view>( "min",
-          *options );
+      const auto min = bsonValueIfExists<bsoncxx::document::view>( "min", *options );
       if ( min ) opts.min( *min );
 
       const auto projection = bsonValueIfExists<bsoncxx::document::view>(
           "projection", *options );
       if ( projection ) opts.projection( *projection );
 
-      const auto rp = bsonValueIfExists<int32_t>( "readPreference",
-          *options );
+      const auto rp = bsonValueIfExists<int32_t>( "readPreference", *options );
       if ( rp )
       {
         auto p = mongocxx::read_preference{};
@@ -347,8 +355,7 @@ namespace spt::db::pstorage
       const auto skip = bsonValueIfExists<int64_t>( "skip", *options );
       if ( skip ) opts.skip( *skip );
 
-      const auto sort = bsonValueIfExists<bsoncxx::document::view>( "sort",
-          *options );
+      const auto sort = bsonValueIfExists<bsoncxx::document::view>( "sort", *options );
       if ( sort ) opts.sort( *sort );
     }
 

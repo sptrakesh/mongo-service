@@ -374,7 +374,6 @@ via the optional `options` sub-document.
 One of the following properties **must** be specified in the `document`:
 * `name` - The `name` of the *index* to drop.  Should be a `string` value.
 * `specification` - The full document specification of the index that was created.
-* `names` - An *array* of index names to drop.
 
 #### Bulk Write
 Bulk insert/delete documents.  Corresponding version history documents for
