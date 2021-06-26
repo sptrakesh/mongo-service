@@ -65,7 +65,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action (string)` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropIndex|bulk|pipeline|transaction`.
+  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction`.
 * `database (string)` - The Mongo database the action is to be performed against.
     - Not needed for `transaction` action.
 * `collection (string)` - The Mongo collection the action is to be performed against.
@@ -358,6 +358,26 @@ Sample delete response:
     }
   }]
 }
+```
+
+#### Drop Collection
+Drop the specified collection and all its containing documents.  Specify an
+empty `document` in the payload to satisfy payload requirements.  Specify the
+*write concern* settings in the optional `options` sub-document.
+
+Sample count payload:
+```json
+{
+  "action": "dropCollection",
+  "database": "itest",
+  "collection": "test",
+  "document": {}
+}
+```
+
+Sample response:
+```json
+{ "dropCollection" : true }
 ```
 
 #### Index

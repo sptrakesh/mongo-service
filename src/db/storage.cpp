@@ -251,6 +251,28 @@ namespace spt::db::pstorage
     return document{} << "dropIndex" << true << finalize;
   }
 
+  bsoncxx::document::view_or_value dropCollection( const model::Document& model )
+  {
+    using util::bsonValueIfExists;
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
+
+    const auto dbname = model.database();
+    const auto collname = model.collection();
+    const auto opts = model.options();
+
+    auto cliento = Pool::instance().acquire();
+    if ( !cliento )
+    {
+      LOG_WARN << "Connection pool exhausted";
+      return model::poolExhausted();
+    }
+
+    auto& client = *cliento;
+    ( *client )[dbname][collname].drop( opts ? writeConcern( *opts ) : mongocxx::write_concern{} );
+    return document{} << "dropCollection" << true << finalize;
+  }
+
   bsoncxx::document::view_or_value count( const model::Document& model )
   {
     using util::bsonValueIfExists;
@@ -1422,6 +1444,10 @@ namespace spt::db::pstorage
       else if ( action == "dropIndex" )
       {
         return dropIndex( document );
+      }
+      else if ( action == "dropCollection" )
+      {
+        return dropCollection( document );
       }
       else if ( action == "bulk" )
       {
