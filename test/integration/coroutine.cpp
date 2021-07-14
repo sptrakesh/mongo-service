@@ -1,7 +1,8 @@
 //
-// Created by Rakesh on 22/07/2020.
+// Created by Rakesh on 14/07/2021.
 //
 #include "catch.hpp"
+#include "coro_io.hpp"
 #include "../../src/util/bson.h"
 
 #include <boost/asio/connect.hpp>
@@ -14,10 +15,11 @@
 #include <bsoncxx/builder/basic/document.hpp>
 
 #include <iostream>
+#include <vector>
 
 using tcp = boost::asio::ip::tcp;
 
-namespace spt::itest::crud
+namespace spt::itest::coro
 {
   const auto oid = bsoncxx::oid{};
   std::string vhdb;
@@ -26,7 +28,7 @@ namespace spt::itest::crud
   int64_t count = 0;
 }
 
-SCENARIO( "Simple CRUD test suite", "[crud]" )
+SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 {
   boost::asio::io_context ioc;
 
@@ -34,32 +36,38 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
   {
     tcp::socket s( ioc );
     tcp::resolver resolver( ioc );
-    boost::asio::connect( s, resolver.resolve( "localhost", "2020" ) );
+    auto eps = resolver.resolve( "localhost", "2020" );
+    for ( auto ep : eps )
+    {
+      auto err = co_await coro_io::async_connect<coro_io::ResumeIn::other_thread>( s, ep.endpoint(), boost::posix_time::seconds(1) );
+      REQUIRE( !err );
+    }
 
     WHEN( "Creating a document" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "create" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document(
-              kvp( "key", "value" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "key", "value" ), kvp( "_id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -67,11 +75,11 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( option->find( "collection" ) != option->end() );
       REQUIRE( option->find( "entity" ) != option->end() );
       REQUIRE( option->find( "_id" ) != option->end() );
-      REQUIRE( (*option)["entity"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( (*option)["entity"].get_oid().value == spt::itest::coro::oid );
 
-      spt::itest::crud::vhdb = spt::util::bsonValue<std::string>( "database", *option );
-      spt::itest::crud::vhc = spt::util::bsonValue<std::string>( "collection", *option );
-      spt::itest::crud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", *option );
+      spt::itest::coro::vhdb = spt::util::bsonValue<std::string>( "database", *option );
+      spt::itest::coro::vhc = spt::util::bsonValue<std::string>( "collection", *option );
+      spt::itest::coro::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", *option );
     }
 
     AND_THEN( "Retrieving count of documents" )
@@ -79,8 +87,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
@@ -88,22 +95,24 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document() ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
       REQUIRE( count );
-      spt::itest::crud::count = *count;
+      spt::itest::coro::count = *count;
     }
 
     THEN( "Retrieving the document by id" )
@@ -111,24 +120,25 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
+          kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -136,7 +146,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( option->find( "results" ) == option->end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", *option );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( dv["_id"].get_oid().value == spt::itest::coro::oid );
       const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
       REQUIRE( key );
       REQUIRE( key == "value" );
@@ -147,8 +157,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
@@ -156,15 +165,17 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document( kvp( "key", "value" ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -177,7 +188,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       for ( auto e : arr )
       {
         const auto dv = e.get_document().view();
-        if ( dv["_id"].get_oid().value == spt::itest::crud::oid ) found = true;
+        if ( dv["_id"].get_oid().value == spt::itest::coro::oid ) found = true;
         const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
         REQUIRE( key );
         REQUIRE( key == "value" );
@@ -190,24 +201,25 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::crud::vhdb ),
-          kvp( "collection", spt::itest::crud::vhc ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::vhoid ) ) ) );
+          kvp( "database", spt::itest::coro::vhdb ),
+          kvp( "collection", spt::itest::coro::vhc ),
+          kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::vhoid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -215,11 +227,11 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( option->find( "results" ) == option->end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", *option );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
+      REQUIRE( dv["_id"].get_oid().value == spt::itest::coro::vhoid );
 
       const auto entity = spt::util::bsonValueIfExists<bsoncxx::document::view>( "entity", dv );
       REQUIRE( entity );
-      REQUIRE( (*entity)["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( (*entity)["_id"].get_oid().value == spt::itest::coro::oid );
     }
 
     AND_THEN( "Retrieve the version history document by entity id" )
@@ -227,24 +239,25 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::crud::vhdb ),
-          kvp( "collection", spt::itest::crud::vhc ),
-          kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::crud::oid ) ) ) );
+          kvp( "database", spt::itest::coro::vhdb ),
+          kvp( "collection", spt::itest::coro::vhc ),
+          kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -258,10 +271,10 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       for ( auto e : arr )
       {
         const auto dv = e.get_document().view();
-        REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
+        REQUIRE( dv["_id"].get_oid().value == spt::itest::coro::vhoid );
 
         const auto ev = spt::util::bsonValue<bsoncxx::document::view>( "entity", dv );
-        REQUIRE( ev["_id"].get_oid().value == spt::itest::crud::oid );
+        REQUIRE( ev["_id"].get_oid().value == spt::itest::coro::oid );
         const auto key = spt::util::bsonValueIfExists<std::string>( "key", ev );
         REQUIRE( key );
         REQUIRE( key == "value" );
@@ -275,8 +288,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
@@ -284,18 +296,20 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document(
               kvp( "key1", "value1" ),
               kvp( "date", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
-              kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "_id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -303,7 +317,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
       REQUIRE( doc );
       REQUIRE( doc->find( "_id" ) != doc->end() );
-      REQUIRE( (*doc)["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( (*doc)["_id"].get_oid().value == spt::itest::coro::oid );
 
       auto key = spt::util::bsonValueIfExists<std::string>( "key", *doc );
       REQUIRE( key );
@@ -319,26 +333,27 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "skipVersion", true ),
           kvp( "document", basic::make_document(
-              kvp( "key1", "value1" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "key1", "value1" ), kvp( "_id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
@@ -356,22 +371,25 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "delete" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
+          kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::oid ) ) ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      REQUIRE( isize != osize );
+
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << std::endl;
       REQUIRE( option->find( "error" ) == option->end() );
@@ -384,8 +402,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
+      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
@@ -393,22 +410,24 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document() ) );
       os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
+      auto rbuf = std::vector<unsigned char>{};
+      rbuf.reserve( 8 );
+      auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
+      REQUIRE( !werr );
 
       REQUIRE( isize != osize );
 
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
       std::cout << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
       REQUIRE( count );
-      REQUIRE( spt::itest::crud::count > *count );
+      REQUIRE( spt::itest::coro::count > *count );
     }
 
     s.close();
