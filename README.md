@@ -707,6 +707,8 @@ The following are the components used to build this software:
   free concurrent queue implementation for metrics.
 * **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used
 for the server.  I modified the implementation for daily rolling log files.
+* **[coro_io](https://github.com/JCYang/coro_io)** - C++20 coroutine (or coroutine-ts)
+  wrapper for `boost::asio`.  Used in integration test to ensure it works.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
 * **[Catch2](https://github.com/catchorg/Catch2)** - Unit testing framework.
 * **[hayai](https://github.com/nickbruun/hayai)** - Performance testing framework.

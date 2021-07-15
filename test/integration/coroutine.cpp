@@ -5,7 +5,6 @@
 #include "coro_io.hpp"
 #include "../../src/util/bson.h"
 
-#include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -34,34 +33,37 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
   GIVEN( "Connected to Mongo Service" )
   {
+    boost::system::error_code ec;
     tcp::socket s( ioc );
     tcp::resolver resolver( ioc );
-    auto eps = resolver.resolve( "localhost", "2020" );
-    for ( auto ep : eps )
+    auto eps = resolver.resolve( "localhost", "2020", ec );
+    REQUIRE( !ec );
+
+    for ( auto&& ep : eps )
     {
       auto err = co_await coro_io::async_connect<coro_io::ResumeIn::other_thread>( s, ep.endpoint(), boost::posix_time::seconds(1) );
       REQUIRE( !err );
     }
+
+    auto rbuf = std::vector<unsigned char>{};
+    rbuf.reserve( 8 ); // ensure vector dynamically grows as needed
 
     WHEN( "Creating a document" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "create" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document(
               kvp( "key", "value" ), kvp( "_id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -69,7 +71,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "database" ) != option->end() );
       REQUIRE( option->find( "collection" ) != option->end() );
@@ -87,27 +89,24 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
-      REQUIRE( !werr );
+      REQUIRE( !rerr );
 
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
@@ -120,19 +119,16 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -140,7 +136,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -157,19 +153,16 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "key", "value" ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -177,7 +170,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -201,19 +194,16 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::coro::vhdb ),
           kvp( "collection", spt::itest::coro::vhc ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::vhoid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -221,7 +211,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -239,19 +229,16 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::coro::vhdb ),
           kvp( "collection", spt::itest::coro::vhc ),
           kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -259,7 +246,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -288,7 +275,6 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
@@ -297,13 +283,11 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
               kvp( "key1", "value1" ),
               kvp( "date", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
               kvp( "_id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -311,7 +295,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -333,7 +317,6 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
@@ -341,13 +324,11 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
           kvp( "skipVersion", true ),
           kvp( "document", basic::make_document(
               kvp( "key1", "value1" ), kvp( "_id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -355,7 +336,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -371,19 +352,16 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "delete" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::coro::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -391,30 +369,27 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << std::endl;
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << std::endl;
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "success" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
     }
 
-    AND_THEN( "Retriving count of documents after delete" )
+    AND_THEN( "Retrieving count of documents after delete" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      std::ostringstream os;
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( os.str() ), boost::posix_time::seconds(2) );
+      auto [werr, isize] = co_await coro_io::async_write<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( document.view().data(), document.view().length() ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
-      auto rbuf = std::vector<unsigned char>{};
-      rbuf.reserve( 8 );
+      rbuf.clear();
       auto[rerr, osize] = co_await coro_io::async_read<coro_io::ResumeIn::this_thread>( s, boost::asio::buffer( rbuf ), boost::posix_time::seconds(2) );
       REQUIRE( !werr );
 
@@ -422,7 +397,7 @@ SCENARIO( "Simple CRUD test suite using coroutine", "[coro]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[coro] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );

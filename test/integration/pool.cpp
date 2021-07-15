@@ -20,23 +20,6 @@ using tcp = boost::asio::ip::tcp;
 
 namespace spt::itest::pool
 {
-  struct InitLogger
-  {
-    static InitLogger& instance()
-    {
-      static InitLogger lg;
-      return lg;
-    }
-
-    ~InitLogger() = default;
-
-  private:
-    InitLogger()
-    {
-      nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp", "pool-test", true );
-    }
-  };
-
   struct Connection
   {
     Connection( boost::asio::io_context& ioc, std::string_view h, std::string_view p ) :
@@ -135,8 +118,6 @@ namespace spt::itest::pool
 
 SCENARIO( "Simple connection pool test suite", "[pool]" )
 {
-  spt::itest::pool::InitLogger::instance();
-
   GIVEN( "A connection pool to Mongo Service" )
   {
     auto config = spt::pool::Configuration{};
