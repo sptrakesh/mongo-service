@@ -88,7 +88,7 @@ namespace spt::server::coroutine
 
     if ( docSize <= bufSize )
     {
-      auto doc = co_await model::parseDocument( reinterpret_cast<const uint8_t*>( data ), docSize );
+      auto doc = model::Document{ reinterpret_cast<const uint8_t*>( data ), docSize };
       co_await process( socket, doc );
       co_return;
     }
@@ -105,7 +105,7 @@ namespace spt::server::coroutine
       read += osize;
     }
 
-    auto doc = co_await model::parseDocument( reinterpret_cast<const uint8_t*>( rbuf.data() ), docSize );
+    auto doc = model::Document{ reinterpret_cast<const uint8_t*>( rbuf.data() ), docSize };
     co_await process( socket, doc );
   }
 
@@ -120,7 +120,8 @@ namespace spt::server::coroutine
     }
     catch ( const std::exception& e )
     {
-      LOG_DEBUG << "Exception servicing request " << e.what();
+      static const std::string eof{ "End of file" };
+      if ( eof != e.what() ) LOG_WARN << "Exception servicing request " << e.what();
     }
   }
 

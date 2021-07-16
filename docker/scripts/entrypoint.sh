@@ -55,6 +55,12 @@ Defaults()
     LOG_LEVEL="info"
     echo "LOG_LEVEL not set.  Will default to $LOG_LEVEL"
   fi
+
+  if [ -z "$LOG_ASYNC" ]
+  then
+    LOG_ASYNC="true"
+    echo "LOG_ASYNC not set.  Will default to $LOG_ASYNC"
+  fi
 }
 
 Service()
@@ -72,7 +78,7 @@ Service()
     --version-history-collection $VERSION_HISTORY_COLLECTION \
     --metric-database $METRIC_DATABASE \
     --metric-collection $METRIC_COLLECTION \
-    --port $PORT --threads $THREADS --log-level $LOG_LEVEL
+    --port $PORT --threads $THREADS --log-level $LOG_LEVEL --log-async $LOG_ASYNC
 }
 
 Check && Defaults && Service

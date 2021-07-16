@@ -22,7 +22,9 @@
 
 namespace spt::db::pstorage
 {
-  bsoncxx::document::view_or_value history( bsoncxx::document::view view,
+  using boost::asio::awaitable;
+
+  awaitable<bsoncxx::document::view_or_value> history( bsoncxx::document::view view,
       mongocxx::pool::entry& client,
       std::optional<bsoncxx::document::view> metadata = std::nullopt )
   {
@@ -47,8 +49,7 @@ namespace spt::db::pstorage
       "created" << bsoncxx::types::b_date{ std::chrono::system_clock::now() };
     if ( metadata ) d << "metadata" << *metadata;
 
-    const auto vr = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
-        d << finalize );
+    const auto vr = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one( d << finalize );
     if ( client->write_concern().is_acknowledged())
     {
       if ( vr )
@@ -56,7 +57,7 @@ namespace spt::db::pstorage
         LOG_INFO <<
           "Created version for " << dbname << ':' << collname << ':' <<
           id.to_string() << " with id: " << oid.to_string();
-        return document{} << "_id" << oid <<
+        co_return document{} << "_id" << oid <<
           "database" << conf.versionHistoryDatabase <<
           "collection" << conf.versionHistoryCollection <<
           "entity" << id << finalize;
@@ -73,13 +74,13 @@ namespace spt::db::pstorage
       LOG_INFO
         << "Created version for " << dbname << ':' << collname << ':' <<
         id.to_string() << " with id: " << oid.to_string();
-      return document{} << "_id" << oid <<
+      co_return document{} << "_id" << oid <<
         "database" << conf.versionHistoryDatabase <<
         "collection" << conf.versionHistoryCollection <<
         "entity" << id << finalize;
     }
 
-    return model::createVersionFailed();
+    co_return model::createVersionFailed();
   }
 
   mongocxx::write_concern writeConcern( bsoncxx::document::view view )
@@ -172,7 +173,7 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value index( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> index( const model::Document& model )
   {
     const auto doc = model.document();
     const auto dbname = model.database();
@@ -184,16 +185,16 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
-    return options ?
+    co_return options ?
         ( *client )[dbname][collname].create_index( doc, indexOpts( model ) ) :
         ( *client )[dbname][collname].create_index( doc );
   }
 
-  bsoncxx::document::view_or_value dropIndex( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> dropIndex( const model::Document& model )
   {
     using util::bsonValueIfExists;
     using bsoncxx::builder::stream::document;
@@ -208,7 +209,7 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -224,7 +225,7 @@ namespace spt::db::pstorage
       {
         LOG_WARN << "Error dropping index " << *name << ". " << ex.what();
         std::string m{ ex.what() };
-        return model::withMessage( m );
+        co_return model::withMessage( m );
       }
     }
 
@@ -244,14 +245,14 @@ namespace spt::db::pstorage
       {
         LOG_WARN << "Error dropping index " << *name << ". " << ex.what() << ". " << bsoncxx::to_json( *spec );
         std::string m{ ex.what() };
-        return model::withMessage( m );
+        co_return model::withMessage( m );
       }
     }
 
-    return document{} << "dropIndex" << true << finalize;
+    co_return document{} << "dropIndex" << true << finalize;
   }
 
-  bsoncxx::document::view_or_value dropCollection( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> dropCollection( const model::Document& model )
   {
     using util::bsonValueIfExists;
     using bsoncxx::builder::stream::document;
@@ -265,15 +266,15 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     ( *client )[dbname][collname].drop( opts ? writeConcern( *opts ) : mongocxx::write_concern{} );
-    return document{} << "dropCollection" << true << finalize;
+    co_return document{} << "dropCollection" << true << finalize;
   }
 
-  bsoncxx::document::view_or_value count( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> count( const model::Document& model )
   {
     using util::bsonValueIfExists;
     using bsoncxx::builder::stream::document;
@@ -286,19 +287,16 @@ namespace spt::db::pstorage
     auto options = mongocxx::options::count{};
     if ( opts )
     {
-      const auto col = bsonValueIfExists<bsoncxx::document::view>(
-          "collation", *opts );
+      const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts );
       if ( col ) options.collation( *col );
 
-      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint",
-          *opts );
+      const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *opts );
       if ( hint ) options.hint( mongocxx::hint{ *hint } );
 
       const auto limit = bsonValueIfExists<int64_t>( "limit", *opts );
       if ( limit ) options.limit( *limit );
 
-      const auto time = bsonValueIfExists<std::chrono::milliseconds>(
-          "maxTime", *opts );
+      const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts );
       if ( time ) options.max_time( *time );
 
       const auto skip = bsonValueIfExists<int64_t>( "skip", *opts );
@@ -309,13 +307,13 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     const auto count = ( *client )[dbname][collname].count_documents(
         model.document(), options );
-    return document{} << "count" << count << finalize;
+    co_return document{} << "count" << count << finalize;
   }
 
   mongocxx::options::find findOpts( const model::Document& model )
@@ -384,7 +382,7 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value retrieveOne( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> retrieveOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -401,19 +399,19 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     const auto res = ( *client )[dbname][collname].find_one( doc, opts );
-    if ( res ) return document{} << "result" << res->view() << finalize;
+    if ( res ) co_return document{} << "result" << res->view() << finalize;
 
     LOG_WARN << "Document not found: " << dbname << ':' << collname << ':'
       << id.to_string() << ". " << bsoncxx::to_json( doc );
-    return model::notFound();
+    co_return model::notFound();
   }
 
-  bsoncxx::document::view_or_value retrieve( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> retrieve( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -426,7 +424,7 @@ namespace spt::db::pstorage
       if ( bsoncxx::v_noabi::type::k_oid == doc["_id"].type() )
       {
         LOG_DEBUG << "_id property is of type oid";
-        return retrieveOne( model );
+        co_return co_await retrieveOne( model );
       }
     }
 
@@ -435,7 +433,7 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -443,7 +441,7 @@ namespace spt::db::pstorage
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto&& d : cursor ) array.append( d );
-    return bsoncxx::builder::basic::make_document( kvp( "results", array ));
+    co_return bsoncxx::builder::basic::make_document( kvp( "results", array ));
   }
 
   mongocxx::options::insert insertOpts( const model::Document& document )
@@ -468,7 +466,7 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value create( const model::Document& document )
+  awaitable<bsoncxx::document::view_or_value> create( const model::Document& document )
   {
     using spt::util::bsonValueIfExists;
 
@@ -481,17 +479,17 @@ namespace spt::db::pstorage
     if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
     {
       LOG_WARN << "Attempting to create in version history " << document.json();
-      return model::notModifyable();
+      co_return model::notModifyable();
     }
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( !idopt ) return model::missingId();
+    if ( !idopt ) co_return model::missingId();
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -509,11 +507,11 @@ namespace spt::db::pstorage
         const auto nv = document.skipVersion();
         if ( nv && *nv )
         {
-          return bsoncxx::builder::stream::document{} <<
+          co_return bsoncxx::builder::stream::document{} <<
             "_id" << *idopt <<
             "skipVersion" << true << bsoncxx::builder::stream::finalize;
         }
-        return history( *document.bson(), client, metadata );
+        co_return co_await history( *document.bson(), client, metadata );
       }
       else
       {
@@ -528,14 +526,14 @@ namespace spt::db::pstorage
       const auto nv = document.skipVersion();
       if ( nv && *nv )
       {
-        return bsoncxx::builder::stream::document{} <<
+        co_return bsoncxx::builder::stream::document{} <<
           "_id" << *idopt <<
           "skipVersion" << true << bsoncxx::builder::stream::finalize;
       }
-      return history( *document.bson(), client, metadata );
+      co_return co_await history( *document.bson(), client, metadata );
     }
 
-    return model::insertError();
+    co_return model::insertError();
   }
 
   bsoncxx::document::value updateDoc( bsoncxx::document::view doc )
@@ -621,7 +619,7 @@ namespace spt::db::pstorage
     return opts;
   }
 
-  bsoncxx::document::view_or_value updateOne( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> updateOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -641,29 +639,32 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &oid, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
     {
-      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
 
       const auto updated = ( *client )[dbname][collname].find_one(
           document{} << "_id" << oid << finalize );
-      if ( !updated ) return model::notFound();
-      if ( bsonValueIfExists<std::string>( "error", *updated ) ) return { updated.value() };
+      if ( !updated ) co_return model::notFound();
+      if ( bsonValueIfExists<std::string>( "error", *updated ) )
+      {
+        co_return bsoncxx::document::value{ updated.value() };
+      }
 
-      auto vhd = history( document{} << "action" << "update" <<
+      auto vhd = co_await history( document{} << "action" << "update" <<
         "database" << dbname <<
         "collection" << collname <<
         "document" << updated->view()
         << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
 
-      return bsoncxx::document::view_or_value{
+      co_return bsoncxx::document::view_or_value{
         document{} << "document" << updated->view() << "history" << vhd
         << finalize };
     };
@@ -676,7 +677,7 @@ namespace spt::db::pstorage
       {
         LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
           << oid.to_string();
-        return vhd();
+        co_return co_await vhd();
       }
       else
       {
@@ -688,14 +689,14 @@ namespace spt::db::pstorage
     {
       LOG_INFO << "Updated document " << dbname << ':' << collname << ':'
         << oid.to_string();
-      return vhd();
+      co_return co_await vhd();
     }
 
-    return model::updateError();
+    co_return model::updateError();
   }
 
-  bsoncxx::document::view_or_value updateOneByFilter( const model::Document& model,
-      const bsoncxx::oid& oid )
+  awaitable<bsoncxx::document::view_or_value> updateOneByFilter(
+      const model::Document& model, const bsoncxx::oid& oid )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -715,29 +716,31 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     if ( !opts.write_concern()) opts.write_concern( client->write_concern());
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
     {
-      if ( skip && *skip ) return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
 
       const auto updated = ( *client )[dbname][collname].find_one( filter );
-      if ( !updated ) return model::notFound();
-      if ( bsonValueIfExists<std::string>( "error", *updated ))
-        return { updated.value() };
+      if ( !updated ) co_return model::notFound();
+      if ( bsonValueIfExists<std::string>( "error", *updated ) )
+      {
+        co_return bsoncxx::document::value{ updated.value() };
+      }
 
-      auto vhd = history( document{} << "action" << "update" <<
+      auto vhd = co_await history( document{} << "action" << "update" <<
         "database" << dbname <<
         "collection" << collname <<
         "document" << updated->view()
         << finalize, client, metadata );
-      if ( bsonValueIfExists<std::string>( "error", vhd )) return vhd;
+      if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
 
-      return bsoncxx::document::view_or_value{
+      co_return bsoncxx::document::view_or_value{
           document{} << "document" << updated->view() << "history" << vhd << finalize };
     };
 
@@ -748,7 +751,7 @@ namespace spt::db::pstorage
       if ( result )
       {
         LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
-        return vhd();
+        co_return co_await vhd();
       }
       else
       {
@@ -759,13 +762,13 @@ namespace spt::db::pstorage
     else
     {
       LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
-      return vhd();
+      co_return co_await vhd();
     }
 
-    return model::updateError();
+    co_return model::updateError();
   }
 
-  bsoncxx::document::view_or_value replaceOne( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> replaceOne( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -786,7 +789,7 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -808,24 +811,24 @@ namespace spt::db::pstorage
       if ( wc ) opts.write_concern( writeConcern( *wc ));
     }
 
-    const auto vhd = [&dbname, &collname, &client, &metadata, &filter, &replace, &oid, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
     {
       if ( skip && *skip )
       {
-        return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
       }
 
       if ( oid )
       {
-        auto vhd = history( document{} <<
+        auto vhd = co_await history( document{} <<
           "action" << "replace" <<
           "database" << dbname <<
           "collection" << collname <<
           "document" << replace <<
           finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
 
-        return document{} << "document" << replace << "history" << vhd << finalize;
+        co_return document{} << "document" << replace << "history" << vhd << finalize;
       }
       else
       {
@@ -834,18 +837,18 @@ namespace spt::db::pstorage
         {
           LOG_WARN << "Updated document not found in " <<
             dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
-          return model::notFound();
+          co_return model::notFound();
         }
 
-        auto vhd = history( document{} <<
+        auto vhd = co_await history( document{} <<
           "action" << "replace" <<
           "database" << dbname <<
           "collection" << collname <<
           "document" << updated->view() <<
           finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ) ) return vhd;
+        if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
 
-        return document{} << "document" << updated->view() << "history" << vhd << finalize;
+        co_return document{} << "document" << updated->view() << "history" << vhd << finalize;
       }
     };
 
@@ -857,7 +860,7 @@ namespace spt::db::pstorage
       {
         LOG_INFO << "Updated document in " << dbname << ':' << collname <<
           " with filter " << bsoncxx::to_json( filter );
-        return vhd();
+        co_return co_await vhd();
       }
       else
       {
@@ -869,13 +872,13 @@ namespace spt::db::pstorage
     {
       LOG_INFO << "Updated document in " << dbname << ':' << collname <<
         " with filter " << bsoncxx::to_json( filter );
-      return vhd();
+      co_return co_await vhd();
     }
 
-    return model::updateError();
+    co_return model::updateError();
   }
 
-  bsoncxx::document::view_or_value update( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> update( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -893,20 +896,20 @@ namespace spt::db::pstorage
     if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
     {
       LOG_WARN << "Attempting to update in version history " << model.json();
-      return model::notModifyable();
+      co_return model::notModifyable();
     }
 
     const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
-    if ( idopt ) return updateOne( model );
+    if ( idopt ) co_return co_await updateOne( model );
 
     const auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", doc );
-    if ( !filter ) return model::invalidAUpdate();
+    if ( !filter ) co_return model::invalidAUpdate();
 
     const auto replace = bsonValueIfExists<bsoncxx::document::view>( "replace", doc );
-    if ( replace ) return replaceOne( model );
+    if ( replace ) co_return co_await replaceOne( model );
 
     const auto update = bsonValueIfExists<bsoncxx::document::view>( "update", doc );
-    if ( !update ) return model::invalidAUpdate();
+    if ( !update ) co_return model::invalidAUpdate();
 
     auto iter = filter->find( "_id" );
     if ( iter != filter->end() )
@@ -914,7 +917,7 @@ namespace spt::db::pstorage
       if ( iter->type() == bsoncxx::type::k_oid )
       {
         const auto fid = iter->get_oid().value;
-        return updateOneByFilter( model, fid );
+        co_return co_await updateOneByFilter( model, fid );
       }
     }
 
@@ -922,21 +925,19 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
     auto opts = updateOptions( model );
     if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
-    const auto result = ( *client )[dbname][collname].update_many( *filter,
-        updateDoc( *update ), opts );
+    const auto result = ( *client )[dbname][collname].update_many(
+        *filter, updateDoc( *update ), opts );
 
-    const auto vhd = [&dbname, &collname, &client, &filter, &metadata, &skip]() -> bsoncxx::document::view_or_value
+    const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
     {
-      if ( skip && *skip )
-        return document{} << "skipVersion" << true
-          << bsoncxx::builder::stream::finalize;
+      if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
 
       auto success = bsoncxx::builder::basic::array{};
       auto fail = bsoncxx::builder::basic::array{};
@@ -948,7 +949,7 @@ namespace spt::db::pstorage
 
       for ( auto&& d : docs.view() )
       {
-        auto vhd = history( document{} << "action" << "update" <<
+        auto vhd = co_await history( document{} << "action" << "update" <<
           "database" << dbname << "collection" << collname <<
           "document" << d.get_document().view()
           << finalize, client, metadata );
@@ -961,7 +962,7 @@ namespace spt::db::pstorage
         }
       }
 
-      return document{} << "success" << success << "failure" << fail
+      co_return document{} << "success" << success << "failure" << fail
         << "history" << vh << finalize;
     };
 
@@ -971,7 +972,7 @@ namespace spt::db::pstorage
       {
         LOG_INFO << "Created document " << dbname << ':' << collname << ':'
           << idopt->to_string();
-        return vhd();
+        co_return co_await vhd();
       }
       else
       {
@@ -982,13 +983,13 @@ namespace spt::db::pstorage
     else
     {
       LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
-      return vhd();
+      co_return co_await vhd();
     }
 
-    return model::updateError();
+    co_return model::updateError();
   }
 
-  bsoncxx::document::view_or_value remove( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> remove( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -1008,7 +1009,7 @@ namespace spt::db::pstorage
     if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
     {
       LOG_WARN << "Attempting to delete from version history " << model.json();
-      return model::notModifyable();
+      co_return model::notModifyable();
     }
 
     const auto options = model.options();
@@ -1026,7 +1027,7 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -1040,13 +1041,13 @@ namespace spt::db::pstorage
 
     for ( auto&& d : results ) docs.append( d );
 
-    const auto rm = [&client, &dbname, &collname, &metadata, &opts, &success, &fail, &vh, &skip]( auto d )
+    const auto rm = [&]( const auto& d ) -> awaitable<void>
     {
-      const auto vhd = [&client, &dbname, &collname, &metadata, &vh, &skip]( auto d )
+      const auto vhd = [&]( const auto& d ) -> awaitable<void>
       {
-        if ( skip && *skip ) return;
+        if ( skip && *skip ) co_return;
 
-        auto vhd = history( document{} << "action" << "delete" <<
+        auto vhd = co_await history( document{} << "action" << "delete" <<
           "database" << dbname <<
           "collection" << collname <<
           "document" << d << finalize,
@@ -1064,7 +1065,7 @@ namespace spt::db::pstorage
         {
           LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
           success.append( oid );
-          vhd( d );
+          co_await vhd( d );
         }
         else
         {
@@ -1076,21 +1077,23 @@ namespace spt::db::pstorage
       {
         LOG_INFO << "Deleted document " << dbname << ':' << collname << ':' << oid.to_string();
         success.append( oid );
-        vhd( d );
+        co_await vhd( d );
       }
+
+      co_return;
     };
 
     for ( auto&& d : docs.view() )
     {
       const auto item = d.get_document().view();
-      rm( item );
+      co_await rm( item );
     }
 
-    return document{} << "success" << success << "failure" << fail
+    co_return document{} << "success" << success << "failure" << fail
       << "history" << vh << finalize;
   }
 
-  bsoncxx::document::view_or_value bulk( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> bulk( const model::Document& model )
   {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -1108,13 +1111,13 @@ namespace spt::db::pstorage
     const auto rem = bsonValueIfExists<bsoncxx::array::view>( "delete", doc );
     auto rcount = 0;
 
-    if ( !insert && !rem ) return model::withMessage( "Bulk insert missing arrays." );
+    if ( !insert && !rem ) co_return model::withMessage( "Bulk insert missing arrays." );
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     auto& client = *cliento;
@@ -1214,23 +1217,23 @@ namespace spt::db::pstorage
       if ( !r )
       {
         LOG_WARN << "Error executing bulk statements";
-        return model::withMessage( "Error executing bulk statements." );
+        co_return model::withMessage( "Error executing bulk statements." );
       }
 
-      return document{} <<
+      co_return document{} <<
         "create" << r->inserted_count() <<
         "history" << ihc <<
         "delete" << r->deleted_count() << finalize;
     }
 
-    return document{} <<
+    co_return document{} <<
       "create" << icount <<
       "history" << ihcount <<
       "delete" << rcount <<
       finalize;
   }
 
-  bsoncxx::document::view_or_value pipeline( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> pipeline( const model::Document& model )
   {
     using spt::util::bsonValueIfExists;
 
@@ -1243,14 +1246,14 @@ namespace spt::db::pstorage
     if ( ! match )
     {
       LOG_WARN << "No match document specified";
-      return model::withMessage( "No match document in payload." );
+      co_return model::withMessage( "No match document in payload." );
     }
 
     const auto group = bsonValueIfExists<bsoncxx::document::view>( "group", doc );
     if ( ! group )
     {
       LOG_WARN << "No group document specified";
-      return model::withMessage( "No group document in payload." );
+      co_return model::withMessage( "No group document in payload." );
     }
 
     auto pipeline = mongocxx::pipeline{};
@@ -1261,7 +1264,7 @@ namespace spt::db::pstorage
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     const auto& client = *cliento;
@@ -1269,10 +1272,10 @@ namespace spt::db::pstorage
 
     auto array = bsoncxx::builder::basic::array{};
     for ( auto&& d : aggregate ) array.append( d );
-    return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
+    co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
   }
 
-  bsoncxx::document::view_or_value transaction( const model::Document& model )
+  awaitable<bsoncxx::document::view_or_value> transaction( const model::Document& model )
   {
     using spt::util::bsonValue;
     using spt::util::bsonValueIfExists;
@@ -1287,14 +1290,14 @@ namespace spt::db::pstorage
     if ( !array )
     {
       LOG_WARN << "No items array in transaction payload";
-      return model::missingField();
+      co_return model::missingField();
     }
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
     {
       LOG_WARN << "Connection pool exhausted";
-      return model::poolExhausted();
+      co_return model::poolExhausted();
     }
 
     const auto& client = *cliento;
@@ -1395,10 +1398,10 @@ namespace spt::db::pstorage
     catch ( const mongocxx::exception& e )
     {
       LOG_WARN << "Error executing transaction " << e.what();
-      return model::transactionError();
+      co_return model::transactionError();
     }
 
-    return document{} <<
+    co_return document{} <<
       "created" << created <<
       "updated" << updated <<
       "deleted" << deleted <<
@@ -1420,47 +1423,47 @@ namespace spt::db::pstorage
       const auto action = document.action();
       if ( action == "create" )
       {
-        co_return create( document );
+        co_return co_await create( document );
       }
       else if ( action == "update" )
       {
-        co_return update( document );
+        co_return co_await update( document );
       }
       else if ( action == "retrieve" )
       {
-        co_return retrieve( document );
+        co_return co_await retrieve( document );
       }
       else if ( action == "delete" )
       {
-        co_return remove( document );
+        co_return co_await remove( document );
       }
       else if ( action == "count" )
       {
-        co_return count( document );
+        co_return co_await count( document );
       }
       else if ( action == "index" )
       {
-        co_return index( document );
+        co_return co_await index( document );
       }
       else if ( action == "dropIndex" )
       {
-        co_return dropIndex( document );
+        co_return co_await dropIndex( document );
       }
       else if ( action == "dropCollection" )
       {
-        co_return dropCollection( document );
+        co_return co_await dropCollection( document );
       }
       else if ( action == "bulk" )
       {
-        co_return bulk( document );
+        co_return co_await bulk( document );
       }
       else if ( action == "pipeline" )
       {
-        co_return pipeline( document );
+        co_return co_await pipeline( document );
       }
       else if ( action == "transaction" )
       {
-        co_return transaction( document );
+        co_return co_await transaction( document );
       }
 
       co_return bsoncxx::document::value{ model::invalidAction() };

@@ -1,20 +1,7 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
-if (POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
-endif()
-if (POLICY CMP0028)
-  cmake_policy(SET CMP0028 NEW)
-endif()
-if (POLICY CMP0042)
-  cmake_policy(SET CMP0042 NEW)
-endif()
-if (POLICY CMP0043)
-  cmake_policy(SET CMP0043 NEW)
-endif()
-
 project(mongo-service)
 
-# Enable C++17 features
+# Enable C++20 features
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -43,6 +30,10 @@ find_package(Threads)
 
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+endif()
+
+if (UNIX AND NOT APPLE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
 endif()
 
 include_directories(
