@@ -28,6 +28,9 @@ A few common features made available by this service are:
 * All documents are versioned in a *version history* collection.
 * All operations are timed and the metrics stored in a *metrics* collection.
 
+**Note:** A C++17 compiler with *coroutines-ts*, or a C++20 compiler with
+*coroutines* support is required to build this project.
+
 ## Command Line Options
 The service can be configured via the following command line options:
 
@@ -48,6 +51,9 @@ to.  Specify via the `-s` or `--metrics-database` option.  Default `versionHisto
 Specify via the `-t` or `--metrics-collection` option.  Default `metrics`.
 * `logLevel` - The logging level for the service.  Specify via `-l` or `--log-level`
 option.  Default `info`.  Allowed values - `debug, info, warn, critical`.
+* `logAsync` - Use asynchronous logger for the service (non-guaranteed and may
+  lose some logs).  Specify via `-z` or `--log-async` option.  Default `true`.
+  Allowed values - `true, false`.
 * `console` - Whether log messages are to be echoed to the `console` as well.
 Specify `true` via the `-c` or `--console` option.  Default `false`.
 * `dir` - Specify the output directory under which log files are to be stored
