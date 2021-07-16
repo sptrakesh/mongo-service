@@ -22,7 +22,7 @@ namespace spt::client
     Client& operator=( const Client& ) = delete;
 
     [[nodiscard]] boost::asio::awaitable<std::optional<bsoncxx::document::value>> execute(
-        bsoncxx::document::view view, std::size_t bufSize );
+        bsoncxx::document::view view );
 
     [[nodiscard]] bool valid() const { return v; }
     void setValid( bool valid ) { this->v = valid; }

@@ -52,35 +52,48 @@ Client::~Client()
 }
 
 boost::asio::awaitable<std::optional<bsoncxx::document::value>> Client::execute(
-    bsoncxx::document::view view, std::size_t bufSize )
+    bsoncxx::document::view view )
 {
+  static constexpr int bufSize = 1024;
+
   try
   {
     auto isize = co_await boost::asio::async_write(
         socket(), boost::asio::buffer( view.data(), view.length() ), use_awaitable );
     LOG_DEBUG << "Wrote " << int(isize) << " bytes to socket";
 
-    std::vector<uint8_t> rbuf;
-    rbuf.reserve( bufSize );
+    uint8_t data[bufSize];
 
-    const auto documentSize = [&rbuf]( std::size_t length )
+    const auto documentSize = [&data]( std::size_t length )
     {
       if ( length < 5 ) return length;
 
-      const auto data = reinterpret_cast<const uint8_t*>( rbuf.data() );
+      const auto d = reinterpret_cast<const uint8_t*>( data );
       uint32_t len;
-      memcpy( &len, data, sizeof(len) );
+      memcpy( &len, d, sizeof(len) );
       return std::size_t( len );
     };
 
-    uint8_t data[512];
     std::size_t osize = co_await s.async_read_some( boost::asio::buffer( data ), use_awaitable );
-    LOG_DEBUG << "Read " << int(osize) << " bytes from socket";
+    const auto docSize = documentSize( osize );
+    LOG_DEBUG << "Read " << int(osize) << " bytes of " << int(docSize) << " total";
+
+    if ( docSize <= bufSize )
+    {
+      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( data ), docSize );
+      if ( !option )
+      {
+        LOG_WARN << "Invalid BSON data in response to " << bsoncxx::to_json( view );
+        co_return std::nullopt;
+      }
+      co_return bsoncxx::document::value{ *option };
+    }
+
     auto read = osize;
+    std::vector<uint8_t> rbuf;
+    rbuf.reserve( docSize );
     rbuf.insert( rbuf.end(), data, data + osize );
 
-    const auto docSize = documentSize( osize );
-    LOG_DEBUG << "Read " << int(read) << " bytes of " << int(docSize) << " total";
     while ( read != docSize )
     {
       osize = co_await s.async_read_some( boost::asio::buffer( data ), use_awaitable );

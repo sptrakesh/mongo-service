@@ -25,7 +25,7 @@ namespace spt::client::pcrud
         kvp( "document", basic::make_document(
             kvp( "key", "value" ), kvp( "_id", id ) ) ) );
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
@@ -52,7 +52,7 @@ namespace spt::client::pcrud
         kvp( "collection", "test" ),
         kvp( "document", basic::make_document()));
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
@@ -74,7 +74,7 @@ namespace spt::client::pcrud
         kvp( "collection", "test" ),
         kvp( "document", basic::make_document( kvp( "_id", id ))));
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
@@ -102,7 +102,7 @@ namespace spt::client::pcrud
         kvp( "collection", "test" ),
         kvp( "document", basic::make_document( kvp( name, value ))));
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
@@ -140,7 +140,7 @@ namespace spt::client::pcrud
                 std::chrono::system_clock::now() } ),
             kvp( "_id", id ))));
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
@@ -172,7 +172,7 @@ namespace spt::client::pcrud
         kvp( "collection", "test" ),
         kvp( "document", basic::make_document( kvp( "_id", id ))));
 
-    auto opt = co_await client.execute( document.view(), 4096 );
+    auto opt = co_await client.execute( document.view() );
     assert( opt );
 
     auto view = opt->view();
