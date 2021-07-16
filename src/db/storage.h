@@ -5,9 +5,11 @@
 #pragma once
 #include "model/document.h"
 
+#include <boost/asio/awaitable.hpp>
 #include <bsoncxx/document/view_or_value.hpp>
 
 namespace spt::db
 {
-  bsoncxx::document::view_or_value process( const spt::model::Document& document );
+  boost::asio::awaitable<bsoncxx::document::view_or_value> process(
+      const spt::model::Document& document );
 }

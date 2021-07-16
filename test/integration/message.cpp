@@ -41,7 +41,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << resp << '\n';
+      std::cout << "[message] " << resp << '\n';
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
@@ -67,7 +67,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << resp << '\n';
+      std::cout << "[message] " << resp << '\n';
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
@@ -98,7 +98,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << resp << '\n';
+      std::cout << "[message] " << resp << '\n';
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );

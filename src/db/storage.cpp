@@ -1410,7 +1410,8 @@ namespace spt::db::pstorage
       finalize;
   }
 
-  bsoncxx::document::view_or_value process( const model::Document& document )
+  boost::asio::awaitable<bsoncxx::document::view_or_value> process(
+      const model::Document& document )
   {
     using spt::util::bsonValue;
 
@@ -1419,50 +1420,50 @@ namespace spt::db::pstorage
       const auto action = document.action();
       if ( action == "create" )
       {
-        return create( document );
+        co_return create( document );
       }
       else if ( action == "update" )
       {
-        return update( document );
+        co_return update( document );
       }
       else if ( action == "retrieve" )
       {
-        return retrieve( document );
+        co_return retrieve( document );
       }
       else if ( action == "delete" )
       {
-        return remove( document );
+        co_return remove( document );
       }
       else if ( action == "count" )
       {
-        return count( document );
+        co_return count( document );
       }
       else if ( action == "index" )
       {
-        return index( document );
+        co_return index( document );
       }
       else if ( action == "dropIndex" )
       {
-        return dropIndex( document );
+        co_return dropIndex( document );
       }
       else if ( action == "dropCollection" )
       {
-        return dropCollection( document );
+        co_return dropCollection( document );
       }
       else if ( action == "bulk" )
       {
-        return bulk( document );
+        co_return bulk( document );
       }
       else if ( action == "pipeline" )
       {
-        return pipeline( document );
+        co_return pipeline( document );
       }
       else if ( action == "transaction" )
       {
-        return transaction( document );
+        co_return transaction( document );
       }
 
-      return bsoncxx::document::value{ model::invalidAction() };
+      co_return bsoncxx::document::value{ model::invalidAction() };
     }
     catch ( const mongocxx::bulk_write_exception& be )
     {
@@ -1474,7 +1475,7 @@ namespace spt::db::pstorage
 
       std::ostringstream oss;
       oss << "Error processing database action " << document.action();
-      return model::withMessage( oss.str() );
+      co_return model::withMessage( oss.str() );
     }
     catch ( const mongocxx::logic_error& le )
     {
@@ -1486,7 +1487,7 @@ namespace spt::db::pstorage
 
       std::ostringstream oss;
       oss << "Error processing database action " << document.action();
-      return model::withMessage( oss.str() );
+      co_return model::withMessage( oss.str() );
     }
     catch ( const std::exception& ex )
     {
@@ -1494,16 +1495,17 @@ namespace spt::db::pstorage
       LOG_INFO << document.json();
     }
 
-    return model::unexpectedError();
+    co_return model::unexpectedError();
   }
 }
 
-bsoncxx::document::view_or_value spt::db::process( const model::Document& document )
+boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::process(
+    const model::Document& document )
 {
   using util::bsonValueIfExists;
 
   const auto st = std::chrono::steady_clock::now();
-  auto value = pstorage::process( document );
+  auto value = co_await pstorage::process( document );
   const auto et = std::chrono::steady_clock::now();
   const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
 
@@ -1528,5 +1530,5 @@ bsoncxx::document::view_or_value spt::db::process( const model::Document& docume
   metric.size = value.view().length();
   queue::QueueManager::instance().publish( std::move( metric ) );
 
-  return value;
+  co_return value;
 }

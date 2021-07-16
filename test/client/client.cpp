@@ -16,14 +16,6 @@
 #include <iostream>
 #include <vector>
 
-#ifdef __APPLE__
-#include <experimental/coroutine>
-namespace cons = std::experimental;
-#else
-#include <coroutine>
-namespace cons = std;
-#endif
-
 using boost::asio::use_awaitable;
 
 #if defined(BOOST_ASIO_ENABLE_HANDLER_TRACKING)

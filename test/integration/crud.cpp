@@ -61,7 +61,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "database" ) != option->end() );
       REQUIRE( option->find( "collection" ) != option->end() );
@@ -98,7 +98,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
@@ -130,7 +130,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -166,7 +166,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -209,7 +209,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -246,7 +246,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -297,7 +297,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -340,7 +340,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -373,7 +373,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << std::endl;
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << std::endl;
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "success" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
@@ -403,7 +403,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );

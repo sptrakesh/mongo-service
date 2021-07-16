@@ -16,6 +16,11 @@ Document::Document( const boost::asio::streambuf& buffer, std::size_t length ) :
 {
 }
 
+Document::Document( const uint8_t* buffer, std::size_t length ) :
+    view{ bsoncxx::validate( buffer, length ) }
+{
+}
+
 Document::Document( bsoncxx::document::view view ) : view{ view } {}
 
 std::optional<bsoncxx::document::view> Document::bson() const
@@ -96,4 +101,10 @@ std::optional<std::string> spt::model::Document::application() const
 std::optional<bool> spt::model::Document::skipVersion() const
 {
   return util::bsonValueIfExists<bool>( "skipVersion", *view );
+}
+
+boost::asio::awaitable<Document> spt::model::parseDocument(
+    const uint8_t* buffer, std::size_t length )
+{
+  co_return Document{ buffer, length };
 }

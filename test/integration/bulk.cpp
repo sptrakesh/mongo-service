@@ -71,7 +71,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
             close_document <<
           finalize;
       os.write( reinterpret_cast<const char*>( doc.view().data() ), doc.view().length() );
-      std::cout << bsoncxx::to_json( doc.view() ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( doc.view() ) << '\n';
 
       const auto isize = s.send( buffer.data() );
       buffer.consume( isize );
@@ -83,7 +83,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
@@ -114,7 +114,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
@@ -160,7 +160,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       const auto option = bsoncxx::validate(
           reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value());
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
@@ -191,7 +191,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
@@ -272,7 +272,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
@@ -307,13 +307,13 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       buffer.commit( osize );
       const auto et = std::chrono::steady_clock::now();
       const auto delta = std::chrono::duration_cast<std::chrono::seconds>( et - st );
-      std::cout << "Deleting " << spt::itest::bulk::oids.size() << " documents took " << int(delta.count()) << " seconds";
+      std::cout << "[bulk] " << "Deleting " << spt::itest::bulk::oids.size() << " documents took " << int(delta.count()) << " seconds";
 
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << bsoncxx::to_json( *option ) << '\n';
+      std::cout << "[bulk] " << bsoncxx::to_json( *option ) << '\n';
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "create" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );

@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include <boost/asio/awaitable.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <bsoncxx/document/view.hpp>
 
@@ -14,6 +15,7 @@ namespace spt::model
   struct Document
   {
     explicit Document( const boost::asio::streambuf& buffer, std::size_t length );
+    explicit Document( const uint8_t* buffer, std::size_t length );
     explicit Document( bsoncxx::document::view view );
     ~Document() = default;
     Document(Document&&) = default;
@@ -40,4 +42,6 @@ namespace spt::model
   private:
     std::optional<bsoncxx::document::view> view;
   };
+
+  boost::asio::awaitable<Document> parseDocument( const uint8_t* buffer, std::size_t length );
 }
