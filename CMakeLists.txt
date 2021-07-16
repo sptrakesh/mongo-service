@@ -69,5 +69,6 @@ add_subdirectory(src)
 if (BUILD_TESTING)
   add_subdirectory(test/integration)
   add_subdirectory(test/performance)
+  add_subdirectory(test/client)
 endif()
 
