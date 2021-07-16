@@ -1041,11 +1041,11 @@ namespace spt::db::pstorage
 
     for ( auto&& d : results ) docs.append( d );
 
-    const auto rm = [&]( const auto& d ) -> awaitable<void>
+    const auto rm = [&]( const auto& d ) -> awaitable<bool>
     {
-      const auto vhd = [&]( const auto& d ) -> awaitable<void>
+      const auto vhd = [&]( const auto& d ) -> awaitable<bool>
       {
-        if ( skip && *skip ) co_return;
+        if ( skip && *skip ) co_return true;
 
         auto vhd = co_await history( document{} << "action" << "delete" <<
           "database" << dbname <<
@@ -1053,6 +1053,7 @@ namespace spt::db::pstorage
           "document" << d << finalize,
           client, metadata );
         vh.append( vhd );
+        co_return true;
       };
 
       const auto oid = bsonValue<bsoncxx::oid>( "_id", d );
@@ -1080,7 +1081,7 @@ namespace spt::db::pstorage
         co_await vhd( d );
       }
 
-      co_return;
+      co_return true;
     };
 
     for ( auto&& d : docs.view() )

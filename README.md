@@ -590,115 +590,115 @@ other applications and processes running).
 ```shell script
 [==========] Running 5 benchmarks.
 [ RUN      ] SocketClientFixture.crud(int concurrency = 10) (2 runs, 10 iterations per run)
-[     DONE ] SocketClientFixture.crud(int concurrency = 10) (1244.758409 ms)
-[   RUNS   ]        Average time: 622379.204 us (~161627.488 us)
-                    Fastest time: 508091.312 us (-114287.893 us / -18.363 %)
-                    Slowest time: 736667.097 us (+114287.892 us / +18.363 %)
-                     Median time: 622379.204 us (1st quartile: 508091.312 us | 3rd quartile: 736667.097 us)
+[     DONE ] SocketClientFixture.crud(int concurrency = 10) (1356.777305 ms)
+[   RUNS   ]        Average time: 678388.652 us (~303172.494 us)
+                    Fastest time: 464013.326 us (-214375.326 us / -31.601 %)
+                    Slowest time: 892763.979 us (+214375.327 us / +31.601 %)
+                     Median time: 678388.652 us (1st quartile: 464013.326 us | 3rd quartile: 892763.979 us)
                                   
-             Average performance: 1.60674 runs/s
-                Best performance: 1.96815 runs/s (+0.36141 runs/s / +22.49357 %)
-               Worst performance: 1.35747 runs/s (-0.24927 runs/s / -15.51418 %)
-              Median performance: 1.60674 runs/s (1st quartile: 1.96815 | 3rd quartile: 1.35747)
+             Average performance: 1.47408 runs/s
+                Best performance: 2.15511 runs/s (+0.68103 runs/s / +46.20025 %)
+               Worst performance: 1.12012 runs/s (-0.35396 runs/s / -24.01254 %)
+              Median performance: 1.47408 runs/s (1st quartile: 2.15511 | 3rd quartile: 1.12012)
                                   
-[ITERATIONS]        Average time: 62237.920 us (~16162.749 us)
-                    Fastest time: 50809.131 us (-11428.789 us / -18.363 %)
-                    Slowest time: 73666.710 us (+11428.789 us / +18.363 %)
-                     Median time: 62237.920 us (1st quartile: 50809.131 us | 3rd quartile: 73666.710 us)
+[ITERATIONS]        Average time: 67838.865 us (~30317.249 us)
+                    Fastest time: 46401.333 us (-21437.533 us / -31.601 %)
+                    Slowest time: 89276.398 us (+21437.533 us / +31.601 %)
+                     Median time: 67838.865 us (1st quartile: 46401.333 us | 3rd quartile: 89276.398 us)
                                   
-             Average performance: 16.06737 iterations/s
-                Best performance: 19.68150 iterations/s (+3.61413 iterations/s / +22.49357 %)
-               Worst performance: 13.57465 iterations/s (-2.49272 iterations/s / -15.51418 %)
-              Median performance: 16.06737 iterations/s (1st quartile: 19.68150 | 3rd quartile: 13.57465)
+             Average performance: 14.74081 iterations/s
+                Best performance: 21.55111 iterations/s (+6.81029 iterations/s / +46.20025 %)
+               Worst performance: 11.20117 iterations/s (-3.53964 iterations/s / -24.01254 %)
+              Median performance: 14.74081 iterations/s (1st quartile: 21.55111 | 3rd quartile: 11.20117)
 [ RUN      ] SocketClientFixture.crud(int concurrency = 50) (2 runs, 10 iterations per run)
-[     DONE ] SocketClientFixture.crud(int concurrency = 50) (5826.898797 ms)
-[   RUNS   ]        Average time: 2913449.399 us (~366662.599 us)
-                    Fastest time: 2654179.788 us (-259269.610 us / -8.899 %)
-                    Slowest time: 3172719.009 us (+259269.610 us / +8.899 %)
-                     Median time: 2913449.399 us (1st quartile: 2654179.788 us | 3rd quartile: 3172719.009 us)
+[     DONE ] SocketClientFixture.crud(int concurrency = 50) (3786.378171 ms)
+[   RUNS   ]        Average time: 1893189.086 us (~131220.814 us)
+                    Fastest time: 1800401.958 us (-92787.127 us / -4.901 %)
+                    Slowest time: 1985976.213 us (+92787.127 us / +4.901 %)
+                     Median time: 1893189.086 us (1st quartile: 1800401.958 us | 3rd quartile: 1985976.213 us)
                                   
-             Average performance: 0.34324 runs/s
-                Best performance: 0.37676 runs/s (+0.03353 runs/s / +9.76835 %)
-               Worst performance: 0.31519 runs/s (-0.02805 runs/s / -8.17184 %)
-              Median performance: 0.34324 runs/s (1st quartile: 0.37676 | 3rd quartile: 0.31519)
+             Average performance: 0.52821 runs/s
+                Best performance: 0.55543 runs/s (+0.02722 runs/s / +5.15369 %)
+               Worst performance: 0.50353 runs/s (-0.02468 runs/s / -4.67212 %)
+              Median performance: 0.52821 runs/s (1st quartile: 0.55543 | 3rd quartile: 0.50353)
                                   
-[ITERATIONS]        Average time: 291344.940 us (~36666.260 us)
-                    Fastest time: 265417.979 us (-25926.961 us / -8.899 %)
-                    Slowest time: 317271.901 us (+25926.961 us / +8.899 %)
-                     Median time: 291344.940 us (1st quartile: 265417.979 us | 3rd quartile: 317271.901 us)
+[ITERATIONS]        Average time: 189318.909 us (~13122.081 us)
+                    Fastest time: 180040.196 us (-9278.713 us / -4.901 %)
+                    Slowest time: 198597.621 us (+9278.713 us / +4.901 %)
+                     Median time: 189318.909 us (1st quartile: 180040.196 us | 3rd quartile: 198597.621 us)
                                   
-             Average performance: 3.43236 iterations/s
-                Best performance: 3.76764 iterations/s (+0.33528 iterations/s / +9.76835 %)
-               Worst performance: 3.15187 iterations/s (-0.28049 iterations/s / -8.17184 %)
-              Median performance: 3.43236 iterations/s (1st quartile: 3.76764 | 3rd quartile: 3.15187)
+             Average performance: 5.28209 iterations/s
+                Best performance: 5.55432 iterations/s (+0.27222 iterations/s / +5.15369 %)
+               Worst performance: 5.03531 iterations/s (-0.24679 iterations/s / -4.67212 %)
+              Median performance: 5.28209 iterations/s (1st quartile: 5.55432 | 3rd quartile: 5.03531)
 [ RUN      ] SocketClientFixture.crud(int concurrency = 100) (2 runs, 10 iterations per run)
-[     DONE ] SocketClientFixture.crud(int concurrency = 100) (14476.523693 ms)
-[   RUNS   ]        Average time: 7238261.846 us (~268039.996 us)
-                    Fastest time: 7048728.948 us (-189532.899 us / -2.618 %)
-                    Slowest time: 7427794.745 us (+189532.899 us / +2.618 %)
-                     Median time: 7238261.846 us (1st quartile: 7048728.948 us | 3rd quartile: 7427794.745 us)
+[     DONE ] SocketClientFixture.crud(int concurrency = 100) (6902.353423 ms)
+[   RUNS   ]        Average time: 3451176.712 us (~85190.281 us)
+                    Fastest time: 3390938.086 us (-60238.626 us / -1.745 %)
+                    Slowest time: 3511415.337 us (+60238.625 us / +1.745 %)
+                     Median time: 3451176.712 us (1st quartile: 3390938.086 us | 3rd quartile: 3511415.337 us)
                                   
-             Average performance: 0.13815 runs/s
-                Best performance: 0.14187 runs/s (+0.00371 runs/s / +2.68889 %)
-               Worst performance: 0.13463 runs/s (-0.00353 runs/s / -2.55167 %)
-              Median performance: 0.13815 runs/s (1st quartile: 0.14187 | 3rd quartile: 0.13463)
+             Average performance: 0.28976 runs/s
+                Best performance: 0.29490 runs/s (+0.00515 runs/s / +1.77646 %)
+               Worst performance: 0.28479 runs/s (-0.00497 runs/s / -1.71551 %)
+              Median performance: 0.28976 runs/s (1st quartile: 0.29490 | 3rd quartile: 0.28479)
                                   
-[ITERATIONS]        Average time: 723826.185 us (~26804.000 us)
-                    Fastest time: 704872.895 us (-18953.290 us / -2.618 %)
-                    Slowest time: 742779.475 us (+18953.290 us / +2.618 %)
-                     Median time: 723826.185 us (1st quartile: 704872.895 us | 3rd quartile: 742779.475 us)
+[ITERATIONS]        Average time: 345117.671 us (~8519.028 us)
+                    Fastest time: 339093.809 us (-6023.863 us / -1.745 %)
+                    Slowest time: 351141.534 us (+6023.863 us / +1.745 %)
+                     Median time: 345117.671 us (1st quartile: 339093.809 us | 3rd quartile: 351141.534 us)
                                   
-             Average performance: 1.38155 iterations/s
-                Best performance: 1.41870 iterations/s (+0.03715 iterations/s / +2.68889 %)
-               Worst performance: 1.34629 iterations/s (-0.03525 iterations/s / -2.55167 %)
-              Median performance: 1.38155 iterations/s (1st quartile: 1.41870 | 3rd quartile: 1.34629)
+             Average performance: 2.89756 iterations/s
+                Best performance: 2.94904 iterations/s (+0.05147 iterations/s / +1.77646 %)
+               Worst performance: 2.84785 iterations/s (-0.04971 iterations/s / -1.71551 %)
+              Median performance: 2.89756 iterations/s (1st quartile: 2.94904 | 3rd quartile: 2.84785)
 [ RUN      ] SocketClientFixture.crud(int concurrency = 500) (2 runs, 10 iterations per run)
-[     DONE ] SocketClientFixture.crud(int concurrency = 500) (94160.116860 ms)
-[   RUNS   ]        Average time: 47080058.430 us (~15328630.910 us)
-                    Fastest time: 36241079.567 us (-10838978.863 us / -23.022 %)
-                    Slowest time: 57919037.293 us (+10838978.863 us / +23.022 %)
-                     Median time: 47080058.430 us (1st quartile: 36241079.567 us | 3rd quartile: 57919037.293 us)
+[     DONE ] SocketClientFixture.crud(int concurrency = 500) (37825.690178 ms)
+[   RUNS   ]        Average time: 18912845.089 us (~77556.025 us)
+                    Fastest time: 18858004.698 us (-54840.391 us / -0.290 %)
+                    Slowest time: 18967685.480 us (+54840.391 us / +0.290 %)
+                     Median time: 18912845.089 us (1st quartile: 18858004.698 us | 3rd quartile: 18967685.480 us)
                                   
-             Average performance: 0.02124 runs/s
-                Best performance: 0.02759 runs/s (+0.00635 runs/s / +29.90799 %)
-               Worst performance: 0.01727 runs/s (-0.00397 runs/s / -18.71402 %)
-              Median performance: 0.02124 runs/s (1st quartile: 0.02759 | 3rd quartile: 0.01727)
+             Average performance: 0.05287 runs/s
+                Best performance: 0.05303 runs/s (+0.00015 runs/s / +0.29081 %)
+               Worst performance: 0.05272 runs/s (-0.00015 runs/s / -0.28913 %)
+              Median performance: 0.05287 runs/s (1st quartile: 0.05303 | 3rd quartile: 0.05272)
                                   
-[ITERATIONS]        Average time: 4708005.843 us (~1532863.091 us)
-                    Fastest time: 3624107.957 us (-1083897.886 us / -23.022 %)
-                    Slowest time: 5791903.729 us (+1083897.886 us / +23.022 %)
-                     Median time: 4708005.843 us (1st quartile: 3624107.957 us | 3rd quartile: 5791903.729 us)
+[ITERATIONS]        Average time: 1891284.509 us (~7755.602 us)
+                    Fastest time: 1885800.470 us (-5484.039 us / -0.290 %)
+                    Slowest time: 1896768.548 us (+5484.039 us / +0.290 %)
+                     Median time: 1891284.509 us (1st quartile: 1885800.470 us | 3rd quartile: 1896768.548 us)
                                   
-             Average performance: 0.21240 iterations/s
-                Best performance: 0.27593 iterations/s (+0.06353 iterations/s / +29.90799 %)
-               Worst performance: 0.17265 iterations/s (-0.03975 iterations/s / -18.71402 %)
-              Median performance: 0.21240 iterations/s (1st quartile: 0.27593 | 3rd quartile: 0.17265)
+             Average performance: 0.52874 iterations/s
+                Best performance: 0.53028 iterations/s (+0.00154 iterations/s / +0.29081 %)
+               Worst performance: 0.52721 iterations/s (-0.00153 iterations/s / -0.28913 %)
+              Median performance: 0.52874 iterations/s (1st quartile: 0.53028 | 3rd quartile: 0.52721)
 [ RUN      ] SocketClientFixture.crud(int concurrency = 1000) (2 runs, 10 iterations per run)
-[     DONE ] SocketClientFixture.crud(int concurrency = 1000) (214198.956681 ms)
-[   RUNS   ]        Average time: 107099478.340 us (~2445070.413 us)
-                    Fastest time: 105370552.471 us (-1728925.869 us / -1.614 %)
-                    Slowest time: 108828404.210 us (+1728925.869 us / +1.614 %)
-                     Median time: 107099478.340 us (1st quartile: 105370552.471 us | 3rd quartile: 108828404.210 us)
+[     DONE ] SocketClientFixture.crud(int concurrency = 1000) (70436.871301 ms)
+[   RUNS   ]        Average time: 35218435.650 us (~1036096.530 us)
+                    Fastest time: 34485804.768 us (-732630.883 us / -2.080 %)
+                    Slowest time: 35951066.533 us (+732630.883 us / +2.080 %)
+                     Median time: 35218435.650 us (1st quartile: 34485804.768 us | 3rd quartile: 35951066.533 us)
                                   
-             Average performance: 0.00934 runs/s
-                Best performance: 0.00949 runs/s (+0.00015 runs/s / +1.64081 %)
-               Worst performance: 0.00919 runs/s (-0.00015 runs/s / -1.58867 %)
-              Median performance: 0.00934 runs/s (1st quartile: 0.00949 | 3rd quartile: 0.00919)
+             Average performance: 0.02839 runs/s
+                Best performance: 0.02900 runs/s (+0.00060 runs/s / +2.12444 %)
+               Worst performance: 0.02782 runs/s (-0.00058 runs/s / -2.03786 %)
+              Median performance: 0.02839 runs/s (1st quartile: 0.02900 | 3rd quartile: 0.02782)
                                   
-[ITERATIONS]        Average time: 10709947.834 us (~244507.041 us)
-                    Fastest time: 10537055.247 us (-172892.587 us / -1.614 %)
-                    Slowest time: 10882840.421 us (+172892.587 us / +1.614 %)
-                     Median time: 10709947.834 us (1st quartile: 10537055.247 us | 3rd quartile: 10882840.421 us)
+[ITERATIONS]        Average time: 3521843.565 us (~103609.653 us)
+                    Fastest time: 3448580.477 us (-73263.088 us / -2.080 %)
+                    Slowest time: 3595106.653 us (+73263.088 us / +2.080 %)
+                     Median time: 3521843.565 us (1st quartile: 3448580.477 us | 3rd quartile: 3595106.653 us)
                                   
-             Average performance: 0.09337 iterations/s
-                Best performance: 0.09490 iterations/s (+0.00153 iterations/s / +1.64081 %)
-               Worst performance: 0.09189 iterations/s (-0.00148 iterations/s / -1.58867 %)
-              Median performance: 0.09337 iterations/s (1st quartile: 0.09490 | 3rd quartile: 0.09189)
+             Average performance: 0.28394 iterations/s
+                Best performance: 0.28997 iterations/s (+0.00603 iterations/s / +2.12444 %)
+               Worst performance: 0.27816 iterations/s (-0.00579 iterations/s / -2.03786 %)
+              Median performance: 0.28394 iterations/s (1st quartile: 0.28997 | 3rd quartile: 0.27816)
 [==========] Ran 5 benchmarks.
 ```
 
 ## Acknowledgements
-This software has been developed mainly using work other people have contributed.
+This software has been developed mainly using work other people/projects have contributed.
 The following are the components used to build this software:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the
 `TCP socket` server implementation.
