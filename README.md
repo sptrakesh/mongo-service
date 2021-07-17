@@ -591,6 +591,10 @@ instance is destroyed.
 A wrapper is used to associate a last used timestamp to the *connection*.  This
 is used to enforce maximum idle time policy on the underlying *connection*.
 
+### Sample Client
+A sample coroutine based async client with connection pool implementation is
+available under the [client](test/client) directory.
+
 ### Performance Test
 The performance test suite performs a simple *CRUD* operation using the service.
 Each test creates a document, retrieves the document, updates the document and
