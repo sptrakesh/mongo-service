@@ -10,4 +10,5 @@
 namespace spt::client
 {
   boost::asio::awaitable<void> crud( Client& client );
+  boost::asio::awaitable<void> crud();
 }

@@ -2,6 +2,7 @@
 // Created by Rakesh on 15/07/2021.
 //
 
+#include "context.h"
 #include "tasks.h"
 #include "../../src/log/NanoLog.h"
 #include "../../src/util/clara.h"
@@ -10,9 +11,9 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 
 #include <iostream>
-#include <thread>
 #include <vector>
 
 int main( int argc, char const * const * argv )
@@ -43,22 +44,23 @@ int main( int argc, char const * const * argv )
   nanolog::set_log_level( nanolog::LogLevel::DEBUG );
   nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp/", "mongo-service-client", true );
 
-  const auto n = std::thread::hardware_concurrency();
-  boost::asio::io_context ioc{ int( n ) };
-  boost::asio::signal_set signals( ioc, SIGINT, SIGTERM );
-  signals.async_wait( [&](auto, auto){ ioc.stop(); } );
+  auto& ctx = spt::client::Context::instance();
+  auto guard = boost::asio::make_work_guard( ctx.ioc.get_executor() );
+  boost::asio::signal_set signals( ctx.ioc, SIGINT, SIGTERM );
+  signals.async_wait( [&](auto, auto){ ctx.ioc.stop(); } );
 
   std::vector<std::thread> pool;
 
-  for ( std::size_t i = 0; i < n - 1; ++i ) pool.emplace_back( [&ioc] { ioc.run(); } );
+  for ( std::size_t i = 0; i < std::thread::hardware_concurrency() - 1; ++i ) pool.emplace_back( [&ctx] { ctx.ioc.run(); } );
 
   boost::system::error_code ec;
-  auto client = spt::client::Client( ioc, host, port, ec );
+  auto client = spt::client::Client( ctx.ioc, host, port, ec );
   assert( !ec );
 
-  boost::asio::co_spawn( ioc, spt::client::crud( client ), boost::asio::detached );
+  boost::asio::co_spawn( ctx.ioc, spt::client::crud( client ), boost::asio::detached );
+  boost::asio::co_spawn( ctx.ioc, spt::client::crud(), boost::asio::detached );
 
-  ioc.run();
+  ctx.ioc.run();
   for ( auto& t : pool ) if ( t.joinable() ) t.join();
 }
 

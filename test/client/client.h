@@ -10,6 +10,8 @@
 
 #include <bsoncxx/document/value.hpp>
 
+#include <memory>
+
 namespace spt::client
 {
   struct Client
@@ -28,13 +30,12 @@ namespace spt::client
     void setValid( bool valid ) { this->v = valid; }
 
   private:
-    [[nodiscard]] boost::asio::ip::tcp::socket& socket();
-    boost::asio::awaitable<void> connect();
-
     boost::asio::ip::tcp::socket s;
     boost::asio::ip::tcp::resolver resolver;
     std::string host;
     std::string port;
     bool v{ true };
   };
+
+  std::unique_ptr<Client> createClient();
 }

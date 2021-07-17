@@ -3,6 +3,7 @@
 //
 
 #include "client.h"
+#include "context.h"
 #include "../../src/log/NanoLog.h"
 
 #include <boost/asio/awaitable.hpp>
@@ -32,7 +33,6 @@ Client::Client( boost::asio::io_context& ioc, std::string_view h,
 {
   resolver.resolve( host, port, ec );
   if ( ec ) LOG_WARN << "Error resolving service " << ec.message();
-  connect();
 }
 
 Client::~Client()
@@ -50,8 +50,9 @@ boost::asio::awaitable<std::optional<bsoncxx::document::value>> Client::execute(
 
   try
   {
+    if ( !s.is_open() ) co_await boost::asio::async_connect( s, resolver.resolve( host, port ), use_awaitable );
     auto isize = co_await boost::asio::async_write(
-        socket(), boost::asio::buffer( view.data(), view.length() ), use_awaitable );
+        s, boost::asio::buffer( view.data(), view.length() ), use_awaitable );
     LOG_DEBUG << "Wrote " << int(isize) << " bytes to socket";
 
     uint8_t data[bufSize];
@@ -110,26 +111,9 @@ boost::asio::awaitable<std::optional<bsoncxx::document::value>> Client::execute(
   }
 }
 
-boost::asio::ip::tcp::socket& Client::socket()
+auto spt::client::createClient() -> std::unique_ptr<Client>
 {
-  if ( ! s.is_open() )
-  {
-    LOG_DEBUG << "Connecting to " << host << ':' << port;
-    connect();
-  }
-  if ( ! s.is_open() ) boost::asio::connect( s, resolver.resolve( host, port ) );
-  return s;
-}
-
-boost::asio::awaitable<void> Client::connect()
-{
-  try
-  {
-    co_await boost::asio::async_connect( s, resolver.resolve( host, port ), use_awaitable );
-  }
-  catch ( std::exception& ex )
-  {
-    std::cerr << "Exception connecting to " << host << ':' << port << std::endl;
-    LOG_CRIT << "Exception connecting to " << host << ':' << port;
-  }
+  boost::system::error_code ec;
+  return std::make_unique<Client>( Context::instance().ioc, "localhost", "2020", ec );
+  assert( !ec );
 }

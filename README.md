@@ -129,19 +129,35 @@ Sample request payload:
 }
 ```
 
-Sample response payload:
+Sample response payload when version history document is created (default option):
 ```json
 {
   "_id": {
-    "$oid": "5f35e5e1e799c52186039122"
+    "$oid": "5f35e5e19e48c37186539141"
   },
   "database": "versionHistory",
   "collection": "entities",
   "entity": {
-    "$oid": "5f35e5e19e48c37186539141"
+    "$oid": "5f35e5e1e799c52186039122"
   }
 }
 ```
+
+**Note:** The `_id` in the response is the object id of the version history
+document that was created.
+
+Sample response payload when version history document is not created:
+```json
+{
+  "_id": {
+    "$oid": "5f35e5e19e48c37186539141"
+  },
+  "skipVersion": true
+}
+```
+
+**Note:** The `_id` in the response is the object id for the document as specified
+in the input payload.
 
 #### Retrieve
 Retrieve obviously does not have any interaction with the version history system
