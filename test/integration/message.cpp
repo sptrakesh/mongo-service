@@ -3,6 +3,7 @@
 //
 
 #include "catch.hpp"
+#include "../../src/log/NanoLog.h"
 
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/connect.hpp>
@@ -12,8 +13,6 @@
 
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
-
-#include <iostream>
 
 using tcp = boost::asio::ip::tcp;
 
@@ -41,7 +40,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << "[message] " << resp << '\n';
+      LOG_INFO << "[message] " << resp;
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
@@ -67,7 +66,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << "[message] " << resp << '\n';
+      LOG_INFO << "[message] " << resp;
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
@@ -98,7 +97,7 @@ SCENARIO( "Message payload test suite", "[message]" )
 
       const auto data = buffer.data();
       std::string resp{ boost::asio::buffers_begin( data ), boost::asio::buffers_end( data ) };
-      std::cout << "[message] " << resp << '\n';
+      LOG_INFO << "[message] " << resp;
       REQUIRE( isize != osize );
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );

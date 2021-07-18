@@ -2,6 +2,7 @@
 // Created by Rakesh on 22/07/2020.
 //
 #include "catch.hpp"
+#include "../../src/log/NanoLog.h"
 #include "../../src/util/bson.h"
 
 #include <boost/asio/connect.hpp>
@@ -12,8 +13,6 @@
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
-
-#include <iostream>
 
 using tcp = boost::asio::ip::tcp;
 
@@ -61,7 +60,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "database" ) != option->end() );
       REQUIRE( option->find( "collection" ) != option->end() );
@@ -98,7 +97,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
@@ -130,7 +129,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -166,7 +165,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -209,7 +208,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) != option->end() );
       REQUIRE( option->find( "results" ) == option->end() );
@@ -246,7 +245,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "result" ) == option->end() );
       REQUIRE( option->find( "results" ) != option->end() );
@@ -297,7 +296,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -340,7 +339,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
@@ -373,7 +372,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << std::endl;
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
       REQUIRE( option->find( "success" ) != option->end() );
       REQUIRE( option->find( "history" ) != option->end() );
@@ -403,7 +402,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[crud] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );

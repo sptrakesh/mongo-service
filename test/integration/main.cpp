@@ -9,7 +9,7 @@
 
 int main( int argc, char* argv[] )
 {
-  nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp/", "mongo-service-test", false );
+  nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp/", "mongo-service-test", true );
   return Catch::Session().run( argc, argv );
 }
 

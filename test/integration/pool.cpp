@@ -3,6 +3,7 @@
 //
 #include "catch.hpp"
 #include "pool.h"
+#include "../../src/log/NanoLog.h"
 
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
@@ -13,7 +14,6 @@
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
-#include <iostream>
 #include <vector>
 
 using tcp = boost::asio::ip::tcp;
@@ -112,7 +112,7 @@ namespace spt::itest::pool
         kvp( "document", basic::make_document() ) );
     auto copt = pool.acquire();
     const auto option = (*copt)->execute( document.view() );
-    std::cout << "[pool] " << bsoncxx::to_json( *option ) << '\n';
+    LOG_INFO << "[pool] " << bsoncxx::to_json( *option );
   }
 }
 
@@ -146,7 +146,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       const auto option = (*copt)->execute( document.view() );
       REQUIRE( option.has_value() );
-      std::cout << "[pool] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[pool] " << bsoncxx::to_json( *option );
 
       const auto ov = option->view();
       REQUIRE( ov.find( "error" ) == ov.end() );
@@ -231,7 +231,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
 
       const auto option = (*copt2)->execute( document.view() );
       REQUIRE( option.has_value() );
-      std::cout << "[pool] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[pool] " << bsoncxx::to_json( *option );
       const auto ov = option->view();
       REQUIRE( ov.find( "error" ) == ov.end() );
       REQUIRE( ov.find( "count" ) != ov.end() );
@@ -260,7 +260,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
         auto copt2 = pool.acquire();
       }
       REQUIRE( pool.inactive() == 2 );
-      std::cout << "[pool] " << "Sleeping 6s to test TTL" << std::endl;
+      LOG_INFO << "[pool] " << "Sleeping 6s to test TTL";
       std::this_thread::sleep_for( std::chrono::seconds{ 6 } );
       REQUIRE( pool.inactive() == 0 );
     }

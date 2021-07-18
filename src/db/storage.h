@@ -12,4 +12,10 @@ namespace spt::db
 {
   boost::asio::awaitable<bsoncxx::document::view_or_value> process(
       const spt::model::Document& document );
+
+  namespace internal
+  {
+    boost::asio::awaitable<bsoncxx::document::view_or_value> transaction(
+        const spt::model::Document& document );
+  }
 }

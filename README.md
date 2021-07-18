@@ -479,17 +479,31 @@ and `group` specifications.  The matching documents will be returned in a
 Execute a sequence of actions in a **transaction**.  Nest the individual actions
 that are to be performed in the **transaction** within the `document` sub-document.
 
-The `document` in the payload **must** include a `steps` *array* of documents.
-Each document in the array represents the full specification for the *step* in
-the *transaction*.  The *document* specification is very similar to the normal
+The `document` in the payload **must** include an `items` *array* of documents.
+Each document in the array represents the full specification for the *action* in
+the *transaction*.  The *document* specification is the same as the
 *document* specification for using the service.
 
-The specification for the *step* document in the `steps` array is:
+The specification for the *action* document in the `items` array is:
 * `action (string)` - The type of action to perform.  Should be one of `create|update|delete`.
 * `database (string)` - The database in which the *step* is to be performed.
 * `collection (string)` - The collection in which the *step* is to be performed.
 * `document (document)` - The BSON specification for executing the `action`.
 * `skipVersion (bool)` - Do not create version history document for this action.
+
+The response to a **transaction** request has the following structure:
+* `created (int)` - The number of documents that were *created* in this transaction.
+* `updated (int)` - The number of documents that were *updated* in this transaction.
+* `deleted (int)` - The number of documents that were *deleted* in this transaction.
+* `history (document)` - Metadata about version history documents that were created.
+    * `database (string)` - The database used to store version history data.
+    * `collection (string)` - The collection used to store version history data.
+    * `created (array<oid>)` - History document object ids for new documents created in the transaction.
+    * `updated (array<oid>)` - History document object ids for documents updated in the transaction.
+    * `deleted (array<oid>)` - History document object ids for documents deleted in the transaction.
+
+See [samples](transaction.md) for sample request/response payloads from the
+integration test suite.
 
 ### Document Response
 Create, update and delete actions only return some meta information about the
@@ -507,6 +521,9 @@ following document model is returned as the response:
   a single document.
 * `results` - A *BSON array* with *document(s)* that were retrieved from the
   database for the *query*.
+  
+See [transaction](transaction.md) for sample request/response payloads for
+transaction requests.
   
 ### Options
 Options specified in the request payload are parsed into the appropriate
@@ -592,7 +609,7 @@ A wrapper is used to associate a last used timestamp to the *connection*.  This
 is used to enforce maximum idle time policy on the underlying *connection*.
 
 ### Sample Client
-A sample coroutine based async client with connection pool implementation is
+A sample async client using coroutines with connection pool implementation is
 available under the [client](test/client) directory.
 
 ### Performance Test
@@ -606,12 +623,13 @@ involves approximately 12 database operations internally.
 The tests are set up to *run* each set of *CRUD* operations `10` times (*iterations*),
 and a *run* is repeated a second time to get better average and variability numbers.
 Separate runs are set up with `10, 50, 100, 500` and `1000` concurrent threads.
-All testing is conducted against the simple [docker stack](docker/stack.yml)
-running on the same machine.  A key goal of the test is to ensure that no errors
-are encountered while running the test.
+All tests are against the simple [docker stack](docker/stack.yml)
+running on the same machine.  A key goal of the test is to ensure that there are
+no errors while running the test.
 
-The following numbers were achieved on my laptop during normal use (plenty of
-other applications and processes running).
+The following numbers as recorded on my laptop during normal use (plenty of
+other applications and processes running) and with the Docker daemon restricted
+to using half the available CPU cores.
 
 ```shell script
 [==========] Running 5 benchmarks.

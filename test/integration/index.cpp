@@ -2,6 +2,7 @@
 // Created by Rakesh on 28/07/2020.
 //
 #include "catch.hpp"
+#include "../../src/log/NanoLog.h"
 #include "../../src/util/bson.h"
 
 #include <boost/asio/connect.hpp>
@@ -12,8 +13,6 @@
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
-
-#include <iostream>
 
 using tcp = boost::asio::ip::tcp;
 
@@ -52,7 +51,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
@@ -84,7 +83,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
@@ -116,7 +115,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
     }
 
@@ -149,7 +148,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
@@ -185,7 +184,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
 
       const auto name = spt::util::bsonValueIfExists<std::string>( "name", *option );
@@ -217,7 +216,7 @@ SCENARIO( "Index test suite", "[index]" )
 
       const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
       REQUIRE( option.has_value() );
-      std::cout << "[index] " << bsoncxx::to_json( *option ) << '\n';
+      LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->find( "error" ) == option->end() );
     }
   }

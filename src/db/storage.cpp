@@ -101,15 +101,13 @@ namespace spt::db::pstorage
           static_cast<mongocxx::write_concern::level>( *level ));
     else w.acknowledge_level( mongocxx::write_concern::level::k_majority );
 
-    auto majority = bsonValueIfExists<std::chrono::milliseconds>( "majority",
-        view );
+    auto majority = bsonValueIfExists<std::chrono::milliseconds>( "majority", view );
     if ( majority ) w.majority( *majority );
 
     auto tag = bsonValueIfExists<std::string>( "tag", view );
     if ( tag ) w.tag( *tag );
 
-    auto timeout = bsonValueIfExists<std::chrono::milliseconds>( "timeout",
-        view );
+    auto timeout = bsonValueIfExists<std::chrono::milliseconds>( "timeout", view );
     if ( timeout ) w.timeout( *timeout );
 
     return w;
@@ -1276,144 +1274,6 @@ namespace spt::db::pstorage
     co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
   }
 
-  awaitable<bsoncxx::document::view_or_value> transaction( const model::Document& model )
-  {
-    using spt::util::bsonValue;
-    using spt::util::bsonValueIfExists;
-
-    using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::open_document;
-    using bsoncxx::builder::stream::close_document;
-    using bsoncxx::builder::stream::finalize;
-
-    LOG_DEBUG << "Executing transaction";
-    const auto array = util::bsonValueIfExists<bsoncxx::array::view>( "items", model.document() );
-    if ( !array )
-    {
-      LOG_WARN << "No items array in transaction payload";
-      co_return model::missingField();
-    }
-
-    auto cliento = Pool::instance().acquire();
-    if ( !cliento )
-    {
-      LOG_WARN << "Connection pool exhausted";
-      co_return model::poolExhausted();
-    }
-
-    const auto& client = *cliento;
-    const auto& conf = model::Configuration::instance();
-    const auto now = std::chrono::system_clock::now();
-    auto vhidc = bsoncxx::builder::basic::array{};
-    auto vhidd = bsoncxx::builder::basic::array{};
-    auto created = 0;
-    auto deleted = 0;
-    auto updated = 0;
-
-    const auto cb = [&]( mongocxx::client_session* session )
-    {
-      for ( auto&& d : *array )
-      {
-        const auto doc = model::Document{ d.get_document().view() };
-        if ( !doc.valid() ) continue;
-
-        const auto dv = doc.document();
-        const auto action = doc.action();
-        const auto dbname = doc.database();
-        const auto collname = doc.collection();
-        const auto skip = doc.skipVersion();
-
-        const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", dv );
-        if ( !idopt )
-        {
-          LOG_WARN << "Document id not specified " << doc.json();
-          session->abort_transaction();
-          break;
-        }
-
-        if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
-        {
-          LOG_WARN << "Attempting to create in version history " << doc.json();
-          session->abort_transaction();
-          break;
-        }
-
-        if ( action == "create" )
-        {
-          ( *client )[dbname][collname].insert_one( *session, dv );
-          ++created;
-
-          if ( !skip || !*skip )
-          {
-            auto oid = bsoncxx::oid{};
-            ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
-                *session,
-                document{} <<
-                  "_id" << oid <<
-                  "database" << dbname <<
-                  "collection" << collname <<
-                  "action" << action <<
-                  "entity" << dv <<
-                  "created" << bsoncxx::types::b_date{ now } <<
-                  finalize );
-            vhidc.append( oid );
-          }
-        }
-        else if ( doc.action() == "update" )
-        {
-        }
-        else if ( doc.action() == "delete" )
-        {
-          if ( !skip || !*skip )
-          {
-            auto results = ( *client )[dbname][collname].find( *session, dv );
-            for ( auto&& e : results )
-            {
-              auto oid = bsoncxx::oid{};
-              ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
-                  *session,
-                  document{} <<
-                    "_id" << oid <<
-                    "database" << dbname <<
-                    "collection" << collname <<
-                    "action" << action <<
-                    "entity" << e <<
-                    "created" << bsoncxx::types::b_date{ now } <<
-                    finalize );
-              vhidd.append( oid );
-            }
-          }
-
-          auto dr = ( *client )[dbname][collname].delete_many( *session, dv );
-          if ( dr ) deleted += dr->deleted_count();
-          else ++deleted;
-        }
-      }
-    };
-
-    auto session = client->start_session();
-    try
-    {
-      session.with_transaction( cb );
-    }
-    catch ( const mongocxx::exception& e )
-    {
-      LOG_WARN << "Error executing transaction " << e.what();
-      co_return model::transactionError();
-    }
-
-    co_return document{} <<
-      "created" << created <<
-      "updated" << updated <<
-      "deleted" << deleted <<
-      "versionHistory" <<
-        open_document <<
-          "created" << vhidc.extract() <<
-          "deleted" << vhidd.extract() <<
-        close_document <<
-      finalize;
-  }
-
   boost::asio::awaitable<bsoncxx::document::view_or_value> process(
       const model::Document& document )
   {
@@ -1464,10 +1324,10 @@ namespace spt::db::pstorage
       }
       else if ( action == "transaction" )
       {
-        co_return co_await transaction( document );
+        co_return co_await internal::transaction( document );
       }
 
-      co_return bsoncxx::document::value{ model::invalidAction() };
+      co_return model::invalidAction();
     }
     catch ( const mongocxx::bulk_write_exception& be )
     {
