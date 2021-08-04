@@ -469,11 +469,46 @@ Sample response for the above payload:
 #### Aggregation Pipeline
 Basic support for using *aggregation pipeline* features.  This feature will be
 expanded as use cases expand over a period of time.  At present, only simple
-*match* and *group* combination is implemented.
+*match*, *lookup* and *group* combination is implemented.
 
-The `document` in the payload **must** include two sub-documents with the `match`
-and `group` specifications.  The matching documents will be returned in a
-`results` array in the response.
+The `document` in the payload **must** include a `specification` *array* of
+documents which correspond to the `match`, `lookup` ...
+specifications for the aggregation pipeline operation.  The matching documents 
+will be returned in a `results` array in the response.
+
+The following operators are supported:
+* `$match`
+* `$lookup`
+* `$unwind`
+* `$group`
+* `$sort`
+* `$project`
+
+Sample request payload:
+```json
+{
+  "action": "pipeline",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "specification": [
+      { "$match": { "_id": { "$oid": "5f861c8452c8ca000d60b783" } } },
+      { "$lookup": {
+        "localField": "user._id",
+        "from": "user",
+        "foreignField": "_id",
+        "as": "users"
+      } },
+      { "$lookup": {
+        "localField": "group._id",
+        "from": "group",
+        "foreignField": "_id",
+        "as": "groups"
+      } }
+    ]
+  }
+}
+```
 
 #### Transaction
 Execute a sequence of actions in a **transaction**.  Nest the individual actions

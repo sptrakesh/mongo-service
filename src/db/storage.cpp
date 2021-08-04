@@ -1241,23 +1241,36 @@ namespace spt::db::pstorage
     const auto dbname = model.database();
     const auto collname = model.collection();
 
-    const auto match = bsonValueIfExists<bsoncxx::document::view>( "match", doc );
-    if ( ! match )
-    {
-      LOG_WARN << "No match document specified";
-      co_return model::withMessage( "No match document in payload." );
-    }
+    const auto spec = bsonValueIfExists<bsoncxx::array::view>( "specification", doc );
 
-    const auto group = bsonValueIfExists<bsoncxx::document::view>( "group", doc );
-    if ( ! group )
+    if ( !spec )
     {
-      LOG_WARN << "No group document specified";
-      co_return model::withMessage( "No group document in payload." );
+      LOG_WARN << "No aggregation specification";
+      co_return model::withMessage( "No aggregation specification." );
     }
 
     auto pipeline = mongocxx::pipeline{};
-    pipeline.match( *match );
-    pipeline.group( *group );
+    for ( auto&& s : *spec )
+    {
+      auto v = s.get_document().view();
+      auto it = v.find( "$match" );
+      if ( it != v.end() ) pipeline.match( v );
+
+      it = v.find( "$lookup" );
+      if ( it != v.end() ) pipeline.lookup( v );
+
+      it = v.find( "$unwind" );
+      if ( it != v.end() ) pipeline.unwind( v );
+
+      it = v.find( "$project" );
+      if ( it != v.end() ) pipeline.project( v );
+
+      it = v.find( "$group" );
+      if ( it != v.end() ) pipeline.group( v );
+
+      it = v.find( "$sort" );
+      if ( it != v.end() ) pipeline.sort( v );
+    }
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
