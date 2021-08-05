@@ -468,8 +468,7 @@ Sample response for the above payload:
 
 #### Aggregation Pipeline
 Basic support for using *aggregation pipeline* features.  This feature will be
-expanded as use cases expand over a period of time.  At present, only simple
-*match*, *lookup* and *group* combination is implemented.
+expanded as use cases expand over a period of time.
 
 The `document` in the payload **must** include a `specification` *array* of
 documents which correspond to the `match`, `lookup` ...
@@ -482,6 +481,7 @@ The following operators are supported:
 * `$unwind`
 * `$group`
 * `$sort`
+* `$limit`
 * `$project`
 
 Sample request payload:
@@ -492,19 +492,21 @@ Sample request payload:
   "collection": "test",
   "document": {
     "specification": [
-      { "$match": { "_id": { "$oid": "5f861c8452c8ca000d60b783" } } },
-      { "$lookup": {
+      {"$match": {"_id": {"$oid": "5f861c8452c8ca000d60b783"}}},
+      {"$sort": {"_id":  -1 }},
+      {"$limit": 20},
+      {"$lookup": {
         "localField": "user._id",
         "from": "user",
         "foreignField": "_id",
         "as": "users"
-      } },
-      { "$lookup": {
+      }},
+      {"$lookup": {
         "localField": "group._id",
         "from": "group",
         "foreignField": "_id",
         "as": "groups"
-      } }
+      }}
     ]
   }
 }
