@@ -1254,22 +1254,33 @@ namespace spt::db::pstorage
     {
       auto v = s.get_document().view();
       auto it = v.find( "$match" );
-      if ( it != v.end() ) pipeline.match( v );
+      if ( it != v.end() ) pipeline.match( it->get_document().view() );
 
       it = v.find( "$lookup" );
-      if ( it != v.end() ) pipeline.lookup( v );
+      if ( it != v.end() ) pipeline.lookup( it->get_document().view() );
 
       it = v.find( "$unwind" );
-      if ( it != v.end() ) pipeline.unwind( v );
+      if ( it != v.end() )
+      {
+        if ( it->type() == bsoncxx::type::k_utf8 )
+        {
+          const auto value = it->get_utf8().value;
+          pipeline.unwind( std::string{ value.data(), value.size() } );
+        }
+        else pipeline.unwind( it->get_document().view() );
+      }
 
       it = v.find( "$project" );
-      if ( it != v.end() ) pipeline.project( v );
+      if ( it != v.end() ) pipeline.project( it->get_document().view() );
 
       it = v.find( "$group" );
-      if ( it != v.end() ) pipeline.group( v );
+      if ( it != v.end() ) pipeline.group( it->get_document().view() );
 
       it = v.find( "$sort" );
-      if ( it != v.end() ) pipeline.sort( v );
+      if ( it != v.end() ) pipeline.sort( it->get_document().view() );
+
+      it = v.find( "$limit" );
+      if ( it != v.end() ) pipeline.limit( it->get_int32().value );
     }
 
     auto cliento = Pool::instance().acquire();
