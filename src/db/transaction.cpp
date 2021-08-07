@@ -83,6 +83,29 @@ namespace spt::db::internal::ptransaction
     }
     else if ( doc.action() == "update" )
     {
+      auto id = util::bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+      if ( id )
+      {
+        auto filter = document{} << "_id" << *id << finalize;
+        ( *client )[dbname][collname].replace_one( *session, filter.view(), dv );
+        ++result.updated;
+
+        if ( !skip || !*skip )
+        {
+          auto oid = bsoncxx::oid{};
+          ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+              *session,
+              document{} <<
+                "_id" << oid <<
+                "database" << dbname <<
+                "collection" << collname <<
+                "action" << action <<
+                "entity" << dv <<
+                "created" << bsoncxx::types::b_date{ result.now } <<
+                finalize );
+          result.vhidc.append( oid );
+        }
+      }
     }
     else if ( doc.action() == "delete" )
     {

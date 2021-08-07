@@ -542,6 +542,12 @@ The response to a **transaction** request has the following structure:
 See [samples](transaction.md) for sample request/response payloads from the
 integration test suite.
 
+##### Limitation
+Update at present in only partially supported.  Strong assumption is made that
+the document being updated is a full replacement.  In other words, there is a
+strong assumption that the document includes the `_id` property, and that the
+intention is to replace the existing document.
+
 ### Document Response
 Create, update and delete actions only return some meta information about the
 action that was performed.  The assumption is that caller already has all the
