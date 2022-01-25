@@ -1,3 +1,5 @@
+FROM sptrakesh/config-db as config
+FROM sptrakesh/encrypter as encrypter
 FROM sptrakesh/mongocxx-boost as base
 
 COPY CMakeLists.txt /opt/spt/mongo-service/CMakeLists.txt
@@ -11,6 +13,8 @@ RUN rm -rf * \
 
 FROM sptrakesh/cppruntime
 
+COPY --from=config /opt/spt/bin /opt/spt/bin
+COPY --from=encrypter /opt/spt/bin /opt/spt/bin
 COPY --from=base /opt/spt/bin /opt/spt/bin
 
 RUN addgroup spt \

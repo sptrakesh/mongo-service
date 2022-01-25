@@ -2,6 +2,56 @@
 
 LOGDIR=/opt/spt/logs
 
+ConfigDb()
+{
+  if [ -z "$CONFIG_DB" ]
+  then
+    return
+  fi
+
+  server=`echo $CONFIG_DB | cut -d ':' -f1`
+  port=`echo $CONFIG_DB | cut -d ':' -f2`
+
+  status=1
+  count=0
+  echo "Checking if $server is available"
+  while [ $status -ne 0 ]
+  do
+    echo "[$count] Config-db Service $server:$port not available ($status).  Sleeping 1s..."
+    count=$(($count + 1 ))
+    sleep 1
+    nc -z $server $port
+    status=$?
+  done
+
+  MONGO_URI=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/uri`
+  MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+
+  VERSION_HISTORY_DATABASE=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/database/versionHistory`
+  echo $VERSION_HISTORY_DATABASE | grep Error
+  if [ $? -eq 0 ]; then VERSION_HISTORY_DATABASE=''; fi
+
+  VERSION_HISTORY_COLLECTION=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/collection/versionHistory`
+  echo $VERSION_HISTORY_COLLECTION | grep Error
+  if [ $? -eq 0 ]; then VERSION_HISTORY_COLLECTION=''; fi
+
+  METRIC_DATABASE=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/database/metric`
+  echo $METRIC_DATABASE | grep Error
+  if [ $? -eq 0 ]; then METRIC_DATABASE=''; fi
+
+  METRIC_COLLECTION=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/collection/metric`
+  echo $METRIC_COLLECTION | grep Error
+  if [ $? -eq 0 ]; then METRIC_COLLECTION=''; fi
+
+  LOG_LEVEL=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/service/log/level`
+  echo $LOG_LEVEL | grep Error
+  if [ $? -eq 0 ]; then LOG_LEVEL=''; fi
+
+  LOG_ASYNC=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/service/log/async`
+  echo $LOG_ASYNC | grep Error
+  if [ $? -eq 0 ]; then LOG_ASYNC=''; fi
+}
+
 Check()
 {
   if [ -z "$MONGO_URI" ]
@@ -81,4 +131,4 @@ Service()
     --port $PORT --threads $THREADS --log-level $LOG_LEVEL --log-async $LOG_ASYNC
 }
 
-Check && Defaults && Service
+ConfigDb && Check && Defaults && Service

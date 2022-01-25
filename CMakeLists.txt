@@ -43,6 +43,7 @@ include_directories(
 )
 
 if (APPLE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines-ts")
   set(CMAKE_MACOSX_RPATH 1)
 else()
   include_directories(

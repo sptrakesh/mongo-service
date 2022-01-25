@@ -85,6 +85,13 @@ namespace spt::server::coroutine
     std::size_t osize = co_await socket.async_read_some( boost::asio::buffer( data ), use_awaitable );
     const auto docSize = documentSize( osize );
 
+    // echo, noop, ping etc.
+    if ( docSize < 5 )
+    {
+      co_await boost::asio::async_write( socket, boost::asio::buffer( data, docSize ), use_awaitable );
+      co_return;
+    }
+
     if ( docSize <= bufSize )
     {
       auto doc = model::Document{ reinterpret_cast<const uint8_t*>( data ), docSize };
