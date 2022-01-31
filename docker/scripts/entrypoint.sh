@@ -2,6 +2,54 @@
 
 LOGDIR=/opt/spt/logs
 
+FromDb()
+{
+  cmd="/opt/spt/bin/configctl -s $1 -p $2"
+  if [ -n "$3" ]
+  then
+    cmd="$cmd $3"
+  fi
+
+  status=1
+  count=0
+  echo "Checking if $1 is available"
+  while [ $status -ne 0 ]
+  do
+    echo "[$count] Config-db Service $1:$2 not available ($status).  Sleeping 1s..."
+    count=$(($count + 1 ))
+    sleep 1
+    nc -z $1 $2
+    status=$?
+  done
+
+  MONGO_URI=`$cmd -a get -k /database/mongo/uri`
+  MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+
+  VERSION_HISTORY_DATABASE=`$cmd -a get -k /database/mongo/database/versionHistory`
+  echo $VERSION_HISTORY_DATABASE | grep Error
+  if [ $? -eq 0 ]; then VERSION_HISTORY_DATABASE=''; fi
+
+  VERSION_HISTORY_COLLECTION=`$cmd -a get -k /database/mongo/collection/versionHistory`
+  echo $VERSION_HISTORY_COLLECTION | grep Error
+  if [ $? -eq 0 ]; then VERSION_HISTORY_COLLECTION=''; fi
+
+  METRIC_DATABASE=`$cmd -a get -k /database/mongo/database/metric`
+  echo $METRIC_DATABASE | grep Error
+  if [ $? -eq 0 ]; then METRIC_DATABASE=''; fi
+
+  METRIC_COLLECTION=`$cmd -a get -k /database/mongo/collection/metric`
+  echo $METRIC_COLLECTION | grep Error
+  if [ $? -eq 0 ]; then METRIC_COLLECTION=''; fi
+
+  LOG_LEVEL=`$cmd -a get -k /database/mongo/service/log/level`
+  echo $LOG_LEVEL | grep Error
+  if [ $? -eq 0 ]; then LOG_LEVEL=''; fi
+
+  LOG_ASYNC=`$cmd -a get -k /database/mongo/service/log/async`
+  echo $LOG_ASYNC | grep Error
+  if [ $? -eq 0 ]; then LOG_ASYNC=''; fi
+}
+
 ConfigDb()
 {
   if [ -z "$CONFIG_DB" ]
@@ -11,45 +59,19 @@ ConfigDb()
 
   server=`echo $CONFIG_DB | cut -d ':' -f1`
   port=`echo $CONFIG_DB | cut -d ':' -f2`
+  FromDb $server $port
+}
 
-  status=1
-  count=0
-  echo "Checking if $server is available"
-  while [ $status -ne 0 ]
-  do
-    echo "[$count] Config-db Service $server:$port not available ($status).  Sleeping 1s..."
-    count=$(($count + 1 ))
-    sleep 1
-    nc -z $server $port
-    status=$?
-  done
+SecureConfigDb()
+{
+  if [ -z "$SECURE_CONFIG_DB" ]
+  then
+    return
+  fi
 
-  MONGO_URI=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/uri`
-  MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
-
-  VERSION_HISTORY_DATABASE=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/database/versionHistory`
-  echo $VERSION_HISTORY_DATABASE | grep Error
-  if [ $? -eq 0 ]; then VERSION_HISTORY_DATABASE=''; fi
-
-  VERSION_HISTORY_COLLECTION=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/collection/versionHistory`
-  echo $VERSION_HISTORY_COLLECTION | grep Error
-  if [ $? -eq 0 ]; then VERSION_HISTORY_COLLECTION=''; fi
-
-  METRIC_DATABASE=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/database/metric`
-  echo $METRIC_DATABASE | grep Error
-  if [ $? -eq 0 ]; then METRIC_DATABASE=''; fi
-
-  METRIC_COLLECTION=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/collection/metric`
-  echo $METRIC_COLLECTION | grep Error
-  if [ $? -eq 0 ]; then METRIC_COLLECTION=''; fi
-
-  LOG_LEVEL=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/service/log/level`
-  echo $LOG_LEVEL | grep Error
-  if [ $? -eq 0 ]; then LOG_LEVEL=''; fi
-
-  LOG_ASYNC=`/opt/spt/bin/configctl -s $server -p $port -a get -k /database/mongo/service/log/async`
-  echo $LOG_ASYNC | grep Error
-  if [ $? -eq 0 ]; then LOG_ASYNC=''; fi
+  server=`echo $SECURE_CONFIG_DB | cut -d ':' -f1`
+  port=`echo $SECURE_CONFIG_DB | cut -d ':' -f2`
+  FromDb $server $port "--with-ssl"
 }
 
 Check()
@@ -131,4 +153,4 @@ Service()
     --port $PORT --threads $THREADS --log-level $LOG_LEVEL --log-async $LOG_ASYNC
 }
 
-ConfigDb && Check && Defaults && Service
+ConfigDb && SecureConfigDb && Check && Defaults && Service

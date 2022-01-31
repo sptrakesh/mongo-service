@@ -11,6 +11,7 @@
 #include <bsoncxx/document/value.hpp>
 
 #include <memory>
+#include <optional>
 
 namespace spt::client
 {

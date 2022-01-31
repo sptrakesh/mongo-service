@@ -1,4 +1,4 @@
-FROM sptrakesh/config-db as config
+FROM sptrakesh/config-db:alpine as config
 FROM sptrakesh/encrypter as encrypter
 FROM sptrakesh/mongocxx-boost as base
 
@@ -14,6 +14,9 @@ RUN rm -rf * \
 FROM sptrakesh/cppruntime
 
 COPY --from=config /opt/spt/bin /opt/spt/bin
+COPY --from=config /opt/spt/certs/ca.crt /opt/spt/certs/ca.crt
+COPY --from=config /opt/spt/certs/client.crt /opt/spt/certs/client.crt
+COPY --from=config /opt/spt/certs/client.key /opt/spt/certs/client.key
 COPY --from=encrypter /opt/spt/bin /opt/spt/bin
 COPY --from=base /opt/spt/bin /opt/spt/bin
 
