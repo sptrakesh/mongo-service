@@ -22,6 +22,18 @@ FromDb()
     status=$?
   done
 
+  status=1
+  count=0
+  echo "Checking if $1 has been bootstrapped"
+  while [ $status -ne 0 ]
+  do
+    echo "[$count] Config-db Service $1:$2 not bootstrapped ($status).  Sleeping 1s..."
+    count=$(($count + 1 ))
+    sleep 1
+    $cmd -a get -k /database/mongo/uri
+    status=$?
+  done
+
   MONGO_URI=`$cmd -a get -k /database/mongo/uri`
   MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
 
