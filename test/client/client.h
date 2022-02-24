@@ -33,6 +33,7 @@ namespace spt::client
   private:
     boost::asio::ip::tcp::socket s;
     boost::asio::ip::tcp::resolver resolver;
+    boost::asio::ip::tcp::resolver::results_type endpoints;
     std::string host;
     std::string port;
     bool v{ true };

@@ -2,9 +2,10 @@
 // Created by Rakesh on 15/07/2021.
 //
 
+#include "status.h"
 #include "tasks.h"
 #include "../../src/log/NanoLog.h"
-#include "../../src/util/bson.h"
+#include "../../src/common/util/bson.h"
 
 #include <iostream>
 
@@ -195,5 +196,6 @@ boost::asio::awaitable<void> spt::client::crud( Client& client )
   co_await pcrud::byProperty( client, "key"sv, "value"sv, oid );
   co_await pcrud::update( client, oid );
   co_await pcrud::remove( client, oid );
+  ++Status::instance().counter;
 }
 

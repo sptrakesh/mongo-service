@@ -54,9 +54,14 @@ else()
   )
 endif()
 
-SET(CMAKE_INSTALL_PREFIX /opt/spt)
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX /opt/spt)
+endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
-add_subdirectory(src)
+add_subdirectory(src/log)
+add_subdirectory(src/common)
+add_subdirectory(src/service)
+add_subdirectory(src/api)
 
 if (BUILD_TESTING)
   add_subdirectory(test/integration)

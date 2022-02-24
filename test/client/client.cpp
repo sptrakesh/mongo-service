@@ -3,7 +3,7 @@
 //
 
 #include "client.h"
-#include "context.h"
+#include "../../src/api/contextholder.h"
 #include "../../src/log/NanoLog.h"
 
 #include <boost/asio/awaitable.hpp>
@@ -31,7 +31,7 @@ Client::Client( boost::asio::io_context& ioc, std::string_view h,
     s{ ioc }, resolver( ioc ),
     host{ h.data(), h.size() }, port{ p.data(), p.size() }
 {
-  resolver.resolve( host, port, ec );
+  endpoints = resolver.resolve( host, port, ec );
   if ( ec ) LOG_WARN << "Error resolving service " << ec.message();
 }
 
@@ -50,7 +50,7 @@ boost::asio::awaitable<std::optional<bsoncxx::document::value>> Client::execute(
 
   try
   {
-    if ( !s.is_open() ) co_await boost::asio::async_connect( s, resolver.resolve( host, port ), use_awaitable );
+    if ( !s.is_open() ) co_await boost::asio::async_connect( s, endpoints, use_awaitable );
     auto isize = co_await boost::asio::async_write(
         s, boost::asio::buffer( view.data(), view.length() ), use_awaitable );
     LOG_DEBUG << "Wrote " << int(isize) << " bytes to socket";
@@ -114,6 +114,7 @@ boost::asio::awaitable<std::optional<bsoncxx::document::value>> Client::execute(
 auto spt::client::createClient() -> std::unique_ptr<Client>
 {
   boost::system::error_code ec;
-  return std::make_unique<Client>( Context::instance().ioc, "localhost", "2020", ec );
+  auto ptr = std::make_unique<Client>( mongoservice::api::ContextHolder::instance().ioc, "localhost", "2020", ec );
   assert( !ec );
+  return ptr;
 }

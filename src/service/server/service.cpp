@@ -9,7 +9,7 @@
 #include "model/errors.h"
 #include "queue/queuemanager.h"
 #include "queue/poller.h"
-#include "log/NanoLog.h"
+#include "../log/NanoLog.h"
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>

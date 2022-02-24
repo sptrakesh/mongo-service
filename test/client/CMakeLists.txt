@@ -8,7 +8,7 @@ target_compile_definitions(client
 )
 
 target_link_libraries(client
-  PRIVATE mongo-service-lib ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} z
+  PRIVATE nanolog mongo-service-common mongo-service-api ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} z
 )
 
 add_test(NAME client COMMAND client)

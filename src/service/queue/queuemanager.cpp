@@ -3,7 +3,7 @@
 //
 
 #include "queuemanager.h"
-#include "log/NanoLog.h"
+#include "../log/NanoLog.h"
 
 using spt::queue::QueueManager;
 using spt::model::Metric;

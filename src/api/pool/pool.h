@@ -4,19 +4,23 @@
 
 #pragma once
 
-#include "../../src/log/NanoLog.h"
+#if __has_include("../../log/NanoLog.h")
+#include "../../log/NanoLog.h"
+#else
+#include <log/NanoLog.h>
+#endif
 
 #include <atomic>
 #include <chrono>
 #include <deque>
 #include <functional>
-#include <future>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <thread>
 
-namespace spt::pool
+namespace spt::mongoservice::pool
 {
   struct Configuration
   {
@@ -54,13 +58,13 @@ namespace spt::pool
 
       Ptr con;
       std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
-      uint32_t count;
+      uint32_t count{ 0 };
     };
 
     struct Proxy
     {
       explicit Proxy( ConnectionWrapper c, Pool<Connection>* p ) :
-        con{ std::move( c ) }, pool{ p } {}
+          con{ std::move( c ) }, pool{ p } {}
 
       ~Proxy()
       {
@@ -82,7 +86,7 @@ namespace spt::pool
     };
 
     explicit Pool( Factory c, Configuration conf = {} ) :
-      creator{ c }, configuration{ std::move( conf ) }
+        creator{ c }, configuration{ std::move( conf ) }
     {
       for ( uint32_t i = 0; i < configuration.initialSize; ++i )
       {
@@ -112,21 +116,7 @@ namespace spt::pool
       if ( available.empty() )
       {
         ++created;
-        std::future<Ptr> future = std::async( std::launch::async, creator );
-        if ( !future.valid() )
-        {
-          LOG_WARN << "Error waiting for connection";
-          return std::nullopt;
-        }
-
-        auto status = future.wait_for( std::chrono::milliseconds{ 100 } );
-        if ( status == std::future_status::ready )
-        {
-          return Proxy{ ConnectionWrapper{ future.get() }, this };
-        }
-
-        LOG_WARN << "Future timed out";
-        return std::nullopt;
+        return Proxy{ ConnectionWrapper{ creator() }, this };
       }
 
       auto con = std::move( available.front() );
@@ -177,7 +167,7 @@ namespace spt::pool
         if ( diff < configuration.maxIdleTime ) end = true;
         else
         {
-          LOG_INFO << "Removing connection idling for " << diff.count() <<
+          LOG_INFO << "Removing resource idling for " << diff.count() <<
             " seconds and used " << iter->count << " times";
           available.erase( iter );
         }

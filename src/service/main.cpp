@@ -3,11 +3,12 @@
 //
 
 #include "db/logger.h"
-#include "log/NanoLog.h"
 #include "model/configuration.h"
 #include "server/service.h"
-#include "util/clara.h"
+#include "../log/NanoLog.h"
+#include "../common/util/clara.h"
 
+#include <boost/json/src.hpp>
 #include <mongocxx/instance.hpp>
 
 #include <iostream>

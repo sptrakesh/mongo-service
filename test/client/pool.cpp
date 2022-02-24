@@ -2,11 +2,11 @@
 // Created by Rakesh on 16/07/2021.
 //
 
-#include "context.h"
 #include "pool.h"
+#include "status.h"
 #include "tasks.h"
-#include "../../src/log/NanoLog.h"
-#include "../../src/util/bson.h"
+#include "../../src/api/contextholder.h"
+#include "../../src/common/util/bson.h"
 
 #include <boost/asio/co_spawn.hpp>
 #include <bsoncxx/json.hpp>
@@ -220,17 +220,18 @@ boost::asio::awaitable<void> spt::client::crud()
   config.maxConnections = 1000;
   config.maxIdleTime = std::chrono::seconds{ 3 };
   Pool<Client> pool{ createClient, std::move( config ) };
+  auto& ctx = mongoservice::api::ContextHolder::instance();
 
-  int completed = 0;
   for ( int i = 0; i < 100; ++i )
   {
     LOG_INFO << "Spawning crud operations " << i;
-    boost::asio::co_spawn( Context::instance().ioc, pool::crud( pool, i ),
-        [&completed](std::exception_ptr e, bool) { ++completed; } );
+    boost::asio::co_spawn( ctx.ioc, pool::crud( pool, i ),
+        [](std::exception_ptr e, bool) { ++Status::instance().counter; } );
   }
 
-  while ( completed < 100 ) std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+  while ( Status::instance().counter.load() < 101 ) std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
   LOG_INFO << "Finished multi-threaded crud operations";
+  ctx.ioc.stop();
   co_return;
 }
 

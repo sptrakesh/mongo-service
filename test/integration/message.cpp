@@ -2,9 +2,9 @@
 // Created by Rakesh on 19/07/2020.
 //
 
-#include "catch.hpp"
 #include "../../src/log/NanoLog.h"
 
+#include <catch2/catch.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>

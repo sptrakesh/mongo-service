@@ -4,8 +4,8 @@
 
 #include "poller.h"
 #include "queuemanager.h"
-#include "log/NanoLog.h"
 #include "model/configuration.h"
+#include "../log/NanoLog.h"
 
 #include <bsoncxx/json.hpp>
 #include <mongocxx/client.hpp>

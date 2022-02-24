@@ -621,9 +621,9 @@ to ensure full interoperability.  The test suites will be available under the
     ```
 
 ### Connection Pool
-A simple connection pool [implementation](test/integration/pool.h) is available
-in the integration test directory, along with its associated test suite.  The
-implementation is based on a *factory* function that can create valid connections
+A simple connection pool [implementation](src/api/pool/pool.h) is provided
+in the api, along with its associated [test suite](test/integration/pool.cpp).
+The implementation is based on a *factory* function that can create valid connections
 as needed.
 
 The pool is managed using a `std::deque`.  Connections returned to the pool are

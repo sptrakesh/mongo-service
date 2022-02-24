@@ -1,15 +1,11 @@
 //
 // Created by Rakesh on 23/09/2020.
 //
-#include "catch.hpp"
+#include "../../src/api/api.h"
 #include "../../src/log/NanoLog.h"
-#include "../../src/util/bson.h"
+#include "../../src/common/util/bson.h"
 
-#include <boost/asio/connect.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/ip/tcp.hpp>
-
+#include <catch2/catch.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/array.hpp>
@@ -18,8 +14,6 @@
 
 #include <chrono>
 #include <vector>
-
-using tcp = boost::asio::ip::tcp;
 
 namespace spt::itest::bulk
 {
@@ -31,14 +25,8 @@ namespace spt::itest::bulk
 
 SCENARIO( "Bulk operation test suite", "[bulk]" )
 {
-  boost::asio::io_context ioc;
-
   GIVEN( "Connected to Mongo Service" )
   {
-    tcp::socket s( ioc );
-    tcp::resolver resolver( ioc );
-    boost::asio::connect( s, resolver.resolve( "localhost", "2020" ));
-
     WHEN( "Creating documents in bulk" )
     {
       using bsoncxx::builder::stream::document;
@@ -47,9 +35,6 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       using bsoncxx::builder::stream::open_document;
       using bsoncxx::builder::stream::close_document;
       using bsoncxx::builder::stream::finalize;
-
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
 
       auto doc = document{} <<
           "action" << "bulk" <<
@@ -70,24 +55,17 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
                 close_array <<
             close_document <<
           finalize;
-      os.write( reinterpret_cast<const char*>( doc.view().data() ), doc.view().length() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( doc.view() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "create" ) != option->end() );
-      REQUIRE( option->find( "history" ) != option->end() );
-      REQUIRE( option->find( "delete" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "create" ) != opt.end() );
+      REQUIRE( opt.find( "history" ) != opt.end() );
+      REQUIRE( opt.find( "delete" ) != opt.end() );
     }
 
     AND_THEN( "Retriving count of documents" )
@@ -95,29 +73,19 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      REQUIRE( option->view().find( "error" ) == option->view().end() );
 
-      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
       spt::itest::bulk::count = *count;
     }
@@ -130,9 +98,6 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       using bsoncxx::builder::stream::open_document;
       using bsoncxx::builder::stream::close_document;
       using bsoncxx::builder::stream::finalize;
-
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
 
       auto doc = document{} <<
         "action" << "bulk" <<
@@ -147,24 +112,16 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
               close_array <<
           close_document <<
         finalize;
-      os.write( reinterpret_cast<const char*>( doc.view().data() ), doc.view().length() );
 
-      const auto isize = s.send( buffer.data());
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate(
-          reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value());
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "create" ) != option->end() );
-      REQUIRE( option->find( "history" ) != option->end() );
-      REQUIRE( option->find( "delete" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "create" ) != opt.end() );
+      REQUIRE( opt.find( "history" ) != opt.end() );
+      REQUIRE( opt.find( "delete" ) != opt.end() );
     }
 
     AND_THEN( "Retriving count of documents after delete" )
@@ -172,29 +129,19 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      REQUIRE( option->view().find( "error" ) == option->view().end() );
 
-      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
       REQUIRE( spt::itest::bulk::count > *count );
     }
@@ -253,30 +200,21 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
             );
       }
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "bulk" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "insert", arr.extract() ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "create" ) != option->end() );
-      REQUIRE( option->find( "history" ) != option->end() );
-      REQUIRE( option->find( "delete" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "create" ) != opt.end() );
+      REQUIRE( opt.find( "history" ) != opt.end() );
+      REQUIRE( opt.find( "delete" ) != opt.end() );
     }
 
     AND_THEN( "Deleting a large batch of documents" )
@@ -290,37 +228,22 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
         arr.append( basic::make_document( kvp( "_id", id ) ) );
       }
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "bulk" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "delete", arr.view() ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto st = std::chrono::steady_clock::now();
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 1024 ) );
-      buffer.commit( osize );
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::seconds>( et - st );
-      LOG_INFO << "[bulk] " << "Deleting " << int(spt::itest::bulk::oids.size()) << " documents took " << int(delta.count()) << " seconds";
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "create" ) != option->end() );
-      REQUIRE( option->find( "history" ) != option->end() );
-      REQUIRE( option->find( "delete" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "create" ) != opt.end() );
+      REQUIRE( opt.find( "history" ) != opt.end() );
+      REQUIRE( opt.find( "delete" ) != opt.end() );
     }
-
-    s.close();
   }
 }
 

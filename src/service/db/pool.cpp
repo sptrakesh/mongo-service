@@ -3,8 +3,8 @@
 //
 
 #include "pool.h"
-#include "log/NanoLog.h"
 #include "model/configuration.h"
+#include "../log/NanoLog.h"
 
 #include <bsoncxx/builder/stream/document.hpp>
 

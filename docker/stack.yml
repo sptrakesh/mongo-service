@@ -3,7 +3,7 @@ version: '3.7'
 services:
   mongo:
     image: mongo
-    command: --replSet spt --bind_ip_all --keyFile /data/db/keyfile
+    #command: --replSet spt --bind_ip_all --keyFile /data/db/keyfile
     ports:
       - "27017:27017"
     environment:

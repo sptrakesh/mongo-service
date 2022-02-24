@@ -4,10 +4,10 @@
 
 #include "pool.h"
 #include "storage.h"
-#include "log/NanoLog.h"
 #include "model/configuration.h"
 #include "model/errors.h"
-#include "util/bson.h"
+#include "../log/NanoLog.h"
+#include "../common/util/bson.h"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>

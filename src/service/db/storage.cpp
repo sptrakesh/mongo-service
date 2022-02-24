@@ -4,12 +4,12 @@
 
 #include "storage.h"
 #include "pool.h"
-#include "log/NanoLog.h"
 #include "model/configuration.h"
 #include "model/errors.h"
 #include "model/metric.h"
 #include "queue/queuemanager.h"
-#include "util/bson.h"
+#include "../log/NanoLog.h"
+#include "../common/util/bson.h"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
@@ -17,7 +17,6 @@
 #include <mongocxx/exception/logic_error.hpp>
 
 #include <chrono>
-#include <sstream>
 #include <vector>
 
 namespace spt::db::pstorage
@@ -1264,7 +1263,11 @@ namespace spt::db::pstorage
       {
         if ( it->type() == bsoncxx::type::k_utf8 )
         {
+#if __GNUC__ < 11
           const auto value = it->get_utf8().value;
+#else
+          const auto value = it->get_string().value;
+#endif
           pipeline.unwind( std::string{ value.data(), value.size() } );
         }
         else pipeline.unwind( it->get_document().view() );
@@ -1355,35 +1358,32 @@ namespace spt::db::pstorage
     }
     catch ( const mongocxx::bulk_write_exception& be )
     {
-      std::ostringstream ss;
-      ss << "Error processing database action " << document.action() <<
-         " code: " << be.code() << ", message: " << be.what();
-      LOG_CRIT << ss.str();
+      LOG_CRIT << "Error processing database action " << document.action() <<
+         " code: " << be.code().message() << ", message: " << be.what();
       LOG_INFO << document.json();
 
-      std::ostringstream oss;
-      oss << "Error processing database action " << document.action();
-      co_return model::withMessage( oss.str() );
+      std::string s;
+      s.reserve( 48 );
+      s.append( "Error processing database action " ).append( document.action() );
+      co_return model::withMessage( s );
     }
     catch ( const mongocxx::logic_error& le )
     {
-      std::ostringstream ss;
-      ss << "Error processing database action " << document.action() <<
-         " code: " << le.code() << ", message: " << le.what();
-      LOG_CRIT << ss.str();
+      LOG_CRIT << "Error processing database action " << document.action() <<
+         " code: " << le.code().message() << ", message: " << le.what();
       LOG_INFO << document.json();
 
-      std::ostringstream oss;
-      oss << "Error processing database action " << document.action();
-      co_return model::withMessage( oss.str() );
+      std::string s;
+      s.reserve( 48 );
+      s.append( "Error processing database action " ).append( document.action() );
+      co_return model::withMessage( s );
     }
     catch ( const std::exception& ex )
     {
       LOG_CRIT << "Error processing database action " << document.action() << ". " << ex.what();
       LOG_INFO << document.json();
+      co_return model::unexpectedError();
     }
-
-    co_return model::unexpectedError();
   }
 }
 

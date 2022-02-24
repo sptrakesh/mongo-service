@@ -3,8 +3,8 @@
 //
 
 #include "document.h"
-#include "log/NanoLog.h"
-#include "util/bson.h"
+#include "../log/NanoLog.h"
+#include "../common/util/bson.h"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>

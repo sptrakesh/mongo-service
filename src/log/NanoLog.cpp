@@ -610,14 +610,14 @@ namespace nanolog
       std::ostringstream ss;
       ss << m_name << "-" << day << ".log";
       m_os->open(ss.str(), std::ofstream::out | std::ofstream::app);
-      if (echo) tee = std::make_unique<wirepulse::log::teestream>(std::cout, *m_os);
+      if (echo) tee = std::make_unique<spt::log::teestream>(std::cout, *m_os);
     }
 
   private:
     std::string const m_name;
     Day day;
     std::unique_ptr<std::ofstream> m_os;
-    std::unique_ptr<wirepulse::log::teestream> tee;
+    std::unique_ptr<spt::log::teestream> tee;
     bool echo;
   };
 

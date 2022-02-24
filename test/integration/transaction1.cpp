@@ -1,21 +1,15 @@
 //
 // Created by Rakesh on 17/07/2021.
 //
-#include "catch.hpp"
+#include "../../src/api/api.h"
 #include "../../src/log/NanoLog.h"
-#include "../../src/util/bson.h"
+#include "../../src/common/util/bson.h"
 
-#include <boost/asio/connect.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/ip/tcp.hpp>
-
+#include <catch2/catch.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/array.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
-
-using tcp = boost::asio::ip::tcp;
 
 namespace spt::itest::trans1
 {
@@ -27,21 +21,13 @@ namespace spt::itest::trans1
 
 SCENARIO( "Transaction test suite1", "[transaction1]" )
 {
-  boost::asio::io_context ioc;
-
-  GIVEN( "Connected to Mongo Service" )
+  /*GIVEN( "Connected to Mongo Service" )
   {
-    tcp::socket s( ioc );
-    tcp::resolver resolver( ioc );
-    boost::asio::connect( s, resolver.resolve( "localhost", "2020" ) );
-
     WHEN( "Executing a transaction" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "transaction" ),
           kvp( "database", "itest" ),
@@ -78,29 +64,21 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
              )
           ))
       );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
-      LOG_INFO << "[trans1] " << bsoncxx::to_json( document.view() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[trans1] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "created" ) != option->end() );
-      REQUIRE( spt::util::bsonValue<int32_t>( "created", *option ) == 2 );
-      REQUIRE( option->find( "updated" ) != option->end() );
-      REQUIRE( spt::util::bsonValue<int32_t>( "updated", *option ) == 0 );
-      REQUIRE( option->find( "deleted" ) != option->end() );
-      REQUIRE( spt::util::bsonValue<int32_t>( "deleted", *option ) == 2 );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "created" ) != opt.end() );
+      REQUIRE( spt::util::bsonValue<int32_t>( "created", opt ) == 2 );
+      REQUIRE( opt.find( "updated" ) != opt.end() );
+      REQUIRE( spt::util::bsonValue<int32_t>( "updated", opt ) == 0 );
+      REQUIRE( opt.find( "deleted" ) != opt.end() );
+      REQUIRE( spt::util::bsonValue<int32_t>( "deleted", opt ) == 2 );
 
-      const auto h = spt::util::bsonValueIfExists<bsoncxx::document::view>( "history", *option );
+      const auto h = spt::util::bsonValueIfExists<bsoncxx::document::view>( "history", opt );
       REQUIRE( h );
 
       const auto vd = spt::util::bsonValueIfExists<std::string>( "database", *h );
@@ -136,31 +114,22 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::trans1::vhdb ),
           kvp( "collection", spt::itest::trans1::vhc ),
           kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::trans1::oid1 ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[trans1] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) == option->end() );
-      REQUIRE( option->find( "results" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) == opt.end() );
+      REQUIRE( opt.find( "results" ) != opt.end() );
 
-      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", *option );
+      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
 
       auto i = 0;
@@ -177,31 +146,22 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::trans1::vhdb ),
           kvp( "collection", spt::itest::trans1::vhc ),
           kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::trans1::oid2 ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[trans1] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) == option->end() );
-      REQUIRE( option->find( "results" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) == opt.end() );
+      REQUIRE( opt.find( "results" ) != opt.end() );
 
-      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", *option );
+      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
 
       auto i = 0;
@@ -212,7 +172,5 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
       }
       REQUIRE( i == 2 );
     }
-
-    s.close();
-  }
+  }*/
 }

@@ -3,7 +3,7 @@
 //
 
 #include "logger.h"
-#include "log/NanoLog.h"
+#include "../log/NanoLog.h"
 
 void spt::db::Logger::operator()( mongocxx::log_level level,
     bsoncxx::stdx::string_view domain,

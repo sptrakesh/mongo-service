@@ -1,20 +1,15 @@
 //
 // Created by Rakesh on 22/07/2020.
 //
-#include "catch.hpp"
+#include "../../src/api/api.h"
+#include "../../src/api/request.h"
 #include "../../src/log/NanoLog.h"
-#include "../../src/util/bson.h"
+#include "../../src/common/util/bson.h"
 
-#include <boost/asio/connect.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/ip/tcp.hpp>
-
+#include <catch2/catch.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
-
-using tcp = boost::asio::ip::tcp;
 
 namespace spt::itest::crud
 {
@@ -27,50 +22,34 @@ namespace spt::itest::crud
 
 SCENARIO( "Simple CRUD test suite", "[crud]" )
 {
-  boost::asio::io_context ioc;
-
   GIVEN( "Connected to Mongo Service" )
   {
-    tcp::socket s( ioc );
-    tcp::resolver resolver( ioc );
-    boost::asio::connect( s, resolver.resolve( "localhost", "2020" ) );
-
     WHEN( "Creating a document" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
-      bsoncxx::document::value document = basic::make_document(
-          kvp( "action", "create" ),
-          kvp( "database", "itest" ),
-          kvp( "collection", "test" ),
-          kvp( "document", basic::make_document(
-              kvp( "key", "value" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
+      const auto request  = spt::mongoservice::api::Request::create(
+          "itest", "test",
+          basic::make_document(
+              kvp( "key", "value" ), kvp( "_id", spt::itest::crud::oid ) )
+          );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( request );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "database" ) != option->end() );
-      REQUIRE( option->find( "collection" ) != option->end() );
-      REQUIRE( option->find( "entity" ) != option->end() );
-      REQUIRE( option->find( "_id" ) != option->end() );
-      REQUIRE( (*option)["entity"].get_oid().value == spt::itest::crud::oid );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "database" ) != opt.end() );
+      REQUIRE( opt.find( "collection" ) != opt.end() );
+      REQUIRE( opt.find( "entity" ) != opt.end() );
+      REQUIRE( opt.find( "_id" ) != opt.end() );
+      REQUIRE( opt["entity"].get_oid().value == spt::itest::crud::oid );
 
-      spt::itest::crud::vhdb = spt::util::bsonValue<std::string>( "database", *option );
-      spt::itest::crud::vhc = spt::util::bsonValue<std::string>( "collection", *option );
-      spt::itest::crud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", *option );
+      spt::itest::crud::vhdb = spt::util::bsonValue<std::string>( "database", opt );
+      spt::itest::crud::vhc = spt::util::bsonValue<std::string>( "collection", opt );
+      spt::itest::crud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", opt );
     }
 
     AND_THEN( "Retrieving count of documents" )
@@ -78,29 +57,19 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      REQUIRE( option->view().find( "error" ) == option->view().end() );
 
-      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
       spt::itest::crud::count = *count;
     }
@@ -110,31 +79,22 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) != option->end() );
-      REQUIRE( option->find( "results" ) == option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) != opt.end() );
+      REQUIRE( opt.find( "results" ) == opt.end() );
 
-      const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", *option );
+      const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
       REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::oid );
       const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
       REQUIRE( key );
@@ -146,31 +106,22 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "key", "value" ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) == option->end() );
-      REQUIRE( option->find( "results" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) == opt.end() );
+      REQUIRE( opt.find( "results" ) != opt.end() );
 
-      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", *option );
+      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
       bool found = false;
       for ( auto e : arr )
@@ -189,31 +140,22 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::crud::vhdb ),
           kvp( "collection", spt::itest::crud::vhc ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::vhoid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) != option->end() );
-      REQUIRE( option->find( "results" ) == option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) != opt.end() );
+      REQUIRE( opt.find( "results" ) == opt.end() );
 
-      const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", *option );
+      const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
       REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
 
       const auto entity = spt::util::bsonValueIfExists<bsoncxx::document::view>( "entity", dv );
@@ -226,31 +168,22 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
           kvp( "database", spt::itest::crud::vhdb ),
           kvp( "collection", spt::itest::crud::vhc ),
           kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "result" ) == option->end() );
-      REQUIRE( option->find( "results" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "result" ) == opt.end() );
+      REQUIRE( opt.find( "results" ) != opt.end() );
 
-      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", *option );
+      const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
 
       auto i = 0;
@@ -274,8 +207,6 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
@@ -284,22 +215,15 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
               kvp( "key1", "value1" ),
               kvp( "date", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
               kvp( "_id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
 
-      const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
+      const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", opt );
       REQUIRE( doc );
       REQUIRE( doc->find( "_id" ) != doc->end() );
       REQUIRE( (*doc)["_id"].get_oid().value == spt::itest::crud::oid );
@@ -318,8 +242,6 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "update" ),
           kvp( "database", "itest" ),
@@ -327,25 +249,18 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "skipVersion", true ),
           kvp( "document", basic::make_document(
               kvp( "key1", "value1" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
 
-      const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", *option );
+      const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", opt );
       REQUIRE_FALSE( doc );
 
-      const auto skip = spt::util::bsonValueIfExists<bool>( "skipVersion", *option );
+      const auto skip = spt::util::bsonValueIfExists<bool>( "skipVersion", opt );
       REQUIRE( skip );
       REQUIRE( *skip );
     }
@@ -355,27 +270,20 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "delete" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
-      REQUIRE( option->find( "success" ) != option->end() );
-      REQUIRE( option->find( "history" ) != option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
+      REQUIRE( opt.find( "success" ) != opt.end() );
+      REQUIRE( opt.find( "history" ) != opt.end() );
     }
 
     AND_THEN( "Retriving count of documents after delete" )
@@ -383,33 +291,22 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
 
-      boost::asio::streambuf buffer;
-      std::ostream os{ &buffer };
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document() ) );
-      os.write( reinterpret_cast<const char*>( document.view().data() ), document.view().length() );
 
-      const auto isize = s.send( buffer.data() );
-      buffer.consume( isize );
-
-      const auto osize = s.receive( buffer.prepare( 128 * 1024 ) );
-      buffer.commit( osize );
-
-      REQUIRE( isize != osize );
-
-      const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( buffer.data().data() ), osize );
+      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
-      REQUIRE( option->find( "error" ) == option->end() );
+      const auto opt = option->view();
+      REQUIRE( opt.find( "error" ) == opt.end() );
 
-      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", *option );
+      const auto count = spt::util::bsonValueIfExists<int64_t>( "count", opt );
       REQUIRE( count );
       REQUIRE( spt::itest::crud::count > *count );
     }
-
-    s.close();
   }
 }
