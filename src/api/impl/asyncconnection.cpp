@@ -26,7 +26,7 @@ AsyncConnection::AsyncConnection( boost::asio::io_context& ioc, std::string_view
     host{ h.data(), h.size() }, port{ p.data(), p.size() }
 {
   boost::system::error_code ec;
-  endpoints = resolver.resolve( host, port, ec );
+  endpoints = resolver.resolve( h, p, ec );
   if ( ec )
   {
     LOG_CRIT << "Error resolving service " << host << ':' << port << ". " << ec.message();
@@ -38,23 +38,31 @@ AsyncConnection::~AsyncConnection()
 {
   boost::system::error_code ec;
   s.close( ec );
-
   if ( ec ) LOG_WARN << "Error closing socket " << ec.message();
 }
 
 auto AsyncConnection::execute( bsoncxx::document::view view ) -> boost::asio::awaitable<Response>
 {
-  using boost::asio::use_awaitable;
   static constexpr int bufSize = 1024;
 
   try
   {
-    if ( !co_await connect() ) co_return std::nullopt;
-
     boost::system::error_code ec;
+    if ( !s.is_open() )
+    {
+      LOG_INFO << "Connecting to service " << host << ':' << port << ". " << bsoncxx::to_json(view);
+      co_await boost::asio::async_connect( s, endpoints,
+          boost::asio::redirect_error( boost::asio::use_awaitable, ec ) );
+      if ( ec )
+      {
+        LOG_CRIT << "Error connecting to service " << host << ':' << port << ". " << ec.message();
+        co_return std::nullopt;
+      }
+    }
+
     auto isize = co_await boost::asio::async_write(
         s, boost::asio::buffer( view.data(), view.length() ),
-        boost::asio::redirect_error( use_awaitable, ec ) );
+        boost::asio::redirect_error( boost::asio::use_awaitable, ec ) );
     if ( ec )
     {
       LOG_WARN << "Error writing request to service " << ec.message();
@@ -127,22 +135,6 @@ auto AsyncConnection::execute( bsoncxx::document::view view ) -> boost::asio::aw
     LOG_CRIT << "Exception executing request " << ex.what();
     co_return std::nullopt;
   }
-}
-
-boost::asio::awaitable<bool> AsyncConnection::connect()
-{
-  if ( s.is_open() ) co_return true;
-
-  boost::system::error_code ec;
-  co_await boost::asio::async_connect( s, endpoints,
-      boost::asio::redirect_error( boost::asio::use_awaitable, ec ) );
-  if ( ec )
-  {
-    LOG_CRIT << "Error connecting to service " << host << ':' << port << ". " << ec.message();
-    co_return false;
-  }
-
-  co_return true;
 }
 
 auto spt::mongoservice::api::impl::createAsyncConnection() -> std::unique_ptr<AsyncConnection>

@@ -34,7 +34,7 @@ namespace spt::mongoservice::api::papi
 
   private:
     PoolHolder() = default;
-    pool::Pool<impl::Connection> pool{ spt::mongoservice::api::impl::create, pool::Configuration{} };
+    pool::Pool<impl::Connection> pool{ spt::mongoservice::api::impl::create, impl::ApiSettings::instance().configuration };
   };
 
   struct AsyncPoolHolder
@@ -53,20 +53,22 @@ namespace spt::mongoservice::api::papi
 
   private:
     AsyncPoolHolder() = default;
-    pool::Pool<impl::AsyncConnection> pool{ spt::mongoservice::api::impl::createAsyncConnection, pool::Configuration{} };
+    pool::Pool<impl::AsyncConnection> pool{ spt::mongoservice::api::impl::createAsyncConnection, impl::ApiSettings::instance().configuration };
   };
 }
 
 void spt::mongoservice::api::init( std::string_view server, std::string_view port,
-    std::string_view application, boost::asio::io_context& ioc )
+    std::string_view application, const pool::Configuration& poolConfiguration,
+    boost::asio::io_context& ioc )
 {
   auto& s = const_cast<impl::ApiSettings&>( impl::ApiSettings::instance() );
   auto lock = std::unique_lock<std::mutex>( s.mutex );
-  if ( s.server.empty() )
+  if ( s.ioc == nullptr )
   {
     s.server.append( server.data(), server.size() );
     s.port.append( port.data(), port.size() );
     s.application.append( application.data(), application.size() );
+    s.configuration = poolConfiguration;
     s.ioc = &ioc;
   }
   else
@@ -123,7 +125,7 @@ auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) 
   return execute( q.view(), bufSize );
 }
 
-auto spt::mongoservice::api::executeAsync( bsoncxx::document::value document ) -> AsyncResponse
+auto spt::mongoservice::api::executeAsync( bsoncxx::document::view document ) -> AsyncResponse
 {
   auto proxy = papi::AsyncPoolHolder::instance().acquire();
   if ( !proxy )
@@ -133,7 +135,7 @@ auto spt::mongoservice::api::executeAsync( bsoncxx::document::value document ) -
   }
 
   auto& connection = proxy.value().operator*();
-  auto opt = co_await connection.execute( document.view() );
+  auto opt = co_await connection.execute( document );
   if ( !opt )
   {
     LOG_WARN << "Error executing command " << bsoncxx::to_json( document );
@@ -167,5 +169,5 @@ auto spt::mongoservice::api::executeAsync( Request req ) -> AsyncResponse
   if ( req.skipVersion ) query << "skipVersion" << req.skipVersion;
 
   auto q = query << finalize;
-  co_return co_await executeAsync( std::move( q ) );
+  co_return co_await executeAsync( q.view() );
 }

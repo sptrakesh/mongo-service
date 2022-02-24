@@ -8,6 +8,8 @@
 #include <string>
 #include <boost/asio/io_context.hpp>
 
+#include "pool/pool.h"
+
 namespace spt::mongoservice::api::impl
 {
   struct ApiSettings
@@ -22,6 +24,7 @@ namespace spt::mongoservice::api::impl
     std::string server{};
     std::string port{};
     std::string application{};
+    pool::Configuration configuration;
     boost::asio::io_context* ioc{ nullptr };
 
     ~ApiSettings() = default;

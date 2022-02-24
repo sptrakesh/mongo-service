@@ -31,8 +31,6 @@ namespace spt::mongoservice::api::impl
     void setValid( bool valid ) { this->v = valid; }
 
   private:
-    [[nodiscard]] boost::asio::awaitable<bool> connect();
-
     boost::asio::ip::tcp::socket s;
     boost::asio::ip::tcp::resolver resolver;
     boost::asio::ip::tcp::resolver::results_type endpoints;

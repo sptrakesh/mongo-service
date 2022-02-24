@@ -6,10 +6,12 @@
 
 #include "contextholder.h"
 #include "request.h"
+#include "pool/pool.h"
 
 #include <tuple>
 #include <boost/asio/awaitable.hpp>
 #include <bsoncxx/document/value.hpp>
+#include <bsoncxx/document/view.hpp>
 
 namespace spt::mongoservice::api
 {
@@ -24,6 +26,7 @@ namespace spt::mongoservice::api
    */
   void init( std::string_view server, std::string_view port,
       std::string_view application = {},
+      const pool::Configuration& poolConfiguration = pool::Configuration{},
       boost::asio::io_context& ioc = ContextHolder::instance().ioc );
 
   enum class ResultType : std::uint_fast8_t {
@@ -74,7 +77,7 @@ namespace spt::mongoservice::api
    *   Caller must check the document contents to ensure successful execution
    *   of the command.
    */
-  AsyncResponse executeAsync( bsoncxx::document::value document );
+  AsyncResponse executeAsync( bsoncxx::document::view document );
 
   /**
    * Execute the command encapsulated in the request against the service asynchronously.

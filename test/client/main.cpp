@@ -59,6 +59,7 @@ int main( int argc, char const * const * argv )
 
   boost::asio::co_spawn( ctx.ioc, spt::client::crud( client ), boost::asio::detached );
   boost::asio::co_spawn( ctx.ioc, spt::client::crud(), boost::asio::detached );
+  //boost::asio::co_spawn( ctx.ioc, spt::client::apicrud(), boost::asio::detached );
 
   ctx.ioc.run();
   for ( auto& t : pool ) if ( t.joinable() ) t.join();

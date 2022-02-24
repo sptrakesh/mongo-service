@@ -1,32 +1,28 @@
 //
-// Created by Rakesh on 15/07/2021.
+// Created by Rakesh on 24/02/2022.
 //
 
 #include "status.h"
 #include "tasks.h"
-#include "../../src/log/NanoLog.h"
+#include "../../src/api/api.h"
 #include "../../src/common/util/bson.h"
 
 #include <iostream>
-
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
-namespace spt::client::pcrud
+namespace spt::client::papi
 {
-  boost::asio::awaitable<bsoncxx::oid> create( Client& client, bsoncxx::oid id )
+  boost::asio::awaitable<bsoncxx::oid> create( bsoncxx::oid id )
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "create" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document(
-            kvp( "key", "value client" ), kvp( "_id", id ) ) ) );
+    auto req = spt::mongoservice::api::Request::create( "itest", "test",
+        basic::make_document( kvp( "key", "value api" ), kvp( "_id", id ) ) );
 
-    auto opt = co_await client.execute( document.view() );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
@@ -42,68 +38,56 @@ namespace spt::client::pcrud
     co_return spt::util::bsonValue<bsoncxx::oid>( "_id", view );
   }
 
-  boost::asio::awaitable<void> count( Client& client )
+  boost::asio::awaitable<void> count()
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "count" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document()));
-
-    auto opt = co_await client.execute( document.view() );
+    auto req = spt::mongoservice::api::Request::count( "itest", "test", basic::make_document() );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
     std::cout << "[coro-client] count - " << bsoncxx::to_json( view ) << '\n';
-    assert( view.find( "error" ) == view.end() );
+    assert( view.find( "error" ) == view.end());
 
     const auto count = spt::util::bsonValueIfExists<int64_t>( "count", view );
     assert( count );
   }
 
-  boost::asio::awaitable<void> byId( Client& client, bsoncxx::oid id )
+  boost::asio::awaitable<void> byId( bsoncxx::oid id )
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "retrieve" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document( kvp( "_id", id ))));
-
-    auto opt = co_await client.execute( document.view() );
+    auto req = spt::mongoservice::api::Request::retrieve( "itest", "test", basic::make_document( kvp( "_id", id ) ) );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
     std::cout << "[coro-client] byId - " << bsoncxx::to_json( view ) << '\n';
-    assert( view.find( "error" ) == view.end() );
-    assert( view.find( "result" ) != view.end() );
-    assert( view.find( "results" ) == view.end() );
+    assert( view.find( "error" ) == view.end());
+    assert( view.find( "result" ) != view.end());
+    assert( view.find( "results" ) == view.end());
 
     const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", view );
     assert( dv["_id"].get_oid().value == id );
     const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
     assert( key );
-    assert( *key == "value client" );
+    assert( *key == "value api" );
   }
 
-  boost::asio::awaitable<void> byProperty( Client& client,
+  boost::asio::awaitable<void> byProperty(
       std::string_view name, std::string_view value, bsoncxx::oid id )
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "retrieve" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document( kvp( name, value ) ) ) );
-
-    auto opt = co_await client.execute( document.view() );
+    auto req = spt::mongoservice::api::Request::retrieve( "itest", "test", basic::make_document( kvp( name, value ) ) );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
@@ -121,27 +105,25 @@ namespace spt::client::pcrud
       if ( dv["_id"].get_oid().value == id ) found = true;
       const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
       assert( key );
-      assert( key == "value client" );
+      assert( key == "value api" );
     }
     assert( found );
   }
 
-  boost::asio::awaitable<void> update( Client& client, bsoncxx::oid id )
+  boost::asio::awaitable<void> update( bsoncxx::oid id )
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "update" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document(
-            kvp( "key1", "value1 client" ),
+    auto req = spt::mongoservice::api::Request::update( "itest", "test",
+        basic::make_document(
+            kvp( "key1", "value1" ),
             kvp( "date", bsoncxx::types::b_date{
                 std::chrono::system_clock::now() } ),
-            kvp( "_id", id ))));
+            kvp( "_id", id ) ) );
 
-    auto opt = co_await client.execute( document.view() );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
@@ -155,25 +137,21 @@ namespace spt::client::pcrud
 
     auto key = spt::util::bsonValueIfExists<std::string>( "key", *doc );
     assert( key );
-    assert( *key == "value client" );
+    assert( *key == "value api" );
 
     key = spt::util::bsonValueIfExists<std::string>( "key1", *doc );
     assert( key );
-    assert( *key == "value1 client" );
+    assert( *key == "value1" );
   }
 
-  boost::asio::awaitable<void> remove( Client& client, bsoncxx::oid id )
+  boost::asio::awaitable<void> remove( bsoncxx::oid id )
   {
     namespace basic = bsoncxx::builder::basic;
     using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "delete" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document( kvp( "_id", id ))));
-
-    auto opt = co_await client.execute( document.view() );
+    auto req = spt::mongoservice::api::Request::_delete( "itest", "test", basic::make_document( kvp( "_id", id ) ) );
+    auto [type, opt] = co_await spt::mongoservice::api::executeAsync( std::move( req ) );
+    assert( type == spt::mongoservice::api::ResultType::success );
     assert( opt );
 
     auto view = opt->view();
@@ -184,18 +162,17 @@ namespace spt::client::pcrud
   }
 }
 
-boost::asio::awaitable<void> spt::client::crud( Client& client )
+boost::asio::awaitable<void> spt::client::apicrud()
 {
   using namespace std::string_view_literals;
   const auto oid = bsoncxx::oid{};
 
-  auto vhid = co_await pcrud::create( client, oid );
+  auto vhid = co_await papi::create( oid );
   std::cout << "[coro-client] vhid - " << vhid.to_string() << '\n';
-  co_await pcrud::count( client );
-  co_await pcrud::byId( client, oid );
-  co_await pcrud::byProperty( client, "key"sv, "value client"sv, oid );
-  co_await pcrud::update( client, oid );
-  co_await pcrud::remove( client, oid );
+  co_await papi::count();
+  co_await papi::byId( oid );
+  co_await papi::byProperty( "key"sv, "value api"sv, oid );
+  co_await papi::update( oid );
+  co_await papi::remove( oid );
   ++Status::instance().counter;
 }
-

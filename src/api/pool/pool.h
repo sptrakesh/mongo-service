@@ -29,8 +29,8 @@ namespace spt::mongoservice::pool
     Configuration(Configuration&&) = default;
     Configuration& operator=(Configuration&&) = default;
 
-    Configuration(const Configuration&) = delete;
-    Configuration& operator=(const Configuration&) = delete;
+    Configuration(const Configuration&) = default;
+    Configuration& operator=(const Configuration&) = default;
 
     uint32_t initialSize{ 1 };
     uint32_t maxPoolSize{ 25 };
