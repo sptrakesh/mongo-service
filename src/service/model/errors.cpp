@@ -37,7 +37,7 @@ bsoncxx::document::view spt::model::invalidAction()
   using basic::make_array;
   static value document = make_document(
       kvp("error", "Invalid action."),
-      kvp( "valid", make_array( "create", "retrieve", "update", "delete" ) ) );
+      kvp( "valid", make_array( "create", "retrieve", "update", "delete", "count", "index", "dropCollection", "dropIndex", "bulk", "pipeline", "transaction" ) ) );
   return document.view();
 }
 

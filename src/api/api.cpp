@@ -105,9 +105,9 @@ auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) 
   using bsoncxx::builder::stream::open_document;
   using bsoncxx::builder::stream::close_document;
   using bsoncxx::builder::stream::finalize;
+  using namespace std::string_view_literals;
 
-  auto action = magic_enum::enum_name( req.action );
-  if ( Request::Action::_delete == req.action ) action = std::string{ "delete" };
+  auto action = ( Request::Action::_delete == req.action ) ? "delete"sv : magic_enum::enum_name( req.action );
   auto query = document{};
   query <<
     "action" << action <<

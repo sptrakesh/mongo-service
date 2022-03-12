@@ -1354,6 +1354,7 @@ namespace spt::db::pstorage
         co_return co_await internal::transaction( document );
       }
 
+      LOG_INFO << "Invalid action " << action;
       co_return model::invalidAction();
     }
     catch ( const mongocxx::bulk_write_exception& be )
