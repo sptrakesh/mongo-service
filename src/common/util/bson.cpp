@@ -27,16 +27,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to bool";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<bool> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<bool>( key, view );
   }
 
@@ -49,16 +49,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to int32";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<int32_t> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<int32_t>( key, view );
   }
 
@@ -77,17 +77,17 @@ namespace spt::util
     default:
       LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to int64";
 
-      std::ostringstream ss;
-      ss << "Invalid type for " << key;
-      throw std::runtime_error( ss.str() );
+      std::string ss;
+      ss.reserve( 64 );
+      ss.append( "Invalid type for " ).append( key );
+      throw std::runtime_error( ss );
     }
   }
 
   template<>
   std::optional<int64_t> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<int64_t>( key, view );
   }
 
@@ -106,17 +106,17 @@ namespace spt::util
     default:
       LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to double";
 
-      std::ostringstream ss;
-      ss << "Invalid type for " << key;
-      throw std::runtime_error( ss.str() );
+      std::string ss;
+      ss.reserve( 64 );
+      ss.append( "Invalid type for " ).append( key );
+      throw std::runtime_error( ss );
     }
   }
 
   template<>
   std::optional<double> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<double>( key, view );
   }
 
@@ -136,16 +136,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::string> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::string>( key, view );
   }
 
@@ -163,20 +163,18 @@ namespace spt::util
       return { value.data(), value.size() };
     }
 
-    std::ostringstream ss;
-    ss << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string_view";
-    LOG_WARN << ss.str();
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string_view";
 
-    std::string msg{ "Invalid type for " };
-    msg.append( key );
-    throw std::runtime_error( msg );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::string_view> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::string_view>( key, view );
   }
 
@@ -188,16 +186,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<bsoncxx::oid> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<bsoncxx::oid>( key, view );
   }
 
@@ -209,16 +207,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::chrono::time_point<std::chrono::system_clock>> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::chrono::time_point<std::chrono::system_clock>>( key, view );
   }
 
@@ -230,16 +228,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to milliseconds";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::chrono::milliseconds> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::chrono::milliseconds>( key, view );
   }
 
@@ -251,16 +249,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to document";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<bsoncxx::document::view> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<bsoncxx::document::view>( key, view );
   }
 
@@ -272,16 +270,16 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to array";
 
-    std::ostringstream ss;
-    ss << "Invalid type for " << key;
-    throw std::runtime_error( ss.str() );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<bsoncxx::array::view> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<bsoncxx::array::view>( key, view );
   }
 
@@ -293,20 +291,17 @@ namespace spt::util
     else if ( bsoncxx::type::k_int32 == type ) return std::chrono::microseconds{ view[key].get_int32() };
     else if ( bsoncxx::type::k_int64 == type ) return std::chrono::microseconds{ view[key].get_int64() };
 
-    std::ostringstream ss;
-    ss << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to microseconds";
-    LOG_WARN << ss.str();
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to microseconds";
 
-    std::string msg{ "Invalid type for " };
-    msg.append( key );
-    throw std::runtime_error( msg );
+    std::string ss;
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::chrono::microseconds> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::chrono::microseconds>( key, view );
   }
 
@@ -318,56 +313,48 @@ namespace spt::util
     else if ( bsoncxx::type::k_int32 == type ) return std::chrono::nanoseconds{ view[key].get_int32() };
     else if ( bsoncxx::type::k_int64 == type ) return std::chrono::nanoseconds{ view[key].get_int64() };
 
-    std::ostringstream ss;
-    ss << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to nanoseconds";
-    LOG_WARN << ss.str();
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to nanoseconds";
 
-    std::string msg{ "Invalid type for " };
-    msg.append( key );
-    throw std::runtime_error( msg );
+    std::string ss;
+    ss.reserve( 64 );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
   }
 
   template<>
   std::optional<std::chrono::nanoseconds> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
-    auto it = view.find( key );
-    if ( it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
     return bsonValue<std::chrono::nanoseconds>( key, view );
   }
 
   std::string toString( std::string_view key, const bsoncxx::document::view& view )
   {
+    using namespace std::string_literals;
     auto it = view.find( key );
     if ( it == view.end() ) return {};
 
-    std::ostringstream ss;
     switch ( it->type() )
     {
     case bsoncxx::type::k_bool:
-      ss << std::boolalpha << it->get_bool();
-      break;
+      return it->get_bool() ? "true"s : "false"s;
     case bsoncxx::type::k_int32:
-      ss << it->get_int32();
-      break;
+      return std::to_string( it->get_int32() );
     case bsoncxx::type::k_int64:
-      ss << it->get_int64();
-      break;
+      return std::to_string( it->get_int64() );
     case bsoncxx::type::k_double:
-      ss << it->get_double();
-      break;
+      return std::to_string( it->get_double() );
     case bsoncxx::type::k_date:
-      ss << bsonValue<std::chrono::milliseconds>( key, view ).count();
-      break;
+      return std::to_string( bsonValue<std::chrono::milliseconds>( key, view ).count() );
     case bsoncxx::type::k_oid:
-      ss << it->get_oid().value.to_string();
-      break;
+      return it->get_oid().value.to_string();
     case bsoncxx::type::k_utf8:
       return bsonValue<std::string>( key, view );
     default:
-      ss << "Unknown type";
+      return "Unknown type"s;
     }
 
-    return ss.str();
+    return {};
   }
 }
 

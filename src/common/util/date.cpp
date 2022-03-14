@@ -66,7 +66,7 @@ namespace spt::util
       return "Invalid datetime separator";
     }
 
-    constexpr auto microSecondsPerHour = int64_t( 3600000000 );
+    static constexpr auto microSecondsPerHour = int64_t( 3600000000 );
 
     int16_t year{0};
     {
