@@ -7,10 +7,12 @@
 #include "impl/connection.h"
 #include "impl/settings.h"
 #include "pool/pool.h"
-#if __has_include("../common/util/magic_enum.hpp")
-#include "../common/util/magic_enum.hpp"
-#else
-#include <util/magic_enum.hpp>
+#if defined __has_include
+  #if __has_include("../common/util/magic_enum.hpp")
+    #include "../common/util/magic_enum.hpp"
+  #else
+    #include <util/magic_enum.hpp>
+  #endif
 #endif
 
 #include <bsoncxx/json.hpp>

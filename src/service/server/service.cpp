@@ -104,7 +104,7 @@ namespace spt::server::coroutine
     rbuf.reserve( docSize );
     rbuf.insert( rbuf.end(), data, data + osize );
 
-    while ( docSize < maxBytes && read != docSize )
+    while ( docSize < maxBytes && read != docSize ) // flawfinder: ignore
     {
       osize = co_await socket.async_read_some( boost::asio::buffer( data ), use_awaitable );
       rbuf.insert( rbuf.end(), data, data + osize );
@@ -127,7 +127,8 @@ namespace spt::server::coroutine
     catch ( const std::exception& e )
     {
       static const std::string eof{ "End of file" };
-      if ( eof != e.what() ) LOG_WARN << "Exception servicing request " << e.what();
+      auto const what = std::string{ e.what() };
+      if ( !what.starts_with( eof ) ) LOG_WARN << "Exception servicing request " << e.what();
     }
   }
 

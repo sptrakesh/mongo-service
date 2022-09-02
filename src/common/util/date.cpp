@@ -3,10 +3,12 @@
 //
 
 #include "date.h"
-#if __has_include("../../log/NanoLog.h")
-#include "../../log/NanoLog.h"
-#else
-#include <log/NanoLog.h>
+#if defined __has_include
+  #if __has_include("../../log/NanoLog.h")
+    #include "../../log/NanoLog.h"
+  #else
+    #include <log/NanoLog.h>
+  #endif
 #endif
 
 #include <charconv>

@@ -4,10 +4,12 @@
 
 #include "connection.h"
 #include "settings.h"
-#if __has_include("../../log/NanoLog.h")
-#include "../../log/NanoLog.h"
-#else
-#include <log/NanoLog.h>
+#if defined __has_include
+  #if __has_include("../../log/NanoLog.h")
+    #include "../../log/NanoLog.h"
+  #else
+    #include <log/NanoLog.h>
+  #endif
 #endif
 
 #include <bsoncxx/json.hpp>
@@ -77,7 +79,7 @@ std::optional<bsoncxx::document::value> Connection::execute(
   std::size_t read = osize;
 
   const auto docSize = documentSize( osize );
-  while ( read < docSize )
+  while ( read < docSize ) // flawfinder: ignore
   {
     osize = socket().receive( buffer.prepare( bufSize ) );
     buffer.commit( osize );

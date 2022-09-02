@@ -4,10 +4,12 @@
 
 #include "asyncconnection.h"
 #include "settings.h"
-#if __has_include("../../log/NanoLog.h")
-#include "../../log/NanoLog.h"
-#else
-#include <log/NanoLog.h>
+#if defined __has_include
+  #if __has_include("../../log/NanoLog.h")
+    #include "../../log/NanoLog.h"
+  #else
+    #include <log/NanoLog.h>
+  #endif
 #endif
 
 #include <boost/asio/connect.hpp>
@@ -108,7 +110,7 @@ auto AsyncConnection::execute( bsoncxx::document::view view ) -> boost::asio::aw
     rbuf.reserve( docSize );
     rbuf.insert( rbuf.end(), data, data + osize );
 
-    while ( read != docSize )
+    while ( read != docSize ) // flawfinder: ignore
     {
       osize = co_await s.async_read_some( boost::asio::buffer( data ),
           boost::asio::redirect_error( boost::asio::use_awaitable, ec ) );
@@ -119,7 +121,7 @@ auto AsyncConnection::execute( bsoncxx::document::view view ) -> boost::asio::aw
       }
       rbuf.insert( rbuf.end(), data, data + osize );
       read += osize;
-      LOG_DEBUG << "Read " << int(read) << " bytes of " << int(docSize) << " total";
+      LOG_DEBUG << "Read " << int(read) << " bytes of " << int(docSize) << " total"; // flawfinder: ignore
     }
 
     const auto option = bsoncxx::validate( reinterpret_cast<const uint8_t*>( rbuf.data() ), docSize );

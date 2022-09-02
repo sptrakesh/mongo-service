@@ -1263,11 +1263,11 @@ namespace spt::db::pstorage
       {
         if ( it->type() == bsoncxx::type::k_utf8 )
         {
-#if __GNUC__ < 11
+//#if __GNUC__ < 11
           const auto value = it->get_utf8().value;
-#else
-          const auto value = it->get_string().value;
-#endif
+//#else
+//          const auto value = it->get_string().value;
+//#endif
           pipeline.unwind( std::string{ value.data(), value.size() } );
         }
         else pipeline.unwind( it->get_document().view() );
