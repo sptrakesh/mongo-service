@@ -1,0 +1,17 @@
+name = "MongoService"
+uuid = "5b6d3f29-84fe-4faa-9230-c5d6076e872c"
+authors = ["Rakesh Vidyadharan"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[deps]
+LightBSON = "a4a7f996-b3a6-4de6-b9db-2fa5f350df41"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

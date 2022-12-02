@@ -21,6 +21,8 @@
 * [Testing](#testing)
     * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
+* [Build](#build)
+* [Clients](#clients)
 * [Acknowledgements](#acknowledgements)
     
 A TCP service for routing all requests to **MongoDB** via a centralised service.
@@ -783,6 +785,26 @@ to using half the available CPU cores.
               Median performance: 0.28394 iterations/s (1st quartile: 0.28997 | 3rd quartile: 0.27816)
 [==========] Ran 5 benchmarks.
 ```
+
+## Build
+Check out the sources and use `cmake` to build and install the project locally.
+
+```shell
+git clone https://github.com/sptrakesh/mongo-service.git
+mkdir mongo-service/build && cd mongo-service/build
+cmake -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=/usr/local/boost \
+  -DCMAKE_PREFIX_PATH=/usr/local/mongo \
+  -DCMAKE_INSTALL_PREFIX=/usr/local/spt \
+  -DBUILD_TESTING=OFF ..
+make -j12
+sudo make install
+```
+
+## Clients
+Sample clients in other languages that use the service.
+* **Julia** - Sample client package for [Julia](https://julialang.org) is available
+  under the [julia](client/julia) directory/
 
 ## Acknowledgements
 This software has been developed mainly using work other people/projects have contributed.

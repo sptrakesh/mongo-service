@@ -4,15 +4,18 @@
 
 #include "bson.h"
 #include "date.h"
-#if __has_include("../../log/NanoLog.h")
-#include "../../log/NanoLog.h"
-#else
-#include <log/NanoLog.h>
+#if defined __has_include
+  #if __has_include("../../log/NanoLog.h")
+    #include "../../log/NanoLog.h"
+  #else
+    #include <log/NanoLog.h>
+  #endif
 #endif
 
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/types.hpp>
 #include <bsoncxx/oid.hpp>
+#include <bsoncxx/json.hpp>
 #include <bsoncxx/array/view.hpp>
 
 #include <iomanip>
@@ -126,11 +129,7 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
-#if __GNUC__ < 11
-      const auto value = view[key].get_utf8().value;
-#else
       const auto value = view[key].get_string().value;
-#endif
       return { value.data(), value.size() };
     }
 
@@ -155,12 +154,7 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
-#if __GNUC__ < 11
-      const auto value = view[key].get_utf8().value;
-#else
-      const auto value = view[key].get_string().value;
-#endif
-      return { value.data(), value.size() };
+      return view[key].get_string().value;
     }
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string_view";
@@ -391,12 +385,8 @@ boost::json::array spt::util::toJson( const bsoncxx::array::view& view )
       break;
     case bsoncxx::type::k_utf8:
     {
-#if __GNUC__ < 11
-      auto v = e.get_utf8().value;
-#else
       auto v = e.get_string().value;
-#endif
-      arr.emplace_back( boost::string_view{ v.data(), v.size() } );
+      arr.emplace_back( std::string_view{ v.data(), v.size() } );
       break;
     }
     default:
@@ -420,7 +410,7 @@ boost::json::object spt::util::toJson( const bsoncxx::document::view& view )
   for ( auto&& e : view )
   {
     auto k = e.key();
-    auto key = boost::string_view{ k.data(), k.size() };
+    auto key = std::string_view{ k.data(), k.size() };
 
     switch ( e.type() )
     {
@@ -450,12 +440,8 @@ boost::json::object spt::util::toJson( const bsoncxx::document::view& view )
       break;
     case bsoncxx::type::k_utf8:
     {
-#if __GNUC__ < 11
-      auto v = e.get_utf8().value;
-#else
       auto v = e.get_string().value;
-#endif
-      root.emplace( key, boost::string_view{ v.data(), v.size() } );
+      root.emplace( key, std::string_view{ v.data(), v.size() } );
       break;
     }
     default:

@@ -13,7 +13,7 @@ services:
       - $DATA_DIR/mongo:/data/db
 
   mongo-service:
-    image: mongo-service
+    image: sptrakesh/mongo-service
     stop_signal: SIGTERM
     ports:
       - "2000:2000"
