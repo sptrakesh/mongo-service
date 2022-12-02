@@ -1,5 +1,4 @@
 #include <memory>
-#include <cstring>
 
 /*
 
@@ -58,13 +57,13 @@ namespace
     const auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     auto gmtime = std::gmtime(&time_t);
-    char buffer[32]; // flawfinder: ignore
+    char buffer[32];
     strftime(buffer, 32, "%Y-%m-%d %T.", gmtime);
 
     auto tp = now.time_since_epoch();
     tp -= std::chrono::duration_cast<std::chrono::seconds>(tp);
-    char microseconds[7]; // flawfinder: ignore
-    snprintf(microseconds, 7, "%06u", static_cast<unsigned>(tp / std::chrono::microseconds(1))); // flawfinder: ignore
+    char microseconds[7];
+    snprintf(microseconds, 7, "%06u", static_cast<unsigned>(tp / std::chrono::microseconds(1)));
     os << '[' << buffer << microseconds << ']';
   }
 
@@ -244,14 +243,14 @@ namespace nanolog
     {
       m_buffer_size = std::max(static_cast<size_t>(512), required_size);
       m_heap_buffer = std::make_unique<char[]>(m_buffer_size);
-      memcpy(m_heap_buffer.get(), m_stack_buffer, m_bytes_used); // flawfinder: ignore
+      memcpy(m_heap_buffer.get(), m_stack_buffer, m_bytes_used);
       return;
     }
     else
     {
       m_buffer_size = std::max(static_cast<size_t>(2 * m_buffer_size), required_size);
       std::unique_ptr < char [] > new_heap_buffer(new char[m_buffer_size]);
-      memcpy(new_heap_buffer.get(), m_heap_buffer.get(), m_bytes_used); // flawfinder: ignore
+      memcpy(new_heap_buffer.get(), m_heap_buffer.get(), m_bytes_used);
       m_heap_buffer.swap(new_heap_buffer);
     }
   }
@@ -259,21 +258,13 @@ namespace nanolog
   void NanoLogLine::encode(char const * arg)
   {
     if (arg != nullptr)
-#ifdef __STDC_LIB_EXT1__
-      encode_c_string(arg, strnlen_s(arg, 32*1024));
-#else
-      encode_c_string(arg, strlen(arg)); // flawfinder: ignore
-#endif
+      encode_c_string(arg, strlen(arg));
   }
 
   void NanoLogLine::encode(char * arg)
   {
     if (arg != nullptr)
-#ifdef __STDC_LIB_EXT1__
-    encode_c_string(arg, strnlen_s(arg, 32*1024));
-#else
-    encode_c_string(arg, strlen(arg)); // flawfinder: ignore
-#endif
+      encode_c_string(arg, strlen(arg));
   }
 
   void NanoLogLine::encode_c_string(char const * arg, size_t length)
@@ -285,7 +276,7 @@ namespace nanolog
     char * b = buffer();
     auto type_id = TupleIndex < char *, SupportedTypes >::value;
     *reinterpret_cast<uint8_t*>(b++) = static_cast<uint8_t>(type_id);
-    memcpy(b, arg, length + 1); // flawfinder: ignore
+    memcpy(b, arg, length + 1);
     m_bytes_used += 1 + length + 1;
   }
 
@@ -307,7 +298,7 @@ namespace nanolog
     char * b = buffer();
     auto type_id = TupleIndex < char *, SupportedTypes >::value;
     *reinterpret_cast<uint8_t*>(b++) = static_cast<uint8_t>(type_id);
-    memcpy(b, arg.data(), length); // flawfinder: ignore
+    memcpy(b, arg.data(), length);
     memset(b + length, 0, 1);
     m_bytes_used += 1 + length + 1;
 
@@ -388,7 +379,7 @@ namespace nanolog
 
       std::atomic_flag flag;
       char written;
-      char padding[256 - sizeof(std::atomic_flag) - sizeof(char) - sizeof(NanoLogLine)]; // flawfinder: ignore
+      char padding[256 - sizeof(std::atomic_flag) - sizeof(char) - sizeof(NanoLogLine)];
       NanoLogLine logline;
     };
 
@@ -454,7 +445,7 @@ namespace nanolog
     struct Item
     {
       Item(NanoLogLine && nanologline) : logline(std::move(nanologline)) {}
-      char padding[256 - sizeof(NanoLogLine)]; // flawfinder: ignore
+      char padding[256 - sizeof(NanoLogLine)];
       NanoLogLine logline;
     };
 
@@ -618,7 +609,7 @@ namespace nanolog
       m_os = std::make_unique<std::ofstream>();
       std::ostringstream ss;
       ss << m_name << "-" << day << ".log";
-      m_os->open(ss.str(), std::ofstream::out | std::ofstream::app); // flawfinder: ignore
+      m_os->open(ss.str(), std::ofstream::out | std::ofstream::app);
       if (echo) tee = std::make_unique<spt::log::teestream>(std::cout, *m_os);
     }
 

@@ -10,6 +10,7 @@ FetchContent_MakeAvailable(Catch2)
 
 FILE(GLOB_RECURSE integration_SRCS *.cpp *.hpp *.h)
 set(integration_SRCS ${integration_SRCS})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 add_executable(integration ${integration_SRCS})
 
 target_compile_definitions(integration

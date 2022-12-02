@@ -129,11 +129,7 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
-//#if __GNUC__ < 11
-      const auto value = view[key].get_utf8().value;
-//#else
-//      const auto value = view[key].get_string().value;
-//#endif
+      const auto value = view[key].get_string().value;
       return { value.data(), value.size() };
     }
 
@@ -158,12 +154,7 @@ namespace spt::util
     const auto type = view[key].type();
     if ( bsoncxx::type::k_utf8 == type )
     {
-//#if __GNUC__ < 11
-      const auto value = view[key].get_utf8().value;
-//#else
-//      const auto value = view[key].get_string().value;
-//#endif
-      return { value.data(), value.size() };
+      return view[key].get_string().value;
     }
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string_view";
@@ -394,11 +385,7 @@ boost::json::array spt::util::toJson( const bsoncxx::array::view& view )
       break;
     case bsoncxx::type::k_utf8:
     {
-//#if __GNUC__ < 11
-      auto v = e.get_utf8().value;
-//#else
-//      auto v = e.get_string().value;
-//#endif
+      auto v = e.get_string().value;
       arr.emplace_back( std::string_view{ v.data(), v.size() } );
       break;
     }
@@ -453,11 +440,7 @@ boost::json::object spt::util::toJson( const bsoncxx::document::view& view )
       break;
     case bsoncxx::type::k_utf8:
     {
-//#if __GNUC__ < 11
-      auto v = e.get_utf8().value;
-//#else
-//      auto v = e.get_string().value;
-//#endif
+      auto v = e.get_string().value;
       root.emplace( key, std::string_view{ v.data(), v.size() } );
       break;
     }
