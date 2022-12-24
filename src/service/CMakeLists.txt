@@ -7,7 +7,7 @@ target_compile_definitions(mongo-service
 )
 
 target_link_libraries(mongo-service
-  PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} z
+  PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} jemalloc z
 )
 
 install(TARGETS mongo-service DESTINATION bin)
