@@ -43,7 +43,9 @@ include_directories(
 )
 
 if (APPLE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines-ts")
+  link_directories(
+    /opt/local/lib
+  )
   set(CMAKE_MACOSX_RPATH 1)
 else()
   include_directories(
