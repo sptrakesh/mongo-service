@@ -2,7 +2,7 @@
 // Created by Rakesh on 06/08/2020.
 //
 
-#include <hayai.hpp>
+#include <hayai/hayai.hpp>
 
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>

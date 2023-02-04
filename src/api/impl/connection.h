@@ -7,7 +7,6 @@
 #include <optional>
 #include <string_view>
 
-#include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>

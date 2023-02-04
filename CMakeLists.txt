@@ -23,6 +23,33 @@ find_package(Boost REQUIRED)
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 
 if (APPLE)
+  execute_process(
+    COMMAND brew --prefix OpenSSL
+    RESULT_VARIABLE BREW_OPENSSL
+    OUTPUT_VARIABLE BREW_OPENSSL_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (BREW_OPENSSL EQUAL 0 AND EXISTS "${BREW_OPENSSL_PREFIX}")
+    message(STATUS "Found OpenSSL keg installed by Homebrew at ${BREW_OPENSSL_PREFIX}")
+    set(OPENSSL_ROOT_DIR "${BREW_OPENSSL_PREFIX}/")
+    set(OPENSSL_INCLUDE_DIR "${BREW_OPENSSL_PREFIX}/include")
+    set(OPENSSL_LIBRARIES "${BREW_OPENSSL_PREFIX}/lib")
+    set(OPENSSL_CRYPTO_LIBRARY "${BREW_OPENSSL_PREFIX}/lib/libcrypto.dylib")
+  endif()
+
+  execute_process(
+    COMMAND brew --prefix jemalloc
+    RESULT_VARIABLE BREW_JEMALLOC
+    OUTPUT_VARIABLE BREW_JEMALLOC_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (BREW_JEMALLOC EQUAL 0 AND EXISTS "${BREW_JEMALLOC_PREFIX}")
+    message(STATUS "Found OpenSSL keg installed by Homebrew at ${BREW_JEMALLOC_PREFIX}")
+    set(JEMALLOC_ROOT_DIR "${BREW_JEMALLOC_PREFIX}/")
+    set(JEMALLOC_LIBRARIES "${BREW_JEMALLOC_PREFIX}/lib")
+    set(JEMALLOC_LIBRARY "${BREW_JEMALLOC_PREFIX}/lib/libjemalloc.dylib")
+  endif()
+
   find_package(OpenSSL REQUIRED)
 endif()
 find_package(libmongocxx-static REQUIRED)
@@ -43,9 +70,6 @@ include_directories(
 )
 
 if (APPLE)
-  link_directories(
-    /opt/local/lib
-  )
   set(CMAKE_MACOSX_RPATH 1)
 else()
   include_directories(

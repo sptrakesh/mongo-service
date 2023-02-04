@@ -10,6 +10,7 @@
 #include <log/NanoLog.h>
 #endif
 
+#include <boost/asio/connect.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 
