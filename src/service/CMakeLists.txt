@@ -6,8 +6,14 @@ target_compile_definitions(mongo-service
   PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS}
 )
 
-target_link_libraries(mongo-service
-  PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} jemalloc z
-)
+if (APPLE)
+  target_link_libraries(mongo-service
+    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} z
+  )
+else()
+  target_link_libraries(mongo-service
+    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} jemalloc z
+  )
+endif()
 
 install(TARGETS mongo-service DESTINATION bin)

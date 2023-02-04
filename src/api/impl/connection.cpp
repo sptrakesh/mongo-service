@@ -12,6 +12,7 @@
   #endif
 #endif
 
+#include <boost/asio/connect.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 
