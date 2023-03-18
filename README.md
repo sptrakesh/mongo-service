@@ -485,6 +485,8 @@ The following operators are supported:
 * `$sort`
 * `$limit`
 * `$project`
+* `$addFields`
+* `$facet`
 
 Sample request payload:
 ```json
