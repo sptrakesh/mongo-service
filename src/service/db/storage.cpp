@@ -1283,6 +1283,9 @@ namespace spt::db::pstorage
 
       it = v.find( "$addFields" );
       if ( it != v.end() ) pipeline.add_fields( it->get_document().view() );
+
+      it = v.find( "$facet" );
+      if ( it != v.end() ) pipeline.facet( it->get_document().view() );
     }
 
     auto cliento = Pool::instance().acquire();
