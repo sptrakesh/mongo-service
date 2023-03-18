@@ -1280,6 +1280,9 @@ namespace spt::db::pstorage
 
       it = v.find( "$limit" );
       if ( it != v.end() ) pipeline.limit( it->get_int32().value );
+
+      it = v.find( "$addFields" );
+      if ( it != v.end() ) pipeline.add_fields( it->get_document().view() );
     }
 
     auto cliento = Pool::instance().acquire();
