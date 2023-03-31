@@ -1,0 +1,4 @@
+addict==2.4.0
+behave==1.2.6
+pyhamcrest==2.0.4
+pymongo==4.3.3

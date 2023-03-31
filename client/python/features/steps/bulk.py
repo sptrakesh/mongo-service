@@ -64,7 +64,7 @@ async def step_impl(context: Context):
     assert_that(hasattr(context, "oid1"), "Document id1 not set")
     assert_that(hasattr(context, "oid2"), "Document id2 not set")
     doc = Dict()
-    doc.delete = [Dict({"_id": context.oid1}, {"_id": context.oid2})]
+    doc.delete = [Dict({"_id": context.oid1}), Dict({"_id": context.oid2})]
     req = bulk_request(database=_database, collection=_collection, document=doc)
     resp = await context.client.execute(req)
     _log.info(f"Bulk delete response: {dumps(resp)}")
