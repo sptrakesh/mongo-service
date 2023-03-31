@@ -23,6 +23,13 @@ class Client:
     def __await__(self):
         return self._async_init().__await__()
 
+    async def __aenter__(self):
+        await self._async_init()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
     async def execute(self, request: Request) -> Dict:
         b = request.bson()
         _log.info(f"Writing {len(b)} bytes to server.")
