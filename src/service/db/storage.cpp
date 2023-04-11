@@ -547,6 +547,7 @@ namespace spt::db::pstorage
     for ( auto&& e : doc )
     {
       if ( e.key() == "_id" ) continue;
+      if ( e.key() == "$unset" ) continue;
 
       switch ( e.type() )
       {
@@ -582,6 +583,9 @@ namespace spt::db::pstorage
     }
 
     d << close_document;
+
+    if ( auto unset = util::bsonValueIfExists<bsoncxx::document::view>( "$unset", doc ); unset ) d << "$unset" << *unset;
+
     return d << finalize;
   }
 
@@ -594,23 +598,11 @@ namespace spt::db::pstorage
 
     if ( options )
     {
-      auto validate = bsonValueIfExists<bool>( "bypassValidation", *options );
-      if ( validate ) opts.bypass_document_validation( *validate );
-
-      auto col = bsonValueIfExists<bsoncxx::document::view>( "collation",
-          *options );
-      if ( col ) opts.collation( *col );
-
-      auto upsert = bsonValueIfExists<bool>( "upsert", *options );
-      if ( upsert ) opts.upsert( *upsert );
-
-      auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern",
-          *options );
-      if ( wc ) opts.write_concern( writeConcern( *wc ));
-
-      auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters",
-          *options );
-      if ( af ) opts.array_filters( *af );
+      if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
+      if ( auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
+      if ( auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
+      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( writeConcern( *wc ));
+      if ( auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options ); af ) opts.array_filters( *af );
     }
 
     return opts;
@@ -717,7 +709,7 @@ namespace spt::db::pstorage
     }
 
     auto& client = *cliento;
-    if ( !opts.write_concern()) opts.write_concern( client->write_concern());
+    if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
     const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
     {

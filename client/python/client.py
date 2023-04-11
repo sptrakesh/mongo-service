@@ -38,11 +38,11 @@ class Client:
         await self._writer.drain()
 
         _log.info("Reading response size to 4 byte array")
-        lv = await self._reader.read(4)
+        lv = await self._reader.readexactly(4)
         l = int.from_bytes(lv, "little")
         _log.info(f"Response size: {l}")
 
-        b = await self._reader.read(l - 4)
+        b = await self._reader.readexactly(l - 4)
 
         ba = b''.join([lv, b])
         return Dict(decode(ba))
