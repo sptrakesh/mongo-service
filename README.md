@@ -344,6 +344,34 @@ A version history document is created for each updated document.
 
 If the input `filter` sub-document has an `_id` property, and is of type BSON
 Object Id, then a single document update is made.
+
+###### Update with unset
+When using the `$unset` operator, it is important not to explicitly specify the updates using the `$set` operator as
+would be usually done when composing the document.  The framework automatically adds all properties other than `$unset`
+and `_id` (for obvious reasons) into a `$set` sub document.  Adding another level of `$set` would lead to an invalid
+update document error from MongoDB.
+
+Sample request payload:
+```json
+{
+  "action": "update",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "filter": {
+      "_id": {"$oid": "6435a62316d2310e800e4bf2"}
+    },
+    "update": {
+      "$unset": {"obsoleteProperty": 1},
+      "$set": {
+        "metadata.modified": {"$date": 1681237539583},
+        "metadata.user._id": {"$oid": "5f70ee572fc09200086c8f24"},
+        "metadata.user.username": "mqtt"
+      }
+    }
+  }
+}
+```
  
 #### Delete
 The `document` represents the *query* to execute to find the candidate documents
