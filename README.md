@@ -346,12 +346,11 @@ If the input `filter` sub-document has an `_id` property, and is of type BSON
 Object Id, then a single document update is made.
 
 ###### Update with unset
-When using the `$unset` operator, it is important not to explicitly specify the updates using the `$set` operator as
-would be usually done when composing the document.  The framework automatically adds all properties other than `$unset`
-and `_id` (for obvious reasons) into a `$set` sub document.  Adding another level of `$set` would lead to an invalid
-update document error from MongoDB.
+As a simplification, it is possible to omit the `$set` operator, if used in conjunction with a `$unset` operator.  All
+top level properties other than `_id` and `$unset` are implicitly added to a `$set` document in the actual update document
+sent to MongoDB.
 
-Sample request payload:
+Sample request payload with explicit `$set`:
 ```json
 {
   "action": "update",
@@ -368,6 +367,26 @@ Sample request payload:
         "metadata.user._id": {"$oid": "5f70ee572fc09200086c8f24"},
         "metadata.user.username": "mqtt"
       }
+    }
+  }
+}
+```
+
+Sample request payload without `$set`:
+```json
+{
+  "action": "update",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "filter": {
+      "_id": {"$oid": "6435a62316d2310e800e4bf2"}
+    },
+    "update": {
+      "$unset": {"obsoleteProperty": 1},
+      "metadata.modified": {"$date": 1681237539583},
+      "metadata.user._id": {"$oid": "5f70ee572fc09200086c8f24"},
+      "metadata.user.username": "user"
     }
   }
 }

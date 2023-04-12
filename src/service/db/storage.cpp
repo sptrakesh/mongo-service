@@ -542,6 +542,8 @@ namespace spt::db::pstorage
     using bsoncxx::builder::stream::finalize;
 
     auto d = document{};
+    if ( auto set = util::bsonValueIfExists<bsoncxx::document::view>( "$set", doc ); set ) return bsoncxx::document::value{ doc };
+
     d << "$set" << open_document;
 
     for ( auto&& e : doc )
@@ -551,27 +553,27 @@ namespace spt::db::pstorage
 
       switch ( e.type() )
       {
-      case bsoncxx::type::k_array:d << e.key() << e.get_array();
+      case bsoncxx::type::k_array: d << e.key() << e.get_array();
         break;
-      case bsoncxx::type::k_bool:d << e.key() << e.get_bool();
+      case bsoncxx::type::k_bool: d << e.key() << e.get_bool();
         break;
-      case bsoncxx::type::k_date:d << e.key() << e.get_date();
+      case bsoncxx::type::k_date: d << e.key() << e.get_date();
         break;
-      case bsoncxx::type::k_decimal128:d << e.key() << e.get_decimal128();
+      case bsoncxx::type::k_decimal128: d << e.key() << e.get_decimal128();
         break;
-      case bsoncxx::type::k_document:d << e.key() << e.get_document();
+      case bsoncxx::type::k_document: d << e.key() << e.get_document();
         break;
-      case bsoncxx::type::k_double:d << e.key() << e.get_double();
+      case bsoncxx::type::k_double: d << e.key() << e.get_double();
         break;
-      case bsoncxx::type::k_int32:d << e.key() << e.get_int32();
+      case bsoncxx::type::k_int32: d << e.key() << e.get_int32();
         break;
-      case bsoncxx::type::k_int64:d << e.key() << e.get_int64();
+      case bsoncxx::type::k_int64: d << e.key() << e.get_int64();
         break;
-      case bsoncxx::type::k_oid:d << e.key() << e.get_oid();
+      case bsoncxx::type::k_oid: d << e.key() << e.get_oid();
         break;
-      case bsoncxx::type::k_null:d << e.key() << e.get_null();
+      case bsoncxx::type::k_null: d << e.key() << e.get_null();
         break;
-      case bsoncxx::type::k_timestamp:d << e.key() << e.get_timestamp();
+      case bsoncxx::type::k_timestamp: d << e.key() << e.get_timestamp();
         break;
       case bsoncxx::type::k_utf8:
         d << e.key() << bsonValue<std::string>( e.key(), doc );
