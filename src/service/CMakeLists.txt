@@ -8,11 +8,11 @@ target_compile_definitions(mongo-service
 
 if (APPLE)
   target_link_libraries(mongo-service
-    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} z
+    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} z
   )
 else()
   target_link_libraries(mongo-service
-    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES} jemalloc z
+    PRIVATE nanolog mongo-service-common ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json ${OPENSSL_LIBRARIES} jemalloc z
   )
 endif()
 

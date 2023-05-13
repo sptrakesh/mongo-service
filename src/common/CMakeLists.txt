@@ -14,3 +14,7 @@ install (
   DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/util
   DESTINATION include
   FILES_MATCHING PATTERN "clara.h")
+install (
+  DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/visit_struct
+  DESTINATION include
+  FILES_MATCHING PATTERN "*.hpp")

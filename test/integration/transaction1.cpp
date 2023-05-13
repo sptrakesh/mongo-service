@@ -5,7 +5,7 @@
 #include "../../src/log/NanoLog.h"
 #include "../../src/common/util/bson.h"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/array.hpp>

@@ -4,7 +4,7 @@
 
 #include "../../src/log/NanoLog.h"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>

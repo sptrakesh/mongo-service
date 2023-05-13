@@ -860,7 +860,9 @@ This software has been developed mainly using work other people/projects have co
 The following are the components used to build this software:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the
 `TCP socket` server implementation.
-* **[MongoCXX](http://mongocxx.org/)** - MongoDB C++ driver.
+* **[MongoCXX](https://mongocxx.org/)** - MongoDB C++ driver.
+* **[visit_struct](https://github.com/cbeck88/visit_struct)** - Struct visitor library used for the 
+  [serialisation](src/common/util/serialise.h) utility functions.
 * **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
   free concurrent queue implementation for metrics.
 * **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used
