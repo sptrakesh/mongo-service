@@ -534,6 +534,18 @@ SCENARIO( "DateTime test suite", "[datetime]" )
       REQUIRE( std::holds_alternative<DateTime>( var ) );
       REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430688119120000 );
     }
+
+    AND_THEN( "ISO date time converted to UTC" )
+    {
+      const auto date = "2023-05-18T09:00:00.000-05:00"s;
+      const auto var = parseISO8601( date );
+      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
+      REQUIRE( std::holds_alternative<DateTime>( var ) );
+
+      const auto ts = std::get<DateTime>( var ).time_since_epoch();
+      const auto utc = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( ts ).count() );
+      REQUIRE( utc == "2023-05-18T14:00:00.000Z" );
+    }
   }
 
   GIVEN( "Invalid date-time values" )

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../visit_struct/visit_struct.hpp"
+#include "../visit_struct/fully_visitable.hpp"
 #if defined __has_include
 #if __has_include("../../log/NanoLog.h")
 #include "../../log/NanoLog.h"
@@ -52,6 +52,16 @@ namespace spt::util
   };
 
   /**
+   * Add non-visitable fields in the model to the builder.  A callback function that library users can implement to
+   * fully serialise partially visitable models.
+   * @tparam M The partially visitable model type.
+   * @param model The model instance to be fully serialised to BSON.
+   * @param builder The BSON stream builder to add non-visitable fields to.
+   */
+  template <Visitable M>
+  void populate( const M& model, bsoncxx::builder::stream::document& builder );
+
+  /**
    * This is usually invoked from the {@refitem marshall} function.  Can also be used if you wish a wrapped
    * BSON value variant instead of a document.
    * @tparam M The visitable struct.
@@ -69,18 +79,7 @@ namespace spt::util
    * @return The BSON array as a BSON value variant.
    */
   template <typename Model>
-  inline bsoncxx::types::bson_value::value bson( const std::vector<Model>& vec )
-  {
-    if ( vec.empty() ) return bsoncxx::types::b_null{};
-
-    auto arr = bsoncxx::builder::stream::array{};
-    for ( const auto& item: vec )
-    {
-      auto v = bson( item );
-      if ( v.view().type() != bsoncxx::type::k_null ) arr << std::move( v );
-    }
-    return { arr << bsoncxx::builder::stream::finalize };
-  }
+  bsoncxx::types::bson_value::value bson( const std::vector<Model>& vec );
 
   /**
    * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem bson} function
@@ -120,36 +119,9 @@ namespace spt::util
   };
 
   /**
-   * Return a BSON builder instance with all the visitable fields in the model added.  This is useful for
-   * partially visitable structs, where additional fields need to be added to the builder before generating the
-   * final BSON document.
-   * @tparam M The type of the visitable model.
-   * @param model The model instance marshall into a builder.
-   * @return The stream builder instance that can be further modified as needed.
-   */
-  template <Model M>
-  inline bsoncxx::builder::stream::document builder( const M& model )
-  {
-    using std::operator ""sv;
-    auto root = bsoncxx::builder::stream::document{};
-    visit_struct::for_each( model,
-        [&root]( const char* name, const auto& value )
-        {
-          auto n = std::string_view{ name };
-          auto v = bson( value );
-          if ( n == "id" && v.view().type() == bsoncxx::type::k_oid )
-          {
-            root << "_id"sv << std::move( v );
-          } else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
-        } );
-    return root;
-  }
-
-  /**
    * Serialise the visitable model into a BSON document.  Iterates over the visitable fields in the model and
-   * adds to the output BSON document.  For partially visitable models, use the {@xrefitem builder} function
-   * instead, which will return a BSON stream builder, which can be further modified with the desired non-visitable
-   * fields.
+   * adds to the output BSON document.  For partially visitable models, implement the {@xrefitem populate} function
+   * to add the non-visitable fields to the BSON stream builder as appropriate.
    * @tparam M The type of the model.
    * @param model The visitable and serialisable model.
    * @return The BSON document instance representing the model.
@@ -164,13 +136,23 @@ namespace spt::util
         {
           auto n = std::string_view{ name };
           auto v = bson( value );
-          if ( n == "id" && v.view().type() == bsoncxx::type::k_oid )
-          {
-            root << "_id"sv << std::move( v );
-          } else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
+          if ( n == "id" && v.view().type() == bsoncxx::type::k_oid ) root << "_id"sv << std::move( v );
+          else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
         } );
+
+    if constexpr ( visit_struct::traits::ext::is_fully_visitable<M>() == false ) populate( model, root );
     return root << bsoncxx::builder::stream::finalize;
   }
+
+  /**
+   * Populate non-visitable fields in the specified model from the BSON value variant.  A call-back function that users
+   * can implement to ensure full hydration of the model from the BSON document.
+   * @tparam Model The partially visitable model
+   * @param model The instance that is to be fully unmarshalled from BSON.
+   * @param view The BSON document to unmarshall data from.
+   */
+  template <Visitable M>
+  void populate( M& model, bsoncxx::document::view view );
 
   /**
    * General purpose function for populating a vector of items from a BSON value variant which should be of type array.
@@ -296,7 +278,23 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
           root << "_id"sv << std::move( v );
         } else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
       } );
+
+  if constexpr ( visit_struct::traits::ext::is_fully_visitable<M>() == false ) populate( model, root );
   return { root << bsoncxx::builder::stream::finalize };
+}
+
+template <typename Model>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Model>& vec )
+{
+  if ( vec.empty() ) return bsoncxx::types::b_null{};
+
+  auto arr = bsoncxx::builder::stream::array{};
+  for ( const auto& item: vec )
+  {
+    auto v = bson( item );
+    if ( v.view().type() != bsoncxx::type::k_null ) arr << std::move( v );
+  }
+  return { arr << bsoncxx::builder::stream::finalize };
 }
 
 template <spt::util::Visitable M>
@@ -304,22 +302,24 @@ inline void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
 {
   auto view = value.get_document().value;
   visit_struct::for_each( field,
-      [&view]( const char* name, auto& value )
+      [&view]( const char* name, auto& member )
       {
         using std::operator ""sv;
         auto n = std::string_view{ name };
         if ( auto it = view.find( n ); it != std::cend( view ) )
         {
-          if ( it->type() != bsoncxx::type::k_null ) set( value, it->get_value() );
+          if ( it->type() != bsoncxx::type::k_null ) set( member, it->get_value() );
         }
         else if ( n == "id"sv )
         {
           if ( auto iter = view.find( "_id"sv ); iter != std::cend( view ) && iter->type() == bsoncxx::type::k_oid )
           {
-            set( value, iter->get_value() );
+            set( member, iter->get_value() );
           }
         }
       } );
+
+  if constexpr ( visit_struct::traits::ext::is_fully_visitable<M>() == false ) populate( field, view );
 }
 
 template <>
@@ -392,6 +392,13 @@ inline void spt::util::set( std::vector<bsoncxx::oid>& field, bsoncxx::types::bs
 {
   field.reserve( 8 );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_oid().value );
+}
+
+template <>
+inline void spt::util::set( std::vector<std::chrono::time_point<std::chrono::system_clock>>& field, bsoncxx::types::bson_value::view value )
+{
+  field.reserve( 8 );
+  for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_date().value );
 }
 
 template <typename M>
