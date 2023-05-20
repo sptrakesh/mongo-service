@@ -18,6 +18,7 @@
     * [Options](#options)
     * [Limitation](#limitation)
 * [Metrics](#metrics)
+* [Serialisation](#serialisation)
 * [Testing](#testing)
     * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
@@ -659,13 +660,34 @@ The schema for a metric is as follows:
 * **application** - The application that invoked the service if specified in the
   request payload.
 
+## Serialisation
+A simple [serialisation](src/common/util/serialise.h) framework is also provided.  Uses the
+[visit_struct](https://github.com/cbeck88/visit_struct) library to automatically serialise and deserialise
+*visitable* classes/structs to and from BSON.  See the [test suite](test/unit/serialise.cpp) for sample use
+of the framework.
+
+The framework provides the following primary functions to handle (de)serialisation:
+* `marshall<Model>( const Type& )` - to marshall the specified object to a BSON document.
+* `unmarshall<Model>( bsoncxx::document::view view )` - unmarshall the BSON document into a default constructed object.
+* `unmarshall<Model>( Model& m, bsoncxx::document::view view )` - unmarshall the BSON document into the specified model instance.
+
+The framework handles non-visitable members within a visitable root object.  Custom implementations can be implemented.
+* For non-visitable classes/structs, implement the following functions as appropriate:
+  * `bsoncxx::types::bson_value::value bson( const <Class/Struct Type>& model )` that will produce a BSON document as a value variant for the data encapsulated in the object.
+  * `void set( <Class/Struct Type>& field, bsoncxx::types::bson_value::view value )` that will populate the model instance from the BSON value variant.
+* For partially visitable classes/structs, implement the following `populate` callback functions as appropriate:
+  * `void populate( const <Class/Struct Type>& model, bsoncxx::builder::stream::document& doc )` to add the non-visitable fields to the BSON stream builder.
+  * `void populate( <Class/Struct Type>& model, bsoncxx::document::view view )` to populate the non-visitable fields in the object from the BSON document.
+
 ## Testing
 Integration tests for the service will be developed in a few different languages
 to ensure full interoperability.  The test suites will be available under the
-`test` directory. The following suites are present at present:
+`test` directory or under the `client` directory. The following suites are present at present:
 * `C++`
     * **Integration** - Integration test suite under the `test/integration` directory.
     * **Performance** - Performance test suite under the `test/performance` directory.
+* `Python` - See [features](client/python/features) for the test suite.
+* `Julia` - See [test](client/julia/MongoService/test/runtests.jl) for the test suite.
 * `go` - Simple test program under the `test/go` directory.
     ```shell script
     (cd mongo-service/test/go; go build -o /tmp/gomongo; /tmp/gomongo)
@@ -860,7 +882,9 @@ This software has been developed mainly using work other people/projects have co
 The following are the components used to build this software:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the
 `TCP socket` server implementation.
-* **[MongoCXX](http://mongocxx.org/)** - MongoDB C++ driver.
+* **[MongoCXX](https://mongocxx.org/)** - MongoDB C++ driver.
+* **[visit_struct](https://github.com/cbeck88/visit_struct)** - Struct visitor library used for the 
+  [serialisation](src/common/util/serialise.h) utility functions.
 * **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
   free concurrent queue implementation for metrics.
 * **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used

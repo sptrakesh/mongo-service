@@ -18,7 +18,7 @@ target_compile_definitions(integration
 )
 
 target_link_libraries(integration
-  PRIVATE nanolog mongo-service-common mongo-service-api ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Catch2::Catch2 ${OPENSSL_LIBRARIES} z
+  PRIVATE nanolog mongo-service-common mongo-service-api ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json Catch2::Catch2 ${OPENSSL_LIBRARIES} z
 )
 
 add_test(NAME integration COMMAND integration)

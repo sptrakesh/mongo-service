@@ -20,7 +20,7 @@ set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 set(Boost_USE_MULTITHREADED ON)
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS json)
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 
 if (APPLE)
@@ -91,6 +91,7 @@ add_subdirectory(src/service)
 add_subdirectory(src/api)
 
 if (BUILD_TESTING)
+  add_subdirectory(test/unit)
   add_subdirectory(test/integration)
   add_subdirectory(test/performance)
   add_subdirectory(test/client)

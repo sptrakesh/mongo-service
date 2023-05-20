@@ -4,7 +4,7 @@
 #include "../../src/api/impl/connection.h"
 #include "../../src/api/pool/pool.h"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
