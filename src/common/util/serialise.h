@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "../visit_struct/fully_visitable.hpp"
+#include "bson.h"
+#include "concept.h"
 #if defined __has_include
 #if __has_include("../../log/NanoLog.h")
 #include "../../log/NanoLog.h"
@@ -13,6 +14,7 @@
 #endif
 #endif
 
+#include <memory>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
 #include <bsoncxx/builder/stream/array.hpp>
@@ -41,17 +43,6 @@
 namespace spt::util
 {
   /**
-   * A visitable concept.  Any default constructable structure that is also visitable.
-   * @tparam T
-   */
-  template <typename T>
-  concept Visitable = requires( T t )
-  {
-    std::is_default_constructible<T>{};
-    visit_struct::traits::is_visitable<T>{};
-  };
-
-  /**
    * Add non-visitable fields in the model to the builder.  A callback function that library users can implement to
    * fully serialise partially visitable models.
    * @tparam M The partially visitable model type.
@@ -62,7 +53,7 @@ namespace spt::util
   void populate( const M& model, bsoncxx::builder::stream::document& builder );
 
   /**
-   * This is usually invoked from the {@refitem marshall} function.  Can also be used if you wish a wrapped
+   * This is usually invoked from the {@xrefitem marshall(const M&)} function.  Can also be used if you wish a wrapped
    * BSON value variant instead of a document.
    * @tparam M The visitable struct.
    * @param model Instance of the visitable struct to convert to a BSON document.
@@ -73,7 +64,7 @@ namespace spt::util
 
   /**
    * General implementation for converting a vector into a BSON array.  For each item in the vector delegates
-   * to the appropriate {@xrefitem bson) function.
+   * to the appropriate {@xrefitem bson(const M&)} function.
    * @tparam Model The type stored in the vector.
    * @param vec The vector to serialise into a BSON array.
    * @return The BSON array as a BSON value variant.
@@ -82,7 +73,7 @@ namespace spt::util
   bsoncxx::types::bson_value::value bson( const std::vector<Model>& vec );
 
   /**
-   * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem bson} function
+   * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem bson(const M&)} function
    * if the variant is set.
    * @tparam T The type wrapped in the optional.
    * @param model The optional instance to be serialised.
@@ -92,6 +83,19 @@ namespace spt::util
   inline bsoncxx::types::bson_value::value bson( const std::optional<T>& model )
   {
     return model ? bson( *model ) : bsoncxx::types::b_null{};
+  }
+
+  /**
+   * General implementation for serialising a shared pointer type.  Delegates to the appropriate {@xrefitem bson(const M&)} function
+   * if the shared pointer is valid.
+   * @tparam T The type wrapped in the shared pointer.
+   * @param model The shared pointer instance to be serialised.
+   * @return The BSON value variant.
+   */
+  template <typename T>
+  inline bsoncxx::types::bson_value::value bson( const std::shared_ptr<T>& model )
+  {
+    return model ? bson( *model.get() ) : bsoncxx::types::b_null{};
   }
 
   /**
@@ -107,8 +111,8 @@ namespace spt::util
 
   /**
    * Concept that represents a serialisable entity.  An entity is serialisable if it is default constructable,
-   * visitable and serialisable to BSON via the {@xrefitem bson} function.
-   * @tparam T
+   * visitable and serialisable to BSON via the {@xrefitem bson(const M&)} function.
+   * @tparam T The type of the model.
    */
   template <typename T>
   concept Model = requires( T t )
@@ -120,7 +124,7 @@ namespace spt::util
 
   /**
    * Serialise the visitable model into a BSON document.  Iterates over the visitable fields in the model and
-   * adds to the output BSON document.  For partially visitable models, implement the {@xrefitem populate} function
+   * adds to the output BSON document.  For partially visitable models, implement the {@xrefitem populate(const M&, bsoncxx::builder::stream::document&)} function
    * to add the non-visitable fields to the BSON stream builder as appropriate.
    * @tparam M The type of the model.
    * @param model The visitable and serialisable model.
@@ -165,13 +169,23 @@ namespace spt::util
 
   /**
    * Standard implementation for setting optional types.  If the BSON value is not `null` delegate to the appropriate
-   * {@xrefitem set} function.
+   * {@xrefitem set(M&, bsoncxx::types::bson_value::view)} function.
    * @tparam M The type wrapped in the optional.
    * @param field The field that is to be set.
    * @param value The BSON value variant.
    */
   template <typename M>
   void set( std::optional<M>& field, bsoncxx::types::bson_value::view value );
+
+  /**
+   * Standard implementation for setting shared pointer types.  If the BSON value is not `null` delegate to the appropriate
+   * {@xrefitem set(M&, bsoncxx::types::bson_value::view)} function.
+   * @tparam M The type wrapped in the shared pointer.
+   * @param field The field that is to be set.
+   * @param value The BSON value variant.
+   */
+  template <typename M>
+  void set( std::shared_ptr<M>& field, bsoncxx::types::bson_value::view value );
 
   /**
    * Standard implementation for visitable types.
@@ -183,7 +197,7 @@ namespace spt::util
   void set( M& field, bsoncxx::types::bson_value::view value );
 
   /**
-   * General interface used by the {@refitem unmarshall} function to unmarshall a model from a BSON value.
+   * General interface used by the {@refitem unmarshall(M&, bsoncxx::document::view)} function to unmarshall a model from a BSON value.
    * For non-visitable models, specialise this function as appropriate in your own namespace.  This is used when
    * visitable structures includes non-visitable fields.
    * @tparam M The type of the model.
@@ -195,10 +209,9 @@ namespace spt::util
 
   /**
    * Unmarshall the visitable fields in the specified model from the BSON document.  This is usually used for
-   * partially visitable structs, where non-visitable fields need to be manually unmarshalled from the BSON
-   * document.
+   * visitable structs which have already been created.
    * @tparam M The type of the model.
-   * @param model The model instance to unmarshall.
+   * @param model The model instance to unmarshall into.
    * @param view The BSON document to unmarshall struct fields from.
    */
   template <Model M>
@@ -209,7 +222,7 @@ namespace spt::util
   }
 
   /**
-   * Unmarshall a model instance from the specified BSON document.  This is usually used for fully visitable structs.
+   * Unmarshall a model instance from the specified BSON document.
    * @tparam M The type of the model.
    * @param view The BSON document to unmarshall the model from.
    * @return The unmarshalled model instance.
@@ -408,6 +421,15 @@ inline void spt::util::set( std::optional<M>& field, bsoncxx::types::bson_value:
   auto m = M{};
   set( m, value );
   field = std::move( m );
+}
+
+template <typename M>
+inline void spt::util::set( std::shared_ptr<M>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() == bsoncxx::type::k_null ) return;
+  auto m = std::make_shared<M>();
+  set( *m.get(), value );
+  field = m;
 }
 
 template <typename Model>

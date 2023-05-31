@@ -1243,7 +1243,7 @@ namespace spt::db::pstorage
     }
 
     auto pipeline = mongocxx::pipeline{};
-    for ( auto&& s : *spec )
+    for ( const auto& s : *spec )
     {
       auto v = s.get_document().view();
       auto it = v.find( "$match" );

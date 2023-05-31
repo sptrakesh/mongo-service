@@ -568,6 +568,21 @@ namespace spt::util
     return ss.str();
   }
 
+  std::string isoDateMicros( std::chrono::microseconds epoch )
+  {
+    return isoDateMicros( epoch.count() );
+  }
+
+  std::string isoDateMicros( std::chrono::milliseconds epoch )
+  {
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch ).count() );
+  }
+
+  std::string isoDateMicros( const DateTime& epoch )
+  {
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+  }
+
   std::string isoDateMillis( int64_t epoch )
   {
     epoch /= int64_t( 1000 );
@@ -644,5 +659,21 @@ namespace spt::util
 
     return ss.str();
   }
+
+  std::string isoDateMillis( std::chrono::microseconds epoch )
+  {
+    return isoDateMillis( epoch.count() );
+  }
+
+  std::string isoDateMillis( std::chrono::milliseconds epoch )
+  {
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch ).count() );
+  }
+
+  std::string isoDateMillis( const DateTime& epoch )
+  {
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+  }
+
 }
 
