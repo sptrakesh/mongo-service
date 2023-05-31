@@ -2,134 +2,13 @@
 // Created by Rakesh on 12/05/2023.
 //
 
-#include "../../src/common/util/bson.h"
-#include "../../src/common/util/serialise.h"
-#include "../../src/common/visit_struct/visit_struct_intrusive.hpp"
+#include "model.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
-using std::operator""s;
-using std::operator""sv;
-
 using namespace spt::util;
-
-namespace spt::util::test::serial
-{
-  struct NotVisitable
-  {
-    NotVisitable() = default;
-    ~NotVisitable() = default;
-
-    void set( bsoncxx::document::view bson )
-    {
-      FROM_BSON( std::string, identifier, bson )
-      FROM_BSON( int64_t, integer, bson )
-    }
-
-    std::string identifier;
-    int64_t integer;
-  };
-
-  bsoncxx::types::bson_value::value bson( const NotVisitable& model )
-  {
-    return {
-      bsoncxx::builder::stream::document{} <<
-        "identifier" << model.identifier <<
-        "integer" << model.integer <<
-        bsoncxx::builder::stream::finalize
-    };
-  }
-
-  void set( NotVisitable& field, bsoncxx::types::bson_value::view value )
-  {
-    field.set( value.get_document().value );
-  }
-
-  struct CustomFields
-  {
-    void set( bsoncxx::document::view bson )
-    {
-      FROM_BSON_OPT( std::string, "identifier"sv, id, bson )
-      FROM_BSON_OPT( bsoncxx::oid, "reference"sv, ref, bson )
-    }
-
-    BEGIN_VISITABLES(CustomFields);
-    VISITABLE(std::string, id);
-    VISITABLE(bsoncxx::oid, ref);
-    END_VISITABLES;
-  };
-
-  bsoncxx::types::bson_value::value bson( const CustomFields& model )
-  {
-    return {
-        bsoncxx::builder::stream::document{} <<
-          "identifier" << model.id <<
-          "reference" << model.ref <<
-          bsoncxx::builder::stream::finalize
-    };
-  }
-
-  void set( CustomFields& field, bsoncxx::types::bson_value::view value )
-  {
-    field.set( value.get_document().value );
-  }
-
-  struct Full
-  {
-    struct Nested
-    {
-      BEGIN_VISITABLES(Nested);
-      VISITABLE(std::string, identifier);
-      VISITABLE(int32_t, integer);
-      VISITABLE(double, number);
-      VISITABLE(std::chrono::time_point<std::chrono::system_clock>, date);
-      VISITABLE(std::vector<double>, numbers);
-      END_VISITABLES;
-    };
-
-    BEGIN_VISITABLES(Full);
-    VISITABLE(NotVisitable, notVisitable);
-    VISITABLE(CustomFields, customFields);
-    VISITABLE(std::string, identifier);
-    VISITABLE(std::optional<Nested>, nested);
-    VISITABLE(std::vector<Nested>, nesteds);
-    VISITABLE(std::vector<std::string>, strings);
-    VISITABLE(std::optional<std::string>, ostring);
-    VISITABLE(std::optional<bool>, obool);
-    VISITABLE(std::chrono::time_point<std::chrono::system_clock>, time);
-    VISITABLE(bsoncxx::oid, id);
-    VISITABLE(bool, boolean);
-    END_VISITABLES;
-  };
-
-  struct Partial
-  {
-    BEGIN_VISITABLES(Partial);
-    VISITABLE(NotVisitable, notVisitable);
-    VISITABLE(CustomFields, customFields);
-    VISITABLE(std::string, identifier);
-    std::string hidden;
-    VISITABLE(bsoncxx::oid, id);
-    END_VISITABLES;
-
-    void populate( bsoncxx::document::view view )
-    {
-      FROM_BSON( std::string, hidden, view )
-    }
-  };
-
-  void populate( const Partial& model, bsoncxx::builder::stream::document& doc )
-  {
-    if ( !model.hidden.empty() ) doc << "hidden" << model.hidden;
-  }
-
-  void populate( Partial& model, bsoncxx::document::view view )
-  {
-    model.populate( view );
-  }
-}
 
 SCENARIO( "Serialisation test suite", "[serialise]" )
 {
@@ -162,6 +41,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
         CHECK( data.find( "identifier"sv ) == data.cend() );
         CHECK( data.find( "nested"sv ) == data.cend() );
         CHECK( data.find( "nesteds"sv ) == data.cend() );
+        CHECK( data.find( "nestedp"sv ) == data.cend() );
         CHECK( data.find( "strings"sv ) == data.cend() );
         CHECK( data.find( "ostring"sv ) == data.cend() );
         CHECK( data.find( "obool"sv ) == data.cend() );
@@ -180,6 +60,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
         CHECK( copy.identifier.empty() );
         CHECK_FALSE( copy.nested );
         CHECK( copy.nesteds.empty() );
+        CHECK_FALSE( copy.nestedp );
         CHECK( copy.strings.empty() );
         CHECK_FALSE( copy.ostring );
         CHECK_FALSE( copy.obool );
@@ -201,6 +82,12 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
           test::serial::Full::Nested{ .identifier = "nested-2"s, .integer = 2, .number = 2.1, .date = std::chrono::system_clock::now(), .numbers = { 2.1, 2.2, 2.3 } },
           test::serial::Full::Nested{ .identifier = "nested-3"s, .integer = 3, .number = 3.1, .date = std::chrono::system_clock::now(), .numbers = { 3.1, 3.2, 3.3 } }
       };
+      obj.nestedp = std::make_shared<test::serial::Full::Nested>();
+      obj.nestedp->identifier = "nested-p"s;
+      obj.nestedp->integer = 234;
+      obj.nestedp->number = 234.567;
+      obj.nestedp->date = std::chrono::system_clock::now();
+      obj.nestedp->numbers = { 1.2, 2.3, 3.4 };
       obj.strings = { "one"s, "two"s, "three"s };
       obj.ostring = "some string value"s;
       obj.obool = true;
@@ -253,6 +140,16 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
           CHECK( nesteds[i].numbers == obj.nesteds[i].numbers );
         }
 
+        REQUIRE( data.find( "nestedp"sv ) != data.cend() );
+        nested = unmarshall<test::serial::Full::Nested>( bsonValue<bsoncxx::document::view>( "nestedp"sv, data.view() ) );
+        CHECK_THAT( nested.identifier, Catch::Matchers::Equals( obj.nestedp->identifier ) );
+        CHECK( nested.integer == obj.nestedp->integer );
+        CHECK( nested.number == obj.nestedp->number );
+        CHECK( std::chrono::duration_cast<std::chrono::milliseconds>( nested.date.time_since_epoch() ) ==
+            std::chrono::duration_cast<std::chrono::milliseconds>( obj.nestedp->date.time_since_epoch() ) );
+        CHECK_FALSE( nested.numbers.empty() );
+        CHECK( nested.numbers == obj.nestedp->numbers );
+
         REQUIRE( data.find( "strings"sv ) != data.cend() );
         auto strings = std::vector<std::string>{};
         strings.reserve( obj.strings.size() );
@@ -302,6 +199,16 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
               std::chrono::duration_cast<std::chrono::milliseconds>( obj.nesteds[i].date.time_since_epoch() ) );
           CHECK( copy.nesteds[i].numbers == obj.nesteds[i].numbers );
         }
+
+        REQUIRE( copy.nestedp );
+        nested = *copy.nestedp.get();
+        CHECK_THAT( nested.identifier, Catch::Matchers::Equals( obj.nestedp->identifier ) );
+        CHECK( nested.integer == obj.nestedp->integer );
+        CHECK( nested.number == obj.nestedp->number );
+        CHECK( std::chrono::duration_cast<std::chrono::milliseconds>( nested.date.time_since_epoch() ) ==
+            std::chrono::duration_cast<std::chrono::milliseconds>( obj.nestedp->date.time_since_epoch() ) );
+        CHECK_FALSE( nested.numbers.empty() );
+        CHECK( nested.numbers == obj.nestedp->numbers );
 
         CHECK( copy.strings == obj.strings );
         CHECK( copy.ostring );

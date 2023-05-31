@@ -19,6 +19,8 @@
     * [Limitation](#limitation)
 * [Metrics](#metrics)
 * [Serialisation](#serialisation)
+  * [BSON](#bson)
+  * [JSON](#json)
 * [Testing](#testing)
     * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
@@ -661,8 +663,12 @@ The schema for a metric is as follows:
   request payload.
 
 ## Serialisation
-A simple [serialisation](src/common/util/serialise.h) framework is also provided.  Uses the
+A simple serialisation framework is also provided.  Uses the
 [visit_struct](https://github.com/cbeck88/visit_struct) library to automatically serialise and deserialise
+*visitable* classes/structs.
+
+### BSON
+A simple [serialisation](src/common/util/serialise.h) framework to serialise and deserialise
 *visitable* classes/structs to and from BSON.  See the [test suite](test/unit/serialise.cpp) for sample use
 of the framework.
 
@@ -678,6 +684,19 @@ The framework handles non-visitable members within a visitable root object.  Cus
 * For partially visitable classes/structs, implement the following `populate` callback functions as appropriate:
   * `void populate( const <Class/Struct Type>& model, bsoncxx::builder::stream::document& doc )` to add the non-visitable fields to the BSON stream builder.
   * `void populate( <Class/Struct Type>& model, bsoncxx::document::view view )` to populate the non-visitable fields in the object from the BSON document.
+
+### JSON
+A simple [serialisation](src/common/util/json.h) framework to serialise and deserialise *visitable* classes/structs
+to and from JSON.  See the [test suite](test/unit/json.cpp) for sample use of the framework.
+
+Similar to the BSON framework, the JSON framework also handles non-visitable members within a visitable root object.
+Custom implementations can be implemented.
+* For non-visitable classes/structs, implement the following functions as appropriate:
+  * `boost::json::value json( const <Class/Struct Type>& model )` that will produce a JSON value for the data encapsulated in the object.
+  * `void set( const char* name, <Class/Struct Type>& field, simdjson::ondemand::value& value )` that will populate the model instance from the JSON value.
+* For partially visitable classes/structs, implement the following `populate` callback functions as appropriate:
+  * `void populate( const <Class/Struct Type>& model, boost::json::object& object )` to add non-visitable fields to the JSON object.
+  * `void populate( const <Class/Struct Type>& model, simdjson::ondemand::object& object )` to populate non-visitable fields from the JSON object.
 
 ## Testing
 Integration tests for the service will be developed in a few different languages
