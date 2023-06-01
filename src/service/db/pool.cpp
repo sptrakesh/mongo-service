@@ -85,8 +85,6 @@ void spt::db::Pool::index()
         document{} << "entity._id" << 1 << finalize );
 
     auto mdb = ( *client )[config.metricsDatabase];
-    mdb[config.metricsCollection].create_index(
-        document{} << "timestamp" << 1 << finalize );
   }
   catch ( const std::exception& ex )
   {
