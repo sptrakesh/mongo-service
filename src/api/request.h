@@ -91,5 +91,6 @@ namespace spt::mongoservice::api
     std::optional<std::string> correlationId{ std::nullopt };
     Action action{ Action::retrieve };
     bool skipVersion{ false };
+    bool skipMetric{ false };
   };
 }

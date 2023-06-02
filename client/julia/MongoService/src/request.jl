@@ -19,67 +19,68 @@ struct Request
     metadata::Document
     correlationId::String
     skipVersion::Bool
+    skipMetric::Bool
 end
 
 Request(;database::String, collection::String, document::Document, action::Actions.Action,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, action, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, action, options, metadata, correlationId, skipVersion, skipMetric)
 
 CreateRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.create, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.create, options, metadata, correlationId, skipVersion, skipMetric)
 
 RetrieveRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.retrieve, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.retrieve, options, metadata, correlationId, skipVersion, skipMetric)
 
 UpdateRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.update, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.update, options, metadata, correlationId, skipVersion, skipMetric)
 
 DeleteRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.delete, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.delete, options, metadata, correlationId, skipVersion, skipMetric)
 
 CountRequest(;database::String, collection::String,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, Document(), Actions.count, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, Document(), Actions.count, options, metadata, correlationId, skipVersion, skipMetric)
 
 IndexRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.index, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.index, options, metadata, correlationId, skipVersion, skipMetric)
 
 DropCollectionRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.dropCollection, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.dropCollection, options, metadata, correlationId, skipVersion, skipMetric)
 
 DropIndexRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.dropIndex, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.dropIndex, options, metadata, correlationId, skipVersion, skipMetric)
 
 BulkRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.bulk, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.bulk, options, metadata, correlationId, skipVersion, skipMetric)
 
 PipelineRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.pipeline, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.pipeline, options, metadata, correlationId, skipVersion, skipMetric)
 
 TransactionRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
-    correlationId::String = "", skipVersion::Bool = false ) =
-    Request(database, collection, document, Actions.transaction, options, metadata, correlationId, skipVersion)
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.transaction, options, metadata, correlationId, skipVersion, skipMetric)
 
 function to_bson(r::Request, application::String)::Vector{UInt8}
     buf = Vector{UInt8}()
@@ -113,6 +114,7 @@ function to_bson(r::Request, application::String)::Vector{UInt8}
     if length(r.metadata) > 0 d["metadata"] = r.metadata end
     if length(r.correlationId) > 0 d["correlationId"] = r.correlationId end
     if r.skipVersion d["skipVersion"] = true end
+    if r.skipMetric d["skipMetric"] = true end
 
     bson_write(buf, d)
     return buf

@@ -31,7 +31,7 @@ import LightBSON: BSONObjectId
     end
 
     @testset "Retrieve count of documents" begin
-        req = CountRequest(database=db, collection=col)
+        req = CountRequest(database=db, collection=col, skipMetric=true)
         resp = execute(c, req)
         @info "CRUD: count: $resp"
 

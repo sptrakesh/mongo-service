@@ -51,7 +51,8 @@ namespace spt::client::pcrud
         kvp( "action", "count" ),
         kvp( "database", "itest" ),
         kvp( "collection", "test" ),
-        kvp( "document", basic::make_document()));
+        kvp( "document", basic::make_document() ),
+        kvp( "skipMetric", true ) );
 
     auto opt = co_await client.execute( document.view() );
     assert( opt );

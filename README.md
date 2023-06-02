@@ -101,6 +101,9 @@ conform to the following document model:
 * `skipVersion (bool)` - Optional `bool` value to indicate not to create a *version history*
   document for this `action`.  Useful when creating non-critical data such as
   logs.
+* `skipMetric (bool)` - Optional `bool` value to indicate not to create a *metric*
+  document for this `action`.  Useful when calls are made a part of a monitoring framework, and volume of metrics
+  generated overwhelms storage requirements.
 
 ### Document Payload
 The document payload contains all the information necessary to execute the

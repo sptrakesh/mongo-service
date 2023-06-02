@@ -22,7 +22,8 @@ class Action(Enum):
 class Request:
     def __init__(self, database: str, collection: str, document: Dict, action: Action,
                  options: Optional[Dict] = None, metadata: Optional[Dict] = None,
-                 correlation_id: str = "", skip_version: bool = False):
+                 correlation_id: str = "", skip_version: bool = False,
+                 skip_metric: bool = False):
         self._database = database
         self._collection = collection
         self._document = document
@@ -31,6 +32,7 @@ class Request:
         self._metadata = metadata
         self._correlation_id = correlation_id
         self._skip_version = skip_version
+        self._skip_metric = skip_metric
 
     def bson(self) -> bytes:
         d = Dict()
@@ -47,73 +49,90 @@ class Request:
             d.correlationId = self._correlation_id
         if self._skip_version:
             d.skipVersion = self._skip_version
+        if self._skip_metric:
+            d.skipMetric = self._skip_metric
 
         return encode(d)
 
 
 def create_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                   skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.create,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def retrieve_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                     metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                     metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                     skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.retrieve,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def update_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                   skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.update,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def delete_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                   metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                   skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.delete,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def count_request(database: str, collection: str, options: Optional[Dict] = None,
-                  metadata: Optional[Dict] = None, correlation_id: str = "") -> Request:
+                  metadata: Optional[Dict] = None, correlation_id: str = "",
+                  skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=Dict(), action=Action.count,
-                   options=options, metadata=metadata, correlation_id=correlation_id)
+                   options=options, metadata=metadata, correlation_id=correlation_id,
+                   skip_metric=skip_metric)
 
 
 def index_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                  metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                  metadata: Optional[Dict] = None, correlation_id: str = "", skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.index,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_metric=skip_metric)
 
 
 def drop_index_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                       metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                       metadata: Optional[Dict] = None, correlation_id: str = "", skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.dropIndex,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_metric=skip_metric)
 
 
 def drop_collection_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
                             metadata: Optional[Dict] = None, correlation_id: str = "",
-                            skip_version: bool = False) -> Request:
+                            skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.dropCollection,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_metric=skip_metric)
 
 
 def bulk_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                 metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                 metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                 skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.bulk,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def pipeline_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
-                     metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False) -> Request:
+                     metadata: Optional[Dict] = None, correlation_id: str = "", skip_version: bool = False,
+                     skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.pipeline,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
 
 
 def transaction_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
                         metadata: Optional[Dict] = None, correlation_id: str = "",
-                        skip_version: bool = False) -> Request:
+                        skip_version: bool = False, skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.transaction,
-                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version)
+                   options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)

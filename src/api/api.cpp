@@ -79,8 +79,7 @@ void spt::mongoservice::api::init( std::string_view server, std::string_view por
   }
 }
 
-auto spt::mongoservice::api::execute(
-    bsoncxx::document::view document, std::size_t bufSize ) -> Response
+auto spt::mongoservice::api::execute( bsoncxx::document::view document, std::size_t bufSize ) -> Response
 {
   auto proxy = papi::PoolHolder::instance().acquire();
   if ( !proxy )
@@ -122,6 +121,7 @@ auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) 
   if ( req.metadata ) query << "metadata" << *req.metadata;
   if ( req.correlationId ) query << "correlationId" << *req.correlationId;
   if ( req.skipVersion ) query << "skipVersion" << req.skipVersion;
+  if ( req.skipMetric ) query << "skipMetric" << req.skipMetric;
 
   const auto q = query << finalize;
   return execute( q.view(), bufSize );
@@ -169,6 +169,7 @@ auto spt::mongoservice::api::executeAsync( Request req ) -> AsyncResponse
   if ( req.metadata ) query << "metadata" << *req.metadata;
   if ( req.correlationId ) query << "correlationId" << *req.correlationId;
   if ( req.skipVersion ) query << "skipVersion" << req.skipVersion;
+  if ( req.skipMetric ) query << "skipMetric" << req.skipMetric;
 
   auto q = query << finalize;
   co_return co_await executeAsync( q.view() );

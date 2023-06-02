@@ -61,7 +61,8 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "action", "count" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document() ) );
+          kvp( "document", basic::make_document() ),
+          kvp( "skipMetric", true ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
