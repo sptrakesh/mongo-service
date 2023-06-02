@@ -1297,8 +1297,7 @@ namespace spt::db::pstorage
     co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
   }
 
-  boost::asio::awaitable<bsoncxx::document::view_or_value> process(
-      const model::Document& document )
+  boost::asio::awaitable<bsoncxx::document::view_or_value> process( const model::Document& document )
   {
     using spt::util::bsonValue;
 
@@ -1413,7 +1412,10 @@ boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::process(
   metric.correlationId = document.correlationId();
   metric.message = bsonValueIfExists<std::string>( "error", value.view() );
   metric.size = value.view().length();
-  queue::QueueManager::instance().publish( std::move( metric ) );
+
+  auto skip = document.skipMetric();
+  if ( skip && *skip ) LOG_INFO << "Skipping metric " << document.json();
+  else queue::QueueManager::instance().publish( std::move( metric ) );
 
   co_return value;
 }

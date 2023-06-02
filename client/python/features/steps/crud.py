@@ -45,7 +45,7 @@ async def step_impl(context: Context):
 async def step_impl(context: Context):
     assert_that(hasattr(context, "client"), "Client not set")
     assert_that(hasattr(context, "vhid"), "Version history id not set")
-    req = count_request(database=_database, collection=_collection)
+    req = count_request(database=_database, collection=_collection, skip_metric=True)
     resp = await context.client.execute(req)
     _log.info(f"Count response: {dumps(resp)}")
 

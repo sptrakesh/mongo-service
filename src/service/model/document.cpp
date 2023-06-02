@@ -97,3 +97,8 @@ std::optional<bool> spt::model::Document::skipVersion() const
 {
   return util::bsonValueIfExists<bool>( "skipVersion", *view );
 }
+
+std::optional<bool> spt::model::Document::skipMetric() const
+{
+  return util::bsonValueIfExists<bool>( "skipMetric", *view );
+}

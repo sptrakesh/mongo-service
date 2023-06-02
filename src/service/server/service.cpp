@@ -127,7 +127,8 @@ namespace spt::server::coroutine
     catch ( const std::exception& e )
     {
       static const std::string eof{ "End of file" };
-      if ( eof != e.what() ) LOG_WARN << "Exception servicing request " << e.what();
+      auto str = std::string{ e.what() };
+      if ( !str.starts_with( eof ) ) LOG_WARN << "Exception servicing request " << e.what();
     }
   }
 
