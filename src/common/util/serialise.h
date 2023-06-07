@@ -339,13 +339,55 @@ template <>
 inline void spt::util::set( bool& field, bsoncxx::types::bson_value::view value ) { field = value.get_bool().value; }
 
 template <>
-inline void spt::util::set( int32_t& field, bsoncxx::types::bson_value::view value ) { field = value.get_int32().value; }
+inline void spt::util::set( int32_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<int32_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<int32_t>( value.get_double().value );
+    break;
+  default:
+    field = value.get_int32().value;
+    break;
+  }
+}
 
 template <>
-inline void spt::util::set( int64_t& field, bsoncxx::types::bson_value::view value ) { field = value.get_int64().value; }
+inline void spt::util::set( int64_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int32:
+    field = static_cast<int64_t>( value.get_int32().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<int64_t>( value.get_double().value );
+    break;
+  default:
+    field = value.get_int64().value;
+    break;
+  }
+}
 
 template <>
-inline void spt::util::set( double& field, bsoncxx::types::bson_value::view value ) { field = value.get_double().value; }
+inline void spt::util::set( double& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int32:
+    field = static_cast<double>( value.get_int32().value );
+    break;
+  case bsoncxx::type::k_int64:
+    field = static_cast<double>( value.get_int64().value );
+    break;
+  default:
+    field = value.get_double().value;
+    break;
+  }
+}
 
 template <>
 inline void spt::util::set( bsoncxx::oid& field, bsoncxx::types::bson_value::view value ) { field = value.get_oid().value; }
