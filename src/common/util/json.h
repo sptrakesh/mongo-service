@@ -16,8 +16,10 @@
 #endif
 #endif
 
-#include <ostream>
 #include <memory>
+#include <ostream>
+#include <set>
+#include <vector>
 #include <boost/json/value.hpp>
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/oid.hpp>
@@ -73,6 +75,16 @@ namespace spt::util::json
    */
   template <Visitable M>
   boost::json::value json( const M& model );
+
+  /**
+   * General implementation for converting a set into a JSON array.  For each item in the set delegates
+   * to the appropriate {@xrefitem json(const M&)} function.
+   * @tparam Model The type stored in the set.
+   * @param items The set to serialise into a JSON array.
+   * @return The JSON array as a JSON value variant.
+   */
+  template <typename Model>
+  boost::json::value json( const std::set<Model>& items );
 
   /**
    * General implementation for converting a vector into a JSON array.  For each item in the vector delegates
@@ -185,6 +197,16 @@ namespace spt::util::json
    */
   template <typename M>
   void set( M& field, simdjson::ondemand::object& object );
+
+  /**
+   * General purpose function for populating a set of items from a JSON value variant which should be of type array.
+   * @tparam Model The type of items stored in the set.
+   * @param name The name of the field in the parent object. Used for logging.
+   * @param field The set to populate from JSON.
+   * @param value The JSON value variant of type array.
+   */
+  template <typename Model>
+  void set( const char* name, std::set<Model>& field, simdjson::ondemand::value& value );
 
   /**
    * General purpose function for populating a vector of items from a JSON value variant which should be of type array.
@@ -356,6 +378,20 @@ inline boost::json::value spt::util::json::json( const M &model )
 }
 
 template <typename Model>
+inline boost::json::value spt::util::json::json( const std::set<Model>& items )
+{
+  if ( items.empty() ) return boost::json::value{};
+  auto arr = boost::json::array{};
+  arr.reserve( items.size() );
+  for ( const auto& item : items )
+  {
+    auto v = json( item );
+    if ( !v.is_null() ) arr.push_back( std::move( v ) );
+  }
+  return arr.empty() ? boost::json::value{} : arr;
+}
+
+template <typename Model>
 inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 {
   if ( vec.empty() ) return boost::json::value{};
@@ -483,6 +519,17 @@ inline void spt::util::json::set( const char* name, std::chrono::time_point<std:
 }
 
 template <>
+inline void spt::util::json::set( const char* name, std::set<bool>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( bool x: arr ) field.insert( x );
+}
+
+template <>
 inline void spt::util::json::set( const char* name, std::vector<bool>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
@@ -492,6 +539,17 @@ inline void spt::util::json::set( const char* name, std::vector<bool>& field, si
   auto arr = value.get_array();
   field.reserve( arr.count_elements() );
   for ( bool x: arr ) field.push_back( x );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::set<int32_t>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( int64_t x: arr ) field.insert( static_cast<int32_t>( x ) );
 }
 
 template <>
@@ -507,6 +565,17 @@ inline void spt::util::json::set( const char* name, std::vector<int32_t>& field,
 }
 
 template <>
+inline void spt::util::json::set( const char* name, std::set<int64_t>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( int64_t x: arr ) field.insert( x );
+}
+
+template <>
 inline void spt::util::json::set( const char* name, std::vector<int64_t>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
@@ -516,6 +585,17 @@ inline void spt::util::json::set( const char* name, std::vector<int64_t>& field,
   auto arr = value.get_array();
   field.reserve( 8 );
   for ( int64_t x: arr ) field.push_back( x );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::set<double>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( double x: arr ) field.insert( x );
 }
 
 template <>
@@ -531,6 +611,17 @@ inline void spt::util::json::set( const char* name, std::vector<double>& field, 
 }
 
 template <>
+inline void spt::util::json::set( const char* name, std::set<std::string>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( std::string_view x: arr ) field.emplace( x );
+}
+
+template <>
 inline void spt::util::json::set( const char* name, std::vector<std::string>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
@@ -543,6 +634,17 @@ inline void spt::util::json::set( const char* name, std::vector<std::string>& fi
 }
 
 template <>
+inline void spt::util::json::set( const char* name, std::set<bsoncxx::oid>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( std::string_view x: arr ) field.emplace( x );
+}
+
+template <>
 inline void spt::util::json::set( const char* name, std::vector<bsoncxx::oid>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
@@ -552,6 +654,22 @@ inline void spt::util::json::set( const char* name, std::vector<bsoncxx::oid>& f
   auto arr = value.get_array();
   field.reserve( 8 );
   for ( std::string_view x: arr ) field.emplace_back( x );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::set<std::chrono::time_point<std::chrono::system_clock>>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( std::string_view x: arr )
+  {
+    auto date = util::parseISO8601( x );
+    if ( std::holds_alternative<DateTime>( date ) ) field.emplace( std::get<DateTime>( date ).time_since_epoch() );
+    else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
 }
 
 template <>
@@ -568,6 +686,22 @@ inline void spt::util::json::set( const char* name, std::vector<std::chrono::tim
     auto date = util::parseISO8601( x );
     if ( std::holds_alternative<DateTime>( date ) ) field.emplace_back( std::get<DateTime>( date ).time_since_epoch() );
     else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
+}
+
+template <typename M>
+inline void spt::util::json::set( const char* name, std::set<M>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( simdjson::ondemand::object obj : arr )
+  {
+    auto m = M{};
+    set( m, obj );
+    field.insert( std::move( m ) );
   }
 }
 

@@ -15,6 +15,8 @@
 #endif
 
 #include <memory>
+#include <set>
+#include <vector>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
 #include <bsoncxx/builder/stream/array.hpp>
@@ -61,6 +63,16 @@ namespace spt::util
    */
   template <Visitable M>
   bsoncxx::types::bson_value::value bson( const M& model );
+
+  /**
+   * General implementation for converting a set into a BSON array.  For each item in the set delegates
+   * to the appropriate {@xrefitem bson(const M&)} function.
+   * @tparam Model The type stored in the vector.
+   * @param items The set to serialise into a BSON array.
+   * @return The BSON array as a BSON value variant.
+   */
+  template<typename Model>
+  bsoncxx::types::bson_value::value bson( const std::set<Model>& items );
 
   /**
    * General implementation for converting a vector into a BSON array.  For each item in the vector delegates
@@ -157,6 +169,15 @@ namespace spt::util
    */
   template <Visitable M>
   void populate( M& model, bsoncxx::document::view view );
+
+  /**
+   * General purpose function for populating a set of items from a BSON value variant which should be of type array.
+   * @tparam Model The type of items stored in the set.
+   * @param field The set to populate from BSON.
+   * @param value The BSON value variant of type array.
+   */
+  template<typename Model>
+  void set( std::set<Model>& field, bsoncxx::types::bson_value::view value );
 
   /**
    * General purpose function for populating a vector of items from a BSON value variant which should be of type array.
@@ -296,6 +317,20 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
   return { root << bsoncxx::builder::stream::finalize };
 }
 
+template<typename Model>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items )
+{
+  if ( items.empty()) return bsoncxx::types::b_null{};
+
+  auto arr = bsoncxx::builder::stream::array{};
+  for ( const auto &item: items )
+  {
+    auto v = bson( item );
+    if ( v.view().type() != bsoncxx::type::k_null ) arr << std::move( v );
+  }
+  return { arr << bsoncxx::builder::stream::finalize };
+}
+
 template <typename Model>
 inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Model>& vec )
 {
@@ -427,12 +462,23 @@ inline void spt::util::set( std::chrono::nanoseconds& field, bsoncxx::types::bso
   else field = std::chrono::duration_cast<std::chrono::nanoseconds>( value.get_date().value );
 }
 
+template <>
+inline void spt::util::set( std::set<bool>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.insert( item.get_bool().value );
+}
 
 template <>
 inline void spt::util::set( std::vector<bool>& field, bsoncxx::types::bson_value::view value )
 {
   field.reserve( 8 );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_bool().value );
+}
+
+template <>
+inline void spt::util::set( std::set<int32_t>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.insert( item.get_int32().value );
 }
 
 template <>
@@ -443,10 +489,22 @@ inline void spt::util::set( std::vector<int32_t>& field, bsoncxx::types::bson_va
 }
 
 template <>
+inline void spt::util::set( std::set<int64_t>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.insert( item.get_int64().value );
+}
+
+template <>
 inline void spt::util::set( std::vector<int64_t>& field, bsoncxx::types::bson_value::view value )
 {
   field.reserve( 8 );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_int64().value );
+}
+
+template <>
+inline void spt::util::set( std::set<double>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.insert( item.get_double().value );
 }
 
 template <>
@@ -457,6 +515,12 @@ inline void spt::util::set( std::vector<double>& field, bsoncxx::types::bson_val
 }
 
 template <>
+inline void spt::util::set( std::set<std::string, std::less<>>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.emplace( item.get_string().value );
+}
+
+template <>
 inline void spt::util::set( std::vector<std::string>& field, bsoncxx::types::bson_value::view value )
 {
   field.reserve( 8 );
@@ -464,10 +528,22 @@ inline void spt::util::set( std::vector<std::string>& field, bsoncxx::types::bso
 }
 
 template <>
+inline void spt::util::set( std::set<bsoncxx::oid>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.insert( item.get_oid().value );
+}
+
+template <>
 inline void spt::util::set( std::vector<bsoncxx::oid>& field, bsoncxx::types::bson_value::view value )
 {
   field.reserve( 8 );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_oid().value );
+}
+
+template <>
+inline void spt::util::set( std::set<std::chrono::time_point<std::chrono::system_clock>>& field, bsoncxx::types::bson_value::view value )
+{
+  for ( const auto& item: value.get_array().value ) field.emplace( item.get_date().value );
 }
 
 template <>
@@ -493,6 +569,18 @@ inline void spt::util::set( std::shared_ptr<M>& field, bsoncxx::types::bson_valu
   auto m = std::make_shared<M>();
   set( *m.get(), value );
   field = m;
+}
+
+template <typename Model>
+inline void spt::util::set( std::set<Model>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() != bsoncxx::type::k_array ) return;
+  for ( const auto& item : value.get_array().value )
+  {
+    auto m = Model{};
+    set( m, bsoncxx::types::bson_value::value{ item.get_document().value } );
+    field.insert( std::move( m ) );
+  }
 }
 
 template <typename Model>
