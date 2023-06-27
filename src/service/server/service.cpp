@@ -3,12 +3,11 @@
 //
 
 #include "service.h"
+#include "db/metricscollector.h"
 #include "db/storage.h"
 #include "model/configuration.h"
 #include "model/document.h"
 #include "model/errors.h"
-#include "queue/queuemanager.h"
-#include "queue/poller.h"
 #include "../log/NanoLog.h"
 
 #include <boost/asio/co_spawn.hpp>
@@ -152,7 +151,7 @@ int spt::server::run()
   const auto& configuration = model::Configuration::instance();
   net::io_context ioc{ configuration.threads };
 
-  net::signal_set signals( ioc, SIGINT, SIGTERM );
+  net::signal_set signals( ioc, SIGINT, SIGTERM, SIGHUP );
   signals.async_wait( [&](boost::system::error_code const&, int) { ioc.stop(); } );
 
   try
@@ -164,18 +163,14 @@ int spt::server::run()
       v.emplace_back( [&ioc] { ioc.run(); } );
     }
 
-    queue::QueueManager::instance();
-    auto poller = queue::Poller{};
-    v.emplace_back( std::thread{ &spt::queue::Poller::run, &poller } );
-
     boost::asio::co_spawn( ioc, coroutine::listener(), boost::asio::detached );
 
     LOG_INFO << "TCP service started";
     ioc.run();
 
     LOG_INFO << "TCP service stopping";
-    poller.stop();
     for ( auto& t : v ) if ( t.joinable() ) t.join();
+    db::MetricsCollector::instance().finish();
     LOG_INFO << "All I/O threads stopped";
   }
   catch ( const std::exception& ex )

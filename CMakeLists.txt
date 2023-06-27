@@ -54,6 +54,7 @@ if (APPLE)
   find_package(OpenSSL REQUIRED)
 endif()
 find_package(libmongocxx-static REQUIRED)
+find_package(fmt REQUIRED)
 find_package(Threads)
 
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -72,6 +73,9 @@ include_directories(
 
 if (APPLE)
   set(CMAKE_MACOSX_RPATH 1)
+  include_directories(
+    /usr/local/fmt/include
+  )
 else()
   include_directories(
     /opt/local/include
@@ -85,6 +89,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX /opt/spt)
 endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
+add_subdirectory(src/ilp)
 add_subdirectory(src/log)
 add_subdirectory(src/common)
 add_subdirectory(src/service)

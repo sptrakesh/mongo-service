@@ -18,6 +18,8 @@
     * [Options](#options)
     * [Limitation](#limitation)
 * [Metrics](#metrics)
+    * [MongoDB](#mongodb) 
+    * [ILP](#ilp)
 * [Serialisation](#serialisation)
   * [BSON](#bson)
   * [JSON](#json)
@@ -51,9 +53,17 @@ Specify via the `-d` or `--version-history-database` option.  Default `versionHi
 * `versionHistoryCollection` - The collection to store version history documents
 in.  Specify via the `-c` or `--version-history-collection` option.  Default `entities`.
 * `metricsDatabase` - The database in which to store request processing metrics
-to.  Specify via the `-s` or `--metrics-database` option.  Default `versionHistory`.
+to.  Specify via the `-s` or `--metric-database` option.  Default `versionHistory`.
 * `metricsCollection` - The collection in which to store the metric documents.
-Specify via the `-t` or `--metrics-collection` option.  Default `metrics`.
+Specify via the `-t` or `--metric-collection` option.  Default `metrics`.
+* `metricBatchSize` - The number of metrics to accumulate before saving to the desired store.
+  Specify via the `-w` or `--metric-batch-size` option.  Default `100`.
+* `ilpServer` - The host name for the time series database that supports the ILP.
+  Specify via the `-i` or `--ilp-server` option.
+* `ilpPort` - The port for the time series database that supports the ILP.
+  Specify via the `-x` or `--ilp-port` option.
+* `ilpMeasurement` - The series/measurement name for metrics.
+  Specify via the `-y` or `--ilp-series-name` option.  Default `metrics`.
 * `logLevel` - The logging level for the service.  Specify via `-l` or `--log-level`
 option.  Default `info`.  Allowed values - `debug, info, warn, critical`.
 * `logAsync` - Use asynchronous logger for the service (non-guaranteed and may
@@ -527,7 +537,7 @@ expanded as use cases expand over a period of time.
 
 The `document` in the payload **must** include a `specification` *array* of
 documents which correspond to the `match`, `lookup` ...
-specifications for the aggregation pipeline operation.  The matching documents 
+specifications for the aggregation pipeline operation (*stage*).  The matching documents 
 will be returned in a `results` array in the response.
 
 The following operators are supported:
@@ -540,6 +550,7 @@ The following operators are supported:
 * `$project`
 * `$addFields`
 * `$facet`
+* `$search` - Note requirement for `search` to be the first stage in a pipeline.
 
 Sample request payload:
 ```json
@@ -633,6 +644,10 @@ Options specified in the request payload are parsed into the appropriate
 At present only documents with **BSON ObjectId** `_id` is supported.
 
 ## Metrics
+Metrics are collected for all requests to the service (unless client specifies `skipMetric`).  Metrics may be
+stored in MongoDB itself, or a service that supports the [ILP](https://docs.influxdata.com/influxdb/v2.7/reference/syntax/line-protocol/).
+
+### MongoDB
 Metrics are collected in the specified `database` and `collection` combination
 (or their defaults).  No TTL index is set on this (as it is left to the user's
 requirements).  A `date` property is stored to create a TTL index as required.
@@ -664,6 +679,13 @@ The schema for a metric is as follows:
   index as appropriate.
 * **application** - The application that invoked the service if specified in the
   request payload.
+
+### ILP
+Metrics may be stored in a time series database of choice that supports the ILP.  We have only tested
+storing metrics in [QuestDB](https://questdb.io/).  All the fields (except the `_id`) are stored in
+the TSDB.  The `duration`, and `size` values are stored as *field sets* and the other values stored as *tag sets*.
+The *name* for the series (*measurement*) can be specified via the command line argument, or will default to
+the name of the `metrics` collection.
 
 ## Serialisation
 A simple serialisation framework is also provided.  Uses the

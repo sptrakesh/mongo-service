@@ -348,6 +348,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Mode
 template <spt::util::Visitable M>
 inline void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
 {
+  if ( value.type() != bsoncxx::type::k_document ) LOG_CRIT << "Value not document type but " << bsoncxx::to_string( value.type() );
   auto view = value.get_document().value;
   visit_struct::for_each( field,
       [&view]( const char* name, auto& member )
@@ -515,7 +516,7 @@ inline void spt::util::set( std::vector<double>& field, bsoncxx::types::bson_val
 }
 
 template <>
-inline void spt::util::set( std::set<std::string, std::less<>>& field, bsoncxx::types::bson_value::view value )
+inline void spt::util::set( std::set<std::string>& field, bsoncxx::types::bson_value::view value )
 {
   for ( const auto& item: value.get_array().value ) field.emplace( item.get_string().value );
 }

@@ -12,5 +12,5 @@ file(GLOB_RECURSE test_SRCS *.cpp *.h)
 add_executable(unitTest ${test_SRCS} )
 
 target_link_libraries(unitTest
-  PRIVATE mongo-service-common nanolog ${LIBMONGOCXX_STATIC_LIBRARIES} Catch2::Catch2 Boost::boost Boost::json
+  PRIVATE mongo-service-common nanolog ilp ${LIBMONGOCXX_STATIC_LIBRARIES} Catch2::Catch2 Boost::boost Boost::json fmt::fmt
 )

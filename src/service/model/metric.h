@@ -31,6 +31,7 @@ namespace spt::model
     std::optional<std::string> correlationId;
     std::optional<std::string> message;
     std::optional<bsoncxx::oid> id;
+    std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::nanoseconds> timestamp = std::chrono::high_resolution_clock::now();
     std::chrono::nanoseconds duration;
     std::size_t size;
 

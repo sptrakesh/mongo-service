@@ -93,6 +93,21 @@ Check()
     echo "MONGO_URI must be set."
     exit 1
   fi
+
+  if [ -n "$ILP_SERVER" ]
+  then
+    status=1
+    count=0
+    echo "Checking if $ILP_SERVER is available"
+    while [ $status -ne 0 ]
+    do
+      echo "[$count] ILP Service $ILP_SERVER:$ILP_PORT not available ($status).  Sleeping 1s..."
+      count=$(($count + 1 ))
+      sleep 1
+      nc -z $ILP_SERVER $ILP_PORT
+      status=$?
+    done
+  fi
 }
 
 Defaults()
@@ -147,6 +162,26 @@ Defaults()
   fi
 }
 
+Ilp()
+{
+  ILP=""
+
+  if [ -n "$ILP_SERVER" ]
+  then
+    ILP=" --ilp-server $ILP_SERVER"
+  fi
+
+  if [ -n "$ILP_PORT" ]
+  then
+    ILP="$ILP --ilp-port $ILP_PORT"
+  fi
+
+  if [ -n "$ILP_NAME" ]
+  then
+    ILP="$ILP --ilp-series-name $ILP_NAME"
+  fi
+}
+
 Service()
 {
   if [ ! -d $LOGDIR ]
@@ -162,7 +197,8 @@ Service()
     --version-history-collection $VERSION_HISTORY_COLLECTION \
     --metric-database $METRIC_DATABASE \
     --metric-collection $METRIC_COLLECTION \
-    --port $PORT --threads $THREADS --log-level $LOG_LEVEL --log-async $LOG_ASYNC
+    --port $PORT --threads $THREADS --log-level $LOG_LEVEL --log-async $LOG_ASYNC \
+    $ILP
 }
 
-ConfigDb && SecureConfigDb && Check && Defaults && Service
+ConfigDb && SecureConfigDb && Check && Defaults && Ilp && Service

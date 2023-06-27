@@ -84,7 +84,7 @@ void spt::db::Pool::index()
     vdb[config.versionHistoryCollection].create_index(
         document{} << "entity._id" << 1 << finalize );
 
-    auto mdb = ( *client )[config.metricsDatabase];
+    auto mdb = ( *client )[config.metrics.database];
   }
   catch ( const std::exception& ex )
   {

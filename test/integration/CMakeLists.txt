@@ -13,13 +13,13 @@ set(integration_SRCS ${integration_SRCS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 add_executable(integration ${integration_SRCS})
 
+find_package(cpr REQUIRED)
 target_compile_definitions(integration
   PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS}
 )
 
 target_link_libraries(integration
-  PRIVATE nanolog mongo-service-common mongo-service-api ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json Catch2::Catch2 ${OPENSSL_LIBRARIES} z
-)
+  PRIVATE nanolog mongo-service-common mongo-service-api ilp ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json Catch2::Catch2 cpr::cpr fmt::fmt ${OPENSSL_LIBRARIES} z)
 
 add_test(NAME integration COMMAND integration)
 install(TARGETS integration DESTINATION bin)
