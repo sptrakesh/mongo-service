@@ -1138,52 +1138,62 @@ namespace spt::db::pstorage
       co_return model::withMessage( "No aggregation specification." );
     }
 
-    auto pipeline = mongocxx::pipeline{};
+    auto search = false;
     for ( const auto& s : *spec )
     {
       auto v = s.get_document().view();
-      auto it = v.find( "$match" );
-      if ( it != v.end() ) pipeline.match( it->get_document().view() );
-
-      it = v.find( "$lookup" );
-      if ( it != v.end() ) pipeline.lookup( it->get_document().view() );
-
-      it = v.find( "$unwind" );
-      if ( it != v.end() )
+      if ( const auto it = v.find( "$search" ); it != v.end() )
       {
-        if ( it->type() == bsoncxx::type::k_utf8 )
-        {
-          const auto value = it->get_string().value;
-          pipeline.unwind( std::string{ value.data(), value.size() } );
-        }
-        else pipeline.unwind( it->get_document().view() );
+        search = true;
+        break;
       }
+    }
 
-      it = v.find( "$project" );
-      if ( it != v.end() ) pipeline.project( it->get_document().view() );
-
-      it = v.find( "$group" );
-      if ( it != v.end() ) pipeline.group( it->get_document().view() );
-
-      it = v.find( "$sort" );
-      if ( it != v.end() ) pipeline.sort( it->get_document().view() );
-
-      it = v.find( "$limit" );
-      if ( it != v.end() ) pipeline.limit( it->get_int32().value );
-
-      it = v.find( "$addFields" );
-      if ( it != v.end() ) pipeline.add_fields( it->get_document().view() );
-
-      it = v.find( "$facet" );
-      if ( it != v.end() ) pipeline.facet( it->get_document().view() );
-
-      it = v.find( "$search" );
-      if ( it != v.end() )
+    auto pipeline = mongocxx::pipeline{};
+    if ( search )
+    {
+      LOG_INFO << "Pipeline with search. " << bsoncxx::to_json( pipeline.view_array() );
+      for ( const auto& s : *spec ) pipeline.append_stage( s.get_document().view() );
+    }
+    else
+    {
+      for ( const auto& s : *spec )
       {
-        pipeline.append_stage( bsoncxx::builder::stream::document{} <<
-            "$search" << it->get_document().view() <<
-            bsoncxx::builder::stream::finalize );
-        LOG_INFO << "Pipeline with search. " << bsoncxx::to_json( pipeline.view_array() );
+        auto v = s.get_document().view();
+        auto it = v.find( "$match" );
+        if ( it != v.end() ) pipeline.match( it->get_document().view() );
+
+        it = v.find( "$lookup" );
+        if ( it != v.end() ) pipeline.lookup( it->get_document().view() );
+
+        it = v.find( "$unwind" );
+        if ( it != v.end() )
+        {
+          if ( it->type() == bsoncxx::type::k_utf8 )
+          {
+            const auto value = it->get_string().value;
+            pipeline.unwind( std::string{ value.data(), value.size() } );
+          }
+          else pipeline.unwind( it->get_document().view() );
+        }
+
+        it = v.find( "$project" );
+        if ( it != v.end() ) pipeline.project( it->get_document().view() );
+
+        it = v.find( "$group" );
+        if ( it != v.end() ) pipeline.group( it->get_document().view() );
+
+        it = v.find( "$sort" );
+        if ( it != v.end() ) pipeline.sort( it->get_document().view() );
+
+        it = v.find( "$limit" );
+        if ( it != v.end() ) pipeline.limit( it->get_int32().value );
+
+        it = v.find( "$addFields" );
+        if ( it != v.end() ) pipeline.add_fields( it->get_document().view() );
+
+        it = v.find( "$facet" );
+        if ( it != v.end() ) pipeline.facet( it->get_document().view() );
       }
     }
 
