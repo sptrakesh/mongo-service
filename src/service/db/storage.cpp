@@ -1152,7 +1152,6 @@ namespace spt::db::pstorage
     auto pipeline = mongocxx::pipeline{};
     if ( search )
     {
-      LOG_INFO << "Pipeline with search. " << bsoncxx::to_json( pipeline.view_array() );
       for ( const auto& s : *spec ) pipeline.append_stage( s.get_document().view() );
     }
     else
