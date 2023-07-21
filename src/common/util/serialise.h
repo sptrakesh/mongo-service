@@ -17,6 +17,7 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include <boost/cast.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
 #include <bsoncxx/builder/stream/array.hpp>
@@ -271,7 +272,22 @@ template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const bool& model ) { return { model }; }
 
 template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const int8_t& model ) { return { model }; }
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const uint8_t& model ) { return { static_cast<int32_t>( model ) }; }
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const int16_t& model ) { return { model }; }
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const uint16_t& model ) { return { static_cast<int32_t>( model ) }; }
+
+template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const int32_t& model ) { return { model }; }
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const uint32_t& model ) { return { static_cast<int64_t>( model ) }; }
 
 template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const int64_t& model ) { return { model }; }
@@ -375,6 +391,74 @@ template <>
 inline void spt::util::set( bool& field, bsoncxx::types::bson_value::view value ) { field = value.get_bool().value; }
 
 template <>
+inline void spt::util::set( int8_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<int8_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<int8_t>( value.get_double().value );
+    break;
+  default:
+    field = static_cast<int8_t>( value.get_int32().value );
+    break;
+  }
+}
+
+template <>
+inline void spt::util::set( uint8_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<uint8_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<uint8_t>( value.get_double().value );
+    break;
+  default:
+    field = static_cast<uint8_t>( value.get_int32().value );
+    break;
+  }
+}
+
+template <>
+inline void spt::util::set( int16_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<int16_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<int16_t>( value.get_double().value );
+    break;
+  default:
+    field = static_cast<int16_t>( value.get_int32().value );
+    break;
+  }
+}
+
+template <>
+inline void spt::util::set( uint16_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<uint16_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<uint16_t>( value.get_double().value );
+    break;
+  default:
+    field = static_cast<uint16_t>( value.get_int32().value );
+    break;
+  }
+}
+
+template <>
 inline void spt::util::set( int32_t& field, bsoncxx::types::bson_value::view value )
 {
   switch ( value.type() )
@@ -387,6 +471,23 @@ inline void spt::util::set( int32_t& field, bsoncxx::types::bson_value::view val
     break;
   default:
     field = value.get_int32().value;
+    break;
+  }
+}
+
+template <>
+inline void spt::util::set( uint32_t& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+  case bsoncxx::type::k_int64:
+    field = static_cast<uint32_t>( value.get_int64().value );
+    break;
+  case bsoncxx::type::k_double:
+    field = static_cast<int32_t>( value.get_double().value );
+    break;
+  default:
+    field = boost::numeric_cast<uint32_t>( value.get_int32().value );
     break;
   }
 }

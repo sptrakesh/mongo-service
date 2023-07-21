@@ -335,7 +335,22 @@ template <>
 inline boost::json::value spt::util::json::json( const bool& model ) { return boost::json::value( model ); }
 
 template <>
+inline boost::json::value spt::util::json::json( const int8_t& model ) { return boost::json::value( static_cast<int16_t>( model ) ); }
+
+template <>
+inline boost::json::value spt::util::json::json( const uint8_t& model ) { return boost::json::value( static_cast<int16_t>( model ) ); }
+
+template <>
+inline boost::json::value spt::util::json::json( const int16_t& model ) { return boost::json::value( model ); }
+
+template <>
+inline boost::json::value spt::util::json::json( const uint16_t& model ) { return boost::json::value( model ); }
+
+template <>
 inline boost::json::value spt::util::json::json( const int32_t& model ) { return boost::json::value( model ); }
+
+template <>
+inline boost::json::value spt::util::json::json( const uint32_t& model ) { return boost::json::value( model ); }
 
 template <>
 inline boost::json::value spt::util::json::json( const int64_t& model ) { return boost::json::value( model ); }
@@ -439,6 +454,54 @@ inline void spt::util::json::set( const char* name, bool& field, simdjson::ondem
 }
 
 template <>
+inline void spt::util::json::set( const char* name, int8_t& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type int8_t, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  int64_t v;
+  value.get( v );
+  field = static_cast<int8_t>( v );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, uint8_t& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type int8_t, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  int64_t v;
+  value.get( v );
+  field = static_cast<uint8_t>( v );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, int16_t& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type int16_t, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  int64_t v;
+  value.get( v );
+  field = static_cast<int16_t>( v );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, uint16_t& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type int16_t, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  int64_t v;
+  value.get( v );
+  field = static_cast<uint16_t>( v );
+}
+
+template <>
 inline void spt::util::json::set( const char* name, int32_t& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::number )
@@ -448,6 +511,18 @@ inline void spt::util::json::set( const char* name, int32_t& field, simdjson::on
   int64_t v;
   value.get( v );
   field = static_cast<int32_t>( v );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, uint32_t& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type int32_t, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  int64_t v;
+  value.get( v );
+  field = static_cast<uint32_t>( v );
 }
 
 template <>

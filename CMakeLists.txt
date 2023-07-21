@@ -52,6 +52,7 @@ if (APPLE)
   endif()
 
   find_package(OpenSSL REQUIRED)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
 endif()
 find_package(libmongocxx-static REQUIRED)
 find_package(fmt REQUIRED)
