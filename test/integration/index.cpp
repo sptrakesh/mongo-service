@@ -79,10 +79,12 @@ SCENARIO( "Index test suite", "[index]" )
       REQUIRE( option->view().find( "error" ) == option->view().end() );
     }
 
+#if !(defined(_WIN32) || defined(WIN32))
     WHEN( "Creating a unique index" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
+      using std::operator""sv;
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "index" ),
@@ -91,7 +93,7 @@ SCENARIO( "Index test suite", "[index]" )
           kvp( "document", basic::make_document(
               kvp( "unused1", 1 ) ) ),
           kvp( "options", basic::make_document(
-              kvp( "name", "uniqueIndex" ),
+              kvp( "name", "uniqueIndex"sv ),
               kvp( "unique", true ),
               kvp( "expireAfterSeconds", 5 ) ) ) );
 
@@ -110,6 +112,7 @@ SCENARIO( "Index test suite", "[index]" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
+      using std::operator""sv;
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "index" ),
@@ -118,7 +121,7 @@ SCENARIO( "Index test suite", "[index]" )
           kvp( "document", basic::make_document(
               kvp( "unused1", 1 ) ) ),
           kvp( "options", basic::make_document(
-              kvp( "name", "uniqueIndex" ),
+              kvp( "name", "uniqueIndex"sv ),
               kvp( "unique", true ),
               kvp( "expireAfterSeconds", 5 ) ) ) );
 
@@ -137,13 +140,14 @@ SCENARIO( "Index test suite", "[index]" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
+      using std::operator""sv;
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "dropIndex" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document(
-              kvp( "name", "uniqueIndex" ) ) ) );
+              kvp( "name", "uniqueIndex"sv ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -151,5 +155,6 @@ SCENARIO( "Index test suite", "[index]" )
       LOG_INFO << "[index] " << bsoncxx::to_json( *option );
       REQUIRE( option->view().find( "error" ) == option->view().end() );
     }
+#endif
   }
 }

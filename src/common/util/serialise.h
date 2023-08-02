@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <set>
+#include <string_view>
 #include <vector>
 #include <boost/cast.hpp>
 #include <bsoncxx/oid.hpp>
@@ -45,6 +46,8 @@
 
 namespace spt::util
 {
+  using std::operator""sv;
+
   /**
    * Add non-visitable fields in the model to the builder.  A callback function that library users can implement to
    * fully serialise partially visitable models.
@@ -146,7 +149,6 @@ namespace spt::util
   template <Model M>
   bsoncxx::document::value marshall( const M& model )
   {
-    using std::operator ""sv;
     auto root = bsoncxx::builder::stream::document{};
     visit_struct::for_each( model,
         [&root]( const char* name, const auto& value )
@@ -369,7 +371,6 @@ inline void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
   visit_struct::for_each( field,
       [&view]( const char* name, auto& member )
       {
-        using std::operator ""sv;
         auto n = std::string_view{ name };
         if ( auto it = view.find( n ); it != std::cend( view ) )
         {

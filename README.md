@@ -904,7 +904,81 @@ to using half the available CPU cores.
 ## Build
 Check out the sources and use `cmake` to build and install the project locally.
 
+### UNIX
+
+<details>
+<summary>Install <a href="https://boost.org/">Boost</a></summary>
+
 ```shell
+BOOST_VERSION=1.82.0
+INSTALL_DIR=/usr/local/boost
+
+cd /tmp
+ver=`echo "${BOOST_VERSION}" | awk -F'.' '{printf("%d_%d_%d",$1,$2,$3)}'`
+curl -OL https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${ver}.tar.bz2
+tar xfj boost_${ver}.tar.bz2
+sudo rm -rf $INSTALL_DIR
+cd boost_${ver} \
+  && ./bootstrap.sh \
+  && sudo ./b2 -j8 cxxflags=-std=c++20 install link=static threading=multi runtime-link=static --prefix=$INSTALL_DIR --without-python --without-mpi
+```
+</details>
+
+<details>
+<summary>Install <a href="https://mongocxx.org/">mongocxx</a> driver</summary>
+
+```shell
+PREFIX=/usr/local/mongo
+MONGOC_VERSION=1.24.2
+MONGOCXX_VERSION=3.8.0
+
+sudo rm -rf $PREFIX
+cd /tmp
+sudo rm -rf mongo-c-driver*
+curl -L -O https://github.com/mongodb/mongo-c-driver/releases/download/${MONGOC_VERSION}/mongo-c-driver-${MONGOC_VERSION}.tar.gz
+tar xzf mongo-c-driver-${MONGOC_VERSION}.tar.gz
+cd /tmp/mongo-c-driver-${MONGOC_VERSION}
+mkdir cmake-build && cd cmake-build
+cmake \
+  -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=$PREFIX \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DENABLE_SASL=OFF \
+  -DENABLE_TESTS=OFF \
+  -DENABLE_EXAMPLES=OFF \
+  ..
+make -j8
+sudo make install
+
+cd /tmp
+sudo rm -rf mongo-cxx-driver
+curl -OL https://github.com/mongodb/mongo-cxx-driver/releases/download/r${MONGOCXX_VERSION}/mongo-cxx-driver-r${MONGOCXX_VERSION}.tar.gz
+tar -xzf mongo-cxx-driver-r${MONGOCXX_VERSION}.tar.gz
+cd mongo-cxx-driver-r${MONGOCXX_VERSION}/build
+cmake \
+  -DCMAKE_CXX_STANDARD=20 \
+  -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$PREFIX \
+  -DCMAKE_INSTALL_PREFIX=$PREFIX \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_TESTING_ENABLED=OFF \
+  -DENABLE_TESTS=OFF \
+  -DBSONCXX_POLY_USE_STD=ON \
+  ..
+make -j8
+sudo make install
+```
+</details>
+
+<details>
+<summary>Check out, build and install the project.</summary>
+
+```shell
+cd /var/tmp
 git clone https://github.com/sptrakesh/mongo-service.git
 cd mongo-service
 cmake -DCMAKE_BUILD_TYPE=Release \
@@ -915,6 +989,137 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 cmake --build build -j12
 (cd build; sudo make install)
 ```
+</details>
+
+### Windows
+
+Install dependencies to build the project.  The following instructions at times reference `arm` or `arm64` architecture.  Modify
+those values as appropriate for your hardware.  These instructions are based on steps I followed to set up the project on a
+Windows 11 virtual machine running via Parallels Desktop on a M2 Mac.
+
+<details>
+<summary>Install <a href="https://boost.org/">Boost</a></summary>
+
+* Listed here to document steps.  Have not been able to get the project to link with boost, hence switched to installing
+  via `vcpkg`.
+* Download and extract Boost 1.82 (or above) to a temporary location (eg. `\opt\src`).
+* Launch the Visual Studio Command utility and cd to the temporary location.
+```shell
+cd \opt\src
+curl -OL https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz
+tar -xfz boost_1_82_0.tar.gz
+cd boost_1_82_0
+.\bootstrap.bat
+.\b2 -j8 install threading=multi address-model=64 architecture=arm asynch-exceptions=on --prefix=\opt\local --without-python --without-mpi
+
+cd ..
+del /s /q boost_1_82_0
+rmdir /s /q boost_1_82_0
+```
+</details>
+
+<details>
+<summary>Install <a href="https://mongocxx.org/">mongocxx</a> driver</summary>
+
+* Download Mongo C Driver (1.24.2 or above) and extract sources to a temporary location.
+* Launch the Visual Studio Command utility and cd to the temporary location.
+```shell
+cd \opt\src
+curl -OL https://github.com/mongodb/mongo-c-driver/releases/download/1.24.2/mongo-c-driver-1.24.2.tar.gz
+tar -xfz mongo-c-driver-1.24.2.tar.gz
+cd mongo-c-driver-1.24.2
+cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\opt\local -DBUILD_SHARED_LIBS=OFF -DENABLE_SASL=OFF -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -S . -B cmake-build
+cmake --build cmake-build --target install --parallel 8
+cd ..
+del /s /q mongo-c-driver-1.24.2
+rmdir /s /q mongo-c-driver-1.24.2
+```
+
+* Downlaod Mongo CXX Driver (3.8 or above) and extract sources to a temporary location.
+* Launch the Visual Studio Command utility and cd to the temporary location.
+```shell
+cd \opt\src
+curl -OL https://github.com/mongodb/mongo-cxx-driver/releases/download/r3.8.0/mongo-cxx-driver-r3.8.0.tar.gz
+tar -xvf mongo-cxx-driver-r3.8.0.tar.gz
+cd mongo-cxx-driver-r3.8.0
+cmake -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=c:\opt\local -DCMAKE_INSTALL_PREFIX=c:\opt\local -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DCMAKE_TESTING_ENABLED=OFF -DENABLE_TESTS=OFF -DBSONCXX_POLY_USE_STD=ON -S . -B build
+cmake --build build --target install --parallel 8
+cd ..
+del /s /q mongo-cxx-driver-r3.8.0
+rmdir /s /q mongo-cxx-driver-r3.8.0
+```
+</details>
+
+<details>
+<summary>Install <a href="https://github.com/fmtlib/fmt">fmt</a> library</summary>
+
+Launch the Visual Studio Command utility and cd to a temporary location.
+```shell
+cd \opt\src
+git clone https://github.com/fmtlib/fmt.git --branch 9.1.0
+cd fmt
+cmake -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=\opt\local -DCMAKE_INSTALL_LIBDIR=lib -DFMT_TEST=OFF -DFMT_MODULE=ON -S . -B build
+cmake --build build --target install -j8
+```
+</details>
+
+<details>
+<summary>Install <a href="https://github.com/ericniebler/range-v3">range-v3</a> library</summary>
+
+Launch the Visual Studio Command utility and cd to a temporary location.
+```shell
+git clone https://github.com/ericniebler/range-v3.git --branch 0.12.0
+cd range-v3
+cmake -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=\opt\local -DCMAKE_INSTALL_LIBDIR=lib -DRANGE_V3_DOCS=OFF -DRANGE_V3_EXAMPLES=OFF -DRANGE_V3_PERF=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_INSTALL=ON -B build -S .
+cmake --build build --target install -j8
+```
+</details>
+
+<details>
+<summary>Install <a href="https://github.com/Microsoft/vcpkg">vcpkg</a> manager</summary>
+
+Launch the Visual Studio Command utility.
+```shell
+cd \opt\src
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg integrate install
+.\vcpkg install curl:arm64-windows
+.\vcpkg install cpr:arm64-windows
+.\vcpkg install hayai:arm64-windows
+```
+</details>
+
+<details>
+<summary>Check out, build and install the project.</summary>
+
+Launch the Visual Studio Command utility.
+```shell
+cd %homepath%\source\repos
+git clone https://github.com/sptrakesh/mongo-service.git
+cd mongo-service
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=\opt\local -DCMAKE_INSTALL_PREFIX=\opt\spt -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE="C:/opt/src/vcpkg/scripts/buildsystems/vcpkg.cmake" -S . -B build
+cmake --build build -j8
+cmake --build build --target install -j8
+```
+</details>
+
+#### Running
+Run the service by specifying options similar to the following:
+```shell
+cd %homepath%\source\repos\mongo-service
+build\src\service\Debug\mongo-service.exe -e true -o . -p 2020 -m "mongodb://test:test@192.168.0.39/admin?authSource=admin&compressors=snappy&w=1" -l debug --metric-batch-size 2
+```
+
+Run other targets such as `unitTest`, `integration`, `client` as appropriate directly from the IDE.
+
+#### Limitations
+The following limitations have been encountered when running the test suites.  A few tests have been disabled when running
+on Windows to avoid running into these issues.
+
+* Cannot create an index with a specific name.  For some reason, this leads to the index name being stored with non-UTF-8
+  characters, which then causes further issues down the road.
 
 ## Clients
 Sample clients in other languages that use the service.

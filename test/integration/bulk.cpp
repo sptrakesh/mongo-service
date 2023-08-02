@@ -200,13 +200,13 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
             );
       }
 
-      bsoncxx::document::value document = basic::make_document(
+      bsoncxx::document::value doc = basic::make_document(
           kvp( "action", "bulk" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "insert", arr.extract() ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );

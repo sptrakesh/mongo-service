@@ -177,7 +177,7 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
         REQUIRE( data.contains( "obool"sv ) );
         CHECK( data["obool"sv].as_bool() == *obj.obool );
         REQUIRE( data.contains( "time"sv ) );
-        CHECK( data["time"sv].as_string() == isoDateMillis( obj.time.time_since_epoch() ) );
+        CHECK( data["time"sv].as_string() == isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.time.time_since_epoch() ).count() ) );
         REQUIRE( data.contains( "boolean"sv ) );
         CHECK( data["boolean"sv].as_bool() == obj.boolean );
       }

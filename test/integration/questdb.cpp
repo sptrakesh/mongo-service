@@ -63,6 +63,7 @@ SCENARIO( "QuestDB TCP client test suite" )
 {
   [[maybe_unused]] auto& docker = spt::itest::ilp::Docker::instance();
 
+#if !(defined(_WIN32) || defined(WIN32))
   GIVEN( "A TCP client connected to QuestDB TCP service" )
   {
     auto client = spt::itest::ilp::Client{};
@@ -97,4 +98,6 @@ SCENARIO( "QuestDB TCP client test suite" )
       REQUIRE( resp.text.find( "\"count\":10000" ) != std::string::npos );
     }
   }
+#endif
 }
+

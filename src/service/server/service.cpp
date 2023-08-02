@@ -151,7 +151,11 @@ int spt::server::run()
   const auto& configuration = model::Configuration::instance();
   net::io_context ioc{ configuration.threads };
 
+#if defined(_WIN32) || defined(WIN32)
+  net::signal_set signals( ioc, SIGINT, SIGTERM );
+#else
   net::signal_set signals( ioc, SIGINT, SIGTERM, SIGHUP );
+#endif
   signals.async_wait( [&](boost::system::error_code const&, int) { ioc.stop(); } );
 
   try

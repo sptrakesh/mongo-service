@@ -12,6 +12,10 @@
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
+#if defined(_WIN32) || defined(WIN32)
+#include "client.h"
+#endif
+
 using spt::mongoservice::pool::Pool;
 
 namespace spt::client::pool

@@ -19,7 +19,7 @@
 
 using boost::asio::use_awaitable;
 
-#if defined(BOOST_ASIO_ENABLE_HANDLER_TRACKING)
+#if defined(BOOST_ASIO_ENABLE_HANDLER_TRACKING) && !(defined(_WIN32) || defined(WIN32))
 # define use_awaitable \
   boost::asio::use_awaitable_t(__FILE__, __LINE__, __PRETTY_FUNCTION__)
 #endif

@@ -141,6 +141,7 @@ namespace spt::util
 
     const auto parseMillis = [date]() -> std::variant<int16_t, std::string>
     {
+      if (date.size() < 20) return int16_t( 0 );
       if ( date[19] != '.' ) return int16_t( 0 );
       if ( date.size() < 22 )
       {
@@ -161,6 +162,7 @@ namespace spt::util
 
     const auto parseMicros = [date]( int16_t millis ) -> std::variant<int16_t, std::string>
     {
+      if (date.size() < 20) return int16_t( 0 );
       if ( date[19] != '.' ) return int16_t( 0 );
       if ( date.size() < 25 ) return int16_t( 0 );
 

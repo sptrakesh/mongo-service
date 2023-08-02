@@ -41,3 +41,19 @@ namespace spt::client
 
   std::unique_ptr<Client> createClient();
 }
+
+#if defined(_WIN32) || defined(WIN32)
+#define BOOST_NO_EXCEPTIONS
+#include <boost/throw_exception.hpp>
+inline void boost::throw_exception(std::exception const& e)
+{
+  //do nothing
+  throw e;
+}
+
+inline void boost::throw_exception(std::exception const& e, boost::source_location const&)
+{
+  //do nothing
+  throw e;
+}
+#endif
