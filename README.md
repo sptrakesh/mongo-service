@@ -27,6 +27,8 @@
     * [Connection Pool](#connection-pool)
     * [Performance Test](#performance-test)
 * [Build](#build)
+  * [Windows](#windows)
+    * [Limitations](#limitations)
 * [Clients](#clients)
 * [Acknowledgements](#acknowledgements)
     
@@ -1000,8 +1002,6 @@ Windows 11 virtual machine running via Parallels Desktop on a M2 Mac.
 <details>
 <summary>Install <a href="https://boost.org/">Boost</a></summary>
 
-* Listed here to document steps.  Have not been able to get the project to link with boost, hence switched to installing
-  via `vcpkg`.
 * Download and extract Boost 1.82 (or above) to a temporary location (eg. `\opt\src`).
 * Launch the Visual Studio Command utility and cd to the temporary location.
 ```shell
@@ -1101,7 +1101,7 @@ git clone https://github.com/sptrakesh/mongo-service.git
 cd mongo-service
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=\opt\local -DCMAKE_INSTALL_PREFIX=\opt\spt -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE="C:/opt/src/vcpkg/scripts/buildsystems/vcpkg.cmake" -S . -B build
 cmake --build build -j8
-cmake --build build --target install -j8
+cmake --build build --target install
 ```
 </details>
 
@@ -1109,7 +1109,7 @@ cmake --build build --target install -j8
 Run the service by specifying options similar to the following:
 ```shell
 cd %homepath%\source\repos\mongo-service
-build\src\service\Debug\mongo-service.exe -e true -o . -p 2020 -m "mongodb://test:test@192.168.0.39/admin?authSource=admin&compressors=snappy&w=1" -l debug --metric-batch-size 2
+build\src\service\Debug\mongo-service.exe -e true -o %temp%\ -p 2020 -m "mongodb://test:test@192.168.0.39/admin?authSource=admin&compressors=snappy&w=1" -l debug --metric-batch-size 2
 ```
 
 Run other targets such as `unitTest`, `integration`, `client` as appropriate directly from the IDE.
