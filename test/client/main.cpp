@@ -15,6 +15,9 @@
 
 #include <iostream>
 #include <vector>
+#if defined(_WIN32) || defined(WIN32)
+#include <filesystem>
+#endif
 
 int main( int argc, char const * const * argv )
 {
@@ -42,7 +45,13 @@ int main( int argc, char const * const * argv )
   }
 
   nanolog::set_log_level( nanolog::LogLevel::DEBUG );
+#if defined(_WIN32) || defined(WIN32)
+  auto str = std::filesystem::temp_directory_path().string();
+  str.append( "\\" );
+  nanolog::initialize( nanolog::GuaranteedLogger(), str, "mongo-service-client", true );
+#else
   nanolog::initialize( nanolog::GuaranteedLogger(), "/tmp/", "mongo-service-client", true );
+#endif
 
   auto& ctx = spt::mongoservice::api::ContextHolder::instance();
   auto guard = boost::asio::make_work_guard( ctx.ioc.get_executor() );
