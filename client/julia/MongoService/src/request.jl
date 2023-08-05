@@ -4,7 +4,7 @@ module Actions
 @enum(Action::UInt8,
     create, retrieve, update, delete, count,
     index, dropCollection, dropIndex,
-    bulk, pipeline, transaction
+    bulk, pipeline, transaction, renameCollection
 )
 end
 
@@ -82,6 +82,11 @@ TransactionRequest(;database::String, collection::String, document::Document,
     correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
     Request(database, collection, document, Actions.transaction, options, metadata, correlationId, skipVersion, skipMetric)
 
+RenameCollectionRequest(;database::String, collection::String, document::Document,
+    options::Document = Document(), metadata::Document = Document(),
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.renameCollection, options, metadata, correlationId, skipVersion, skipMetric)
+
 function to_bson(r::Request, application::String)::Vector{UInt8}
     buf = Vector{UInt8}()
     d = Dict("database" => r.database, "collection" => r.collection,
@@ -108,6 +113,8 @@ function to_bson(r::Request, application::String)::Vector{UInt8}
         d["action"] = "pipeline"
     elseif r.action == Actions.transaction
         d["action"] = "transaction"
+    elseif r.action == Actions.renameCollection
+        d["action"] = "renameCollection"
     end
 
     if length(r.options) > 0 d["options"] = r.options end

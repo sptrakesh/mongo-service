@@ -10,4 +10,5 @@ using Test
     include("crud.jl")
     include("index.jl")
     include("bulk.jl")
+    include("rename.jl")
 end
