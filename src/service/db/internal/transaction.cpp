@@ -2,8 +2,8 @@
 // Created by Rakesh on 17/07/2021.
 //
 
-#include "pool.h"
-#include "storage.h"
+#include "internal.h"
+#include "db/pool.h"
 #include "model/configuration.h"
 #include "model/errors.h"
 #include "../log/NanoLog.h"

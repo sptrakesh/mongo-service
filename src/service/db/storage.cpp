@@ -5,6 +5,7 @@
 #include "metricscollector.h"
 #include "storage.h"
 #include "pool.h"
+#include "internal/internal.h"
 #include "model/configuration.h"
 #include "model/errors.h"
 #include "model/metric.h"
@@ -79,25 +80,6 @@ namespace spt::db::pstorage
     }
 
     co_return model::createVersionFailed();
-  }
-
-  mongocxx::write_concern writeConcern( bsoncxx::document::view view )
-  {
-    using spt::util::bsonValueIfExists;
-
-    auto w = mongocxx::write_concern{};
-
-    if ( auto journal = bsonValueIfExists<bool>( "journal", view ); journal ) w.journal( *journal );
-    if ( auto nodes = bsonValueIfExists<int32_t>( "nodes", view ); nodes ) w.nodes( *nodes );
-
-    if ( auto level = bsonValueIfExists<int32_t>( "acknowledgeLevel", view ); level ) w.acknowledge_level( static_cast<mongocxx::write_concern::level>( *level ) );
-    else w.acknowledge_level( mongocxx::write_concern::level::k_majority );
-
-    if ( auto majority = bsonValueIfExists<std::chrono::milliseconds>( "majority", view ); majority ) w.majority( *majority );
-    if ( auto tag = bsonValueIfExists<std::string>( "tag", view ); tag ) w.tag( *tag );
-    if ( auto timeout = bsonValueIfExists<std::chrono::milliseconds>( "timeout", view ); timeout ) w.timeout( *timeout );
-
-    return w;
   }
 
   mongocxx::options::index indexOpts( const model::Document& model )
@@ -214,28 +196,6 @@ namespace spt::db::pstorage
     co_return document{} << "dropIndex" << true << finalize;
   }
 
-  awaitable<bsoncxx::document::view_or_value> dropCollection( const model::Document& model )
-  {
-    using util::bsonValueIfExists;
-    using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::finalize;
-
-    const auto dbname = model.database();
-    const auto collname = model.collection();
-    const auto opts = model.options();
-
-    auto cliento = Pool::instance().acquire();
-    if ( !cliento )
-    {
-      LOG_WARN << "Connection pool exhausted";
-      co_return model::poolExhausted();
-    }
-
-    auto& client = *cliento;
-    ( *client )[dbname][collname].drop( opts ? writeConcern( *opts ) : mongocxx::write_concern{} );
-    co_return document{} << "dropCollection" << true << finalize;
-  }
-
   awaitable<bsoncxx::document::view_or_value> count( const model::Document& model )
   {
     using util::bsonValueIfExists;
@@ -341,13 +301,10 @@ namespace spt::db::pstorage
     using bsoncxx::builder::basic::kvp;
 
     const auto doc = model.document();
-    if ( doc.find( "_id" ) != doc.end() )
+    if ( doc.find( "_id" ) != doc.end() && bsoncxx::v_noabi::type::k_oid == doc["_id"].type() )
     {
-      if ( bsoncxx::v_noabi::type::k_oid == doc["_id"].type() )
-      {
-        LOG_DEBUG << "_id property is of type oid";
-        co_return co_await retrieveOne( model );
-      }
+      LOG_DEBUG << "_id property is of type oid";
+      co_return co_await retrieveOne( model );
     }
 
     const auto opts = findOpts( model );
@@ -376,7 +333,7 @@ namespace spt::db::pstorage
     {
       if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
       if ( auto ordered = bsonValueIfExists<bool>( "ordered", *options ); ordered ) opts.ordered( *ordered );
-      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( writeConcern( *wc ) );
+      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
     }
 
     return opts;
@@ -520,7 +477,7 @@ namespace spt::db::pstorage
       if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
       if ( auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
       if ( auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
-      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( writeConcern( *wc ) );
+      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
       if ( auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options ); af ) opts.array_filters( *af );
     }
 
@@ -704,7 +661,7 @@ namespace spt::db::pstorage
       if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
       if ( auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
       if ( auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
-      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( writeConcern( *wc ) );
+      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
     }
 
     const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
@@ -907,7 +864,7 @@ namespace spt::db::pstorage
     auto opts = mongocxx::options::delete_options{};
     if ( options )
     {
-      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( writeConcern( *wc ) );
+      if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
       if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
     }
 
@@ -1211,32 +1168,39 @@ namespace spt::db::pstorage
     co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
   }
 
+  boost::asio::awaitable<bsoncxx::document::view_or_value> processRemaining( std::string_view action, const model::Document& document )
+  {
+    using std::operator""sv;
+    if ( action == "dropIndex"sv ) co_return co_await dropIndex( document );
+    if ( action == "dropCollection"sv ) co_return co_await internal::dropCollection( document );
+    if ( action == "bulk"sv ) co_return co_await bulk( document );
+    if ( action == "pipeline"sv ) co_return co_await pipeline( document );
+    if ( action == "transaction"sv ) co_return co_await internal::transaction( document );
+    if ( action == "renameCollection"sv ) co_return co_await internal::renameCollection( document );
+
+    LOG_INFO << "Invalid action " << action << " in document " << document.json();
+    co_return model::invalidAction();
+  }
+
   boost::asio::awaitable<bsoncxx::document::view_or_value> process( const model::Document& document )
   {
-    using spt::util::bsonValue;
-
+    using std::operator""sv;
     try
     {
       const auto action = document.action();
-      if ( action == "create" ) co_return co_await create( document );
-      else if ( action == "update" ) co_return co_await update( document );
-      else if ( action == "retrieve" ) co_return co_await retrieve( document );
-      else if ( action == "delete" ) co_return co_await remove( document );
-      else if ( action == "count" ) co_return co_await count( document );
-      else if ( action == "index" ) co_return co_await index( document );
-      else if ( action == "dropIndex" ) co_return co_await dropIndex( document );
-      else if ( action == "dropCollection" ) co_return co_await dropCollection( document );
-      else if ( action == "bulk" ) co_return co_await bulk( document );
-      else if ( action == "pipeline" ) co_return co_await pipeline( document );
-      else if ( action == "transaction" ) co_return co_await internal::transaction( document );
 
-      LOG_INFO << "Invalid action " << action << " in document " << document.json();
-      co_return model::invalidAction();
+      if ( action == "create"sv ) co_return co_await create( document );
+      if ( action == "update"sv ) co_return co_await update( document );
+      if ( action == "retrieve"sv ) co_return co_await retrieve( document );
+      if ( action == "delete"sv ) co_return co_await remove( document );
+      if ( action == "count"sv ) co_return co_await count( document );
+      if ( action == "index"sv ) co_return co_await index( document );
+      co_return co_await processRemaining( action, document ); // hack to get around GCC issue with number of ifs
     }
     catch ( const mongocxx::bulk_write_exception& be )
     {
       LOG_CRIT << "Error processing database action " << document.action() <<
-         " code: " << be.code().message() << ", message: " << be.what();
+       " code: " << be.code().message() << ", message: " << be.what();
       LOG_INFO << document.json();
 
       std::string s;
@@ -1247,7 +1211,18 @@ namespace spt::db::pstorage
     catch ( const mongocxx::logic_error& le )
     {
       LOG_CRIT << "Error processing database action " << document.action() <<
-         " code: " << le.code().message() << ", message: " << le.what();
+       " code: " << le.code().message() << ", message: " << le.what();
+      LOG_INFO << document.json();
+
+      std::string s;
+      s.reserve( 48 );
+      s.append( "Error processing database action " ).append( document.action() );
+      co_return model::withMessage( s );
+    }
+    catch ( const mongocxx::operation_exception& oe )
+    {
+      LOG_CRIT << "Error processing database action " << document.action() <<
+        " code: " << oe.code().message() << ", message: " << oe.what();
       LOG_INFO << document.json();
 
       std::string s;

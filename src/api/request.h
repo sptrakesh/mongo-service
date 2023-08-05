@@ -15,7 +15,7 @@ namespace spt::mongoservice::api
     enum class Action : std::uint_fast8_t {
       create, retrieve, update, _delete, count,
       index, dropCollection, dropIndex,
-      bulk, pipeline, transaction
+      bulk, pipeline, transaction, renameCollection
     };
 
     Request( std::string db, std::string coll,
@@ -81,6 +81,11 @@ namespace spt::mongoservice::api
     static Request transaction( std::string db, std::string coll, bsoncxx::document::value doc )
     {
       return { std::move( db ), std::move( coll ), std::move( doc ), Action::transaction };
+    }
+
+    static Request renameCollection( std::string db, std::string coll, bsoncxx::document::value doc )
+    {
+      return { std::move( db ), std::move( coll ), std::move( doc ), Action::renameCollection };
     }
 
     std::string database;

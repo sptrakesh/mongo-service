@@ -2,8 +2,6 @@
 // Created by Rakesh on 22/07/2020.
 //
 #include "../../src/api/api.h"
-#include "../../src/api/request.h"
-#include "../../src/log/NanoLog.h"
 #include "../../src/common/util/bson.h"
 
 #include <catch2/catch_test_macros.hpp>

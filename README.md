@@ -3,29 +3,30 @@
 * [Command Line Options](#command-line-options)
 * [Version History](#version-history)
 * [Protocol](#protocol)
-    * [Document Payload](#document-payload)
-        * [Create](#create)
-        * [Retrieve](#retrieve)
-        * [Count](#count)
-        * [Update](#update)
-        * [Delete](#delete)
-        * [Index](#index)
-        * [Drop Index](#drop-index)
-        * [Bulk Write](#bulk-write)
-        * [Aggregation Pipeline](#aggregation-pipeline)
-        * [Transaction](#transaction)
-    * [Document Response](#document-response)
-    * [Options](#options)
-    * [Limitation](#limitation)
+  * [Document Payload](#document-payload)
+    * [Create](#create)
+    * [Retrieve](#retrieve)
+    * [Count](#count)
+    * [Update](#update)
+    * [Delete](#delete)
+    * [Index](#index)
+    * [Drop Index](#drop-index)
+    * [Bulk Write](#bulk-write)
+    * [Aggregation Pipeline](#aggregation-pipeline)
+    * [Transaction](#transaction)
+    * [Rename Collection](#rename-collection)
+  * [Document Response](#document-response)
+  * [Options](#options)
+  * [Limitation](#limitation)
 * [Metrics](#metrics)
-    * [MongoDB](#mongodb) 
-    * [ILP](#ilp)
+  * [MongoDB](#mongodb) 
+  * [ILP](#ilp)
 * [Serialisation](#serialisation)
   * [BSON](#bson)
   * [JSON](#json)
 * [Testing](#testing)
-    * [Connection Pool](#connection-pool)
-    * [Performance Test](#performance-test)
+  * [Connection Pool](#connection-pool)
+  * [Performance Test](#performance-test)
 * [Build](#build)
   * [Windows](#windows)
     * [Limitations](#limitations)
@@ -88,7 +89,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action (string)` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction`.
+  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction|renameCollection`.
 * `database (string)` - The Mongo database the action is to be performed against.
     - Not needed for `transaction` action.
 * `collection (string)` - The Mongo collection the action is to be performed against.
@@ -451,16 +452,19 @@ Sample delete response:
 
 #### Drop Collection
 Drop the specified collection and all its containing documents.  Specify an
-empty `document` in the payload to satisfy payload requirements.  Specify the
-*write concern* settings in the optional `options` sub-document.
+empty `document` in the payload to satisfy payload requirements.  If you wish
+to also remove all version history documents for the dropped collection, specify
+`clearVersionHistory` `true` in the `document` (revision history documents
+will be removed *asynchronously*). Specify the *write concern* settings in the
+optional `options` sub-document.
 
-Sample count payload:
+Sample drop payload specifying removal of all associated revision history documents:
 ```json
 {
   "action": "dropCollection",
   "database": "itest",
   "collection": "test",
-  "document": {}
+  "document": {"clearVersionHistory": true}
 }
 ```
 
@@ -617,6 +621,42 @@ Update at present in only partially supported.  Strong assumption is made that
 the document being updated is a full replacement.  In other words, there is a
 strong assumption that the document includes the `_id` property, and that the
 intention is to replace the existing document.
+
+#### Rename Collection
+Rename a `collection` in the specified `database`.  If a `collection` already exists with the
+`document.target` *name*, an error is returned.  The option to automatically drop a pre-existing
+collection as supported by **MongoDB** is not supported.  For such cases, use the `dropCollection`
+action prior to invoking this action.  Specify the *write concern* settings in the
+optional `options` sub-document.
+
+This is a potentially heavy-weight operation.  All *version history* documents for the specified
+*database::collection* combination are also updated.  Version history document update is performed
+*asynchronously*.  The operation enqueues an update operation to the version history documents, and
+returns.  This can lead to queries against version history returning stale information for a short
+period of time.
+
+**Note**: Renaming the collection in all associated *version history* documents may be the wrong choice.
+In temporal terms, those documents were associated with the previous `collection`.  Only future revisions
+are associated with the renamed `target`.  However, this can create issues in terms of retrieval, or if
+iterating over records for some other purpose.
+
+Sample rename payload:
+```json
+{
+  "action": "renameCollection",
+  "database": "itest",
+  "collection": "test",
+  "document": {"target": "test-renamed"}
+}
+```
+
+Sample response payload:
+```json
+{
+  "database": "itest",
+  "collection": "test-renamed"
+}
+```
 
 ### Document Response
 Create, update and delete actions only return some meta information about the
@@ -1083,11 +1123,10 @@ Launch the Visual Studio Command utility.
 cd \opt\src
 git clone https://github.com/Microsoft/vcpkg.git
 cd vcpkg
-.\bootstrap-vcpkg.bat
-.\vcpkg integrate install
+.\bootstrap-vcpkg.bat -disableMetrics
+.\vcpkg integrate install --vcpkg-root \opt\src\vcpkg
 .\vcpkg install curl:arm64-windows
 .\vcpkg install cpr:arm64-windows
-.\vcpkg install hayai:arm64-windows
 ```
 </details>
 
@@ -1115,29 +1154,25 @@ build\src\service\Debug\mongo-service.exe -e true -o %temp%\ -p 2020 -m "mongodb
 Run other targets such as `unitTest`, `integration`, `client` as appropriate directly from the IDE.
 
 #### Limitations
-The following limitations have been encountered when running the test suites.  A few tests have been disabled when running
-on Windows to avoid running into these issues.
+The following limitations have been encountered when running the test suites.  A few tests
+have been disabled when running on Windows to avoid running into these issues.
 
-* Cannot create an index with a specific name.  For some reason, this leads to the index name being stored with non-UTF-8
-  characters, which then causes further issues down the road.
+* Cannot create an index with a specific name.  For some reason, this leads to the index name
+  being stored with non-UTF-8 characters, which then causes further issues down the road.
 
 ## Clients
 Sample clients in other languages that use the service.
-* **Julia** - Sample client package for [Julia](https://julialang.org) is available
-  under the [julia](client/julia) directory/
+* **Julia** - Sample client package for [Julia](https://julialang.org) is available under the [julia](client/julia) directory.
 
 ## Acknowledgements
 This software has been developed mainly using work other people/projects have contributed.
 The following are the components used to build this software:
-* **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the
-`TCP socket` server implementation.
+* **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the `TCP socket` server implementation.
 * **[MongoCXX](https://mongocxx.org/)** - MongoDB C++ driver.
-* **[visit_struct](https://github.com/cbeck88/visit_struct)** - Struct visitor library used for the 
-  [serialisation](src/common/util/serialise.h) utility functions.
-* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
-  free concurrent queue implementation for metrics.
-* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used
-for the server.  I modified the implementation for daily rolling log files.
-* **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
+* **[visit_struct](https://github.com/cbeck88/visit_struct)** - Struct visitor library used for the [serialisation](src/common/util/serialise.h) utility functions.
+* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock free concurrent queue implementation for metrics.
+* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used for the server. 
+  I modified the implementation for daily rolling log files.
 * **[Catch2](https://github.com/catchorg/Catch2)** - Unit testing framework.
+* **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
 * **[hayai](https://github.com/nickbruun/hayai)** - Performance testing framework.
