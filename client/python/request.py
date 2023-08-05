@@ -17,6 +17,7 @@ class Action(Enum):
     bulk = auto()
     pipeline = auto()
     transaction = auto()
+    renameCollection = auto()
 
 
 class Request:
@@ -135,4 +136,11 @@ def transaction_request(database: str, collection: str, document: Dict, options:
                         skip_version: bool = False, skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.transaction,
                    options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
+
+
+def rename_collection_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
+                              correlation_id: str = "", skip_metric: bool = False) -> Request:
+    return Request(database=database, collection=collection, document=document, action=Action.renameCollection,
+                   options=options, metadata=None, correlation_id=correlation_id, skip_version=False,
                    skip_metric=skip_metric)
