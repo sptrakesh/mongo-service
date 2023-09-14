@@ -557,6 +557,7 @@ The following operators are supported:
 * `$addFields`
 * `$facet`
 * `$search` - Note requirement for `search` to be the first stage in a pipeline.
+* `$unionWith`
 
 Sample request payload:
 ```json
@@ -636,9 +637,10 @@ returns.  This can lead to queries against version history returning stale infor
 period of time.
 
 **Note**: Renaming the collection in all associated *version history* documents may be the wrong choice.
-In temporal terms, those documents were associated with the previous `collection`.  Only future revisions
+In chronological terms, those documents were associated with the previous `collection`.  Only future revisions
 are associated with the renamed `target`.  However, this can create issues in terms of retrieval, or if
-iterating over records for some other purpose.
+iterating over records for some other purpose, or if a new collection with the *previous* name is created
+in future.
 
 Sample rename payload:
 ```json

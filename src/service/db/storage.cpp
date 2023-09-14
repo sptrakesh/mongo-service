@@ -1095,63 +1095,8 @@ namespace spt::db::pstorage
       co_return model::withMessage( "No aggregation specification." );
     }
 
-    auto search = false;
-    for ( const auto& s : *spec )
-    {
-      auto v = s.get_document().view();
-      if ( const auto it = v.find( "$search" ); it != v.end() )
-      {
-        search = true;
-        break;
-      }
-    }
-
     auto pipeline = mongocxx::pipeline{};
-    if ( search )
-    {
-      for ( const auto& s : *spec ) pipeline.append_stage( s.get_document().view() );
-    }
-    else
-    {
-      for ( const auto& s : *spec )
-      {
-        auto v = s.get_document().view();
-        auto it = v.find( "$match" );
-        if ( it != v.end() ) pipeline.match( it->get_document().view() );
-
-        it = v.find( "$lookup" );
-        if ( it != v.end() ) pipeline.lookup( it->get_document().view() );
-
-        it = v.find( "$unwind" );
-        if ( it != v.end() )
-        {
-          if ( it->type() == bsoncxx::type::k_utf8 )
-          {
-            const auto value = it->get_string().value;
-            pipeline.unwind( std::string{ value.data(), value.size() } );
-          }
-          else pipeline.unwind( it->get_document().view() );
-        }
-
-        it = v.find( "$project" );
-        if ( it != v.end() ) pipeline.project( it->get_document().view() );
-
-        it = v.find( "$group" );
-        if ( it != v.end() ) pipeline.group( it->get_document().view() );
-
-        it = v.find( "$sort" );
-        if ( it != v.end() ) pipeline.sort( it->get_document().view() );
-
-        it = v.find( "$limit" );
-        if ( it != v.end() ) pipeline.limit( it->get_int32().value );
-
-        it = v.find( "$addFields" );
-        if ( it != v.end() ) pipeline.add_fields( it->get_document().view() );
-
-        it = v.find( "$facet" );
-        if ( it != v.end() ) pipeline.facet( it->get_document().view() );
-      }
-    }
+    for ( const auto& s : *spec ) pipeline.append_stage( s.get_document().view() );
 
     auto cliento = Pool::instance().acquire();
     if ( !cliento )
