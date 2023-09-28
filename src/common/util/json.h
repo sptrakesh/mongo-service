@@ -460,7 +460,7 @@ inline void spt::util::json::set( const char* name, int8_t& field, simdjson::ond
   {
     LOG_WARN << "Expected field " << name << " of type int8_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<int8_t>( v );
 }
@@ -472,7 +472,7 @@ inline void spt::util::json::set( const char* name, uint8_t& field, simdjson::on
   {
     LOG_WARN << "Expected field " << name << " of type int8_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<uint8_t>( v );
 }
@@ -484,7 +484,7 @@ inline void spt::util::json::set( const char* name, int16_t& field, simdjson::on
   {
     LOG_WARN << "Expected field " << name << " of type int16_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<int16_t>( v );
 }
@@ -496,7 +496,7 @@ inline void spt::util::json::set( const char* name, uint16_t& field, simdjson::o
   {
     LOG_WARN << "Expected field " << name << " of type int16_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<uint16_t>( v );
 }
@@ -508,7 +508,7 @@ inline void spt::util::json::set( const char* name, int32_t& field, simdjson::on
   {
     LOG_WARN << "Expected field " << name << " of type int32_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<int32_t>( v );
 }
@@ -520,7 +520,7 @@ inline void spt::util::json::set( const char* name, uint32_t& field, simdjson::o
   {
     LOG_WARN << "Expected field " << name << " of type int32_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  int64_t v;
+  int64_t v{ 0 };
   value.get( v );
   field = static_cast<uint32_t>( v );
 }
