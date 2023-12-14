@@ -954,7 +954,7 @@ Check out the sources and use `cmake` to build and install the project locally.
 <summary>Install <a href="https://boost.org/">Boost</a></summary>
 
 ```shell
-BOOST_VERSION=1.82.0
+BOOST_VERSION=1.83.0
 INSTALL_DIR=/usr/local/boost
 
 cd /tmp

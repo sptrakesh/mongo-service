@@ -677,5 +677,14 @@ namespace spt::util
     return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
   }
 
+  std::string isoDateMillis( const DateTimeMs& epoch )
+  {
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+  }
+
+  std::string isoDateMillis( const DateTimeNs& epoch )
+  {
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+  }
 }
 

@@ -1,4 +1,4 @@
-/* auto-generated on . Do not edit! */
+/* auto-generated on 2023-12-07 12:42:28 -0500. Do not edit! */
 /* including simdjson.h:  */
 /* begin file simdjson.h */
 #ifndef SIMDJSON_H
@@ -129,6 +129,8 @@
 #define SIMDJSON_IS_X86_64 1
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #define SIMDJSON_IS_ARM64 1
+#elif defined(__riscv) && __riscv_xlen == 64
+#define SIMDJSON_IS_RISCV64 1
 #elif defined(__PPC64__) || defined(_M_PPC64)
 #if defined(__ALTIVEC__)
 #define SIMDJSON_IS_PPC64_VMX 1
@@ -151,11 +153,8 @@
 
 #if SIMDJSON_IS_32BITS
 #ifndef SIMDJSON_NO_PORTABILITY_WARNING
-#pragma message("The simdjson library is designed \
-for 64-bit processors and it seems that you are not \
-compiling for a known 64-bit platform. All fast kernels \
-will be disabled and performance may be poor. Please \
-use a 64-bit target such as x64, 64-bit ARM or 64-bit PPC.")
+// In the future, we should allow programmers
+// to get warning.
 #endif // SIMDJSON_NO_PORTABILITY_WARNING
 #endif // SIMDJSON_IS_32BITS
 
@@ -2322,7 +2321,7 @@ namespace std {
 #define SIMDJSON_SIMDJSON_VERSION_H
 
 /** The version of simdjson being used (major.minor.revision) */
-#define SIMDJSON_VERSION "3.3.0"
+#define SIMDJSON_VERSION "3.6.3"
 
 namespace simdjson {
 enum {
@@ -2333,11 +2332,11 @@ enum {
   /**
    * The minor version (major.MINOR.revision) of simdjson being used.
    */
-  SIMDJSON_VERSION_MINOR = 3,
+  SIMDJSON_VERSION_MINOR = 6,
   /**
    * The revision (major.minor.REVISION) of simdjson being used.
    */
-  SIMDJSON_VERSION_REVISION = 0
+  SIMDJSON_VERSION_REVISION = 3
 };
 } // namespace simdjson
 
@@ -2401,7 +2400,7 @@ enum error_code {
   INVALID_URI_FRAGMENT,       ///< Invalid URI fragment
   UNEXPECTED_ERROR,           ///< indicative of a bug in simdjson
   PARSER_IN_USE,              ///< parser is already in use.
-  OUT_OF_ORDER_ITERATION,     ///< tried to iterate an array or object out of order
+  OUT_OF_ORDER_ITERATION,     ///< tried to iterate an array or object out of order (checked when SIMDJSON_DEVELOPMENT_CHECKS=1)
   INSUFFICIENT_PADDING,       ///< The JSON doesn't have enough padding for simdjson to safely parse it.
   INCOMPLETE_ARRAY_OR_OBJECT, ///< The document ends early.
   SCALAR_DOCUMENT_AS_VALUE,   ///< A scalar document is treated as a value.
@@ -2409,6 +2408,13 @@ enum error_code {
   TRAILING_CONTENT,           ///< Unexpected trailing content in the JSON input
   NUM_ERROR_CODES
 };
+
+/**
+ * It is the convention throughout the code that  the macro SIMDJSON_DEVELOPMENT_CHECKS determines whether
+ * we check for OUT_OF_ORDER_ITERATION. The logic behind it is that these errors only occurs when the code
+ * that was written while breaking some simdjson::ondemand requirement. They should not occur in released
+ * code after these issues were fixed.
+ */
 
 /**
  * Get the error message for the given error code.
@@ -2569,11 +2575,11 @@ struct simdjson_result : public internal::simdjson_result_base<T> {
    */
   simdjson_inline simdjson_result() noexcept;
   /**
-   * @private Create a new error result.
+   * @private Create a new successful result.
    */
   simdjson_inline simdjson_result(T &&value) noexcept;
   /**
-   * @private Create a new successful result.
+   * @private Create a new error result.
    */
   simdjson_inline simdjson_result(error_code error_code) noexcept;
   /**
@@ -3695,6 +3701,13 @@ public:
   /** The number of allocated bytes. */
   inline size_t capacity() const noexcept;
 
+  /**
+   * Remove the UTF-8 Byte Order Mark (BOM) if it exists.
+   *
+   * @return whether a BOM was found and removed
+   */
+  inline bool remove_utf8_bom() noexcept;
+
   /** The amount of padding on the string (capacity() - length()) */
   inline size_t padding() const noexcept;
 
@@ -3725,8 +3738,9 @@ inline std::ostream& operator<<(std::ostream& out, simdjson_result<padded_string
 #define SIMDJSON_PADDED_STRING_VIEW_INL_H
 
 /* skipped duplicate #include "simdjson/padded_string_view.h" */
-
 /* skipped duplicate #include "simdjson/error-inl.h" */
+
+#include <cstring> /* memcmp */
 
 namespace simdjson {
 
@@ -3753,6 +3767,16 @@ inline padded_string_view::padded_string_view(std::string_view s, size_t capacit
 inline size_t padded_string_view::capacity() const noexcept { return _capacity; }
 
 inline size_t padded_string_view::padding() const noexcept { return capacity() - length(); }
+
+inline bool padded_string_view::remove_utf8_bom() noexcept {
+  if(length() < 3) { return false; }
+  if (std::memcmp(data(), "\xEF\xBB\xBF", 3) == 0) {
+    remove_prefix(3);
+    _capacity -= 3;
+    return true;
+  }
+  return false;
+}
 
 #if SIMDJSON_EXCEPTIONS
 inline std::ostream& operator<<(std::ostream& out, simdjson_result<padded_string_view> &s) noexcept(false) { return out << s.value(); }
@@ -4584,6 +4608,8 @@ public:
    * And, possibly, no document many have been parsed when the `parser.load_many(path)` function
    * returned.
    *
+   * If there is a UTF-8 BOM, the parser skips it.
+   *
    * ### Format
    *
    * The file must contain a series of one or more JSON documents, concatenated into a single
@@ -4675,6 +4701,8 @@ public:
    *   for (element doc : docs) {
    *     cout << std::string(doc["title"]) << endl;
    *   }
+   *
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * ### Format
    *
@@ -5140,8 +5168,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -5454,7 +5481,11 @@ public:
   inline simdjson_result<T> get() const noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are Boolean (bool), numbers (double, uint64_t, int64_t), "
+      "strings (std::string_view, const char *), arrays (dom::array) and objects (dom::object). "
+      "We recommand you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      "get_object(), get_array() or get_string() instead of the get template.");
   }
 
   /**
@@ -5693,6 +5724,22 @@ public:
    *         - NO_SUCH_FIELD if the field does not exist in the object
    */
   inline simdjson_result<element> at_key_case_insensitive(std::string_view key) const noexcept;
+
+  /**
+   * operator< defines a total order for element allowing to use them in
+   * ordered C++ STL containers
+   *
+   * @return TRUE if the key appears before the other one in the tape
+   */
+  inline bool operator<(const element &other) const noexcept;
+
+  /**
+   * operator== allows to verify if two element values reference the
+   * same JSON item
+   *
+   * @return TRUE if the two values references the same JSON element
+   */
+  inline bool operator==(const element &other) const noexcept;
 
   /** @private for debugging. Prints out the root element. */
   inline bool dump_raw_tape(std::ostream &out) const noexcept;
@@ -7045,6 +7092,12 @@ inline simdjson_result<element> element::at_key(std::string_view key) const noex
 inline simdjson_result<element> element::at_key_case_insensitive(std::string_view key) const noexcept {
   return get<object>().at_key_case_insensitive(key);
 }
+inline bool element::operator<(const element &other) const noexcept {
+  return tape.json_index < other.tape.json_index;
+}
+inline bool element::operator==(const element &other) const noexcept {
+  return tape.json_index == other.tape.json_index;
+}
 
 inline bool element::dump_raw_tape(std::ostream &out) const noexcept {
   SIMDJSON_DEVELOPMENT_ASSERT(tape.usable()); // https://github.com/simdjson/simdjson/issues/1914
@@ -7423,6 +7476,7 @@ simdjson_inline dom::document_stream::iterator simdjson_result<dom::document_str
 /* skipped duplicate #include "simdjson/dom/element-inl.h" */
 
 #include <climits>
+#include <cstring> /* memcmp */
 
 namespace simdjson {
 namespace dom {
@@ -7531,8 +7585,14 @@ inline simdjson_result<element> parser::parse_into_document(document& provided_d
       _loaded_bytes_capacity = len;
     }
     std::memcpy(static_cast<void *>(loaded_bytes.get()), buf, len);
+    buf = reinterpret_cast<const uint8_t*>(loaded_bytes.get());
   }
-  _error = implementation->parse(realloc_if_needed ? reinterpret_cast<const uint8_t*>(loaded_bytes.get()): buf, len, provided_doc);
+
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
+  _error = implementation->parse(buf, len, provided_doc);
 
   if (_error) { return _error; }
 
@@ -7569,6 +7629,10 @@ simdjson_inline simdjson_result<element> parser::parse(const padded_string_view 
 
 inline simdjson_result<document_stream> parser::parse_many(const uint8_t *buf, size_t len, size_t batch_size) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   return document_stream(*this, buf, len, batch_size);
 }
 inline simdjson_result<document_stream> parser::parse_many(const char *buf, size_t len, size_t batch_size) noexcept {
@@ -10586,89 +10650,53 @@ namespace {
 // Start of private section with Visual Studio workaround
 
 
-/**
- * make_uint8x16_t initializes a SIMD register (uint8x16_t).
- * This is needed because, incredibly, the syntax uint8x16_t x = {1,2,3...}
- * is not recognized under Visual Studio! This is a workaround.
- * Using a std::initializer_list<uint8_t>  as a parameter resulted in
- * inefficient code. With the current approach, if the parameters are
- * compile-time constants,
- * GNU GCC compiles it to ldr, the same as uint8x16_t x = {1,2,3...}.
- * You should not use this function except for compile-time constants:
- * it is not efficient.
- */
-simdjson_inline uint8x16_t make_uint8x16_t(uint8_t x1,  uint8_t x2,  uint8_t x3,  uint8_t x4,
-                                         uint8_t x5,  uint8_t x6,  uint8_t x7,  uint8_t x8,
-                                         uint8_t x9,  uint8_t x10, uint8_t x11, uint8_t x12,
-                                         uint8_t x13, uint8_t x14, uint8_t x15, uint8_t x16) {
-  // Doing a load like so end ups generating worse code.
-  // uint8_t array[16] = {x1, x2, x3, x4, x5, x6, x7, x8,
-  //                     x9, x10,x11,x12,x13,x14,x15,x16};
-  // return vld1q_u8(array);
-  uint8x16_t x{};
-  // incredibly, Visual Studio does not allow x[0] = x1
-  x = vsetq_lane_u8(x1, x, 0);
-  x = vsetq_lane_u8(x2, x, 1);
-  x = vsetq_lane_u8(x3, x, 2);
-  x = vsetq_lane_u8(x4, x, 3);
-  x = vsetq_lane_u8(x5, x, 4);
-  x = vsetq_lane_u8(x6, x, 5);
-  x = vsetq_lane_u8(x7, x, 6);
-  x = vsetq_lane_u8(x8, x, 7);
-  x = vsetq_lane_u8(x9, x, 8);
-  x = vsetq_lane_u8(x10, x, 9);
-  x = vsetq_lane_u8(x11, x, 10);
-  x = vsetq_lane_u8(x12, x, 11);
-  x = vsetq_lane_u8(x13, x, 12);
-  x = vsetq_lane_u8(x14, x, 13);
-  x = vsetq_lane_u8(x15, x, 14);
-  x = vsetq_lane_u8(x16, x, 15);
-  return x;
-}
+#ifndef simdjson_make_uint8x16_t
+#define simdjson_make_uint8x16_t(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, \
+                             x13, x14, x15, x16)                                   \
+   ([=]() {                                                                        \
+     uint8_t array[16] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8,                    \
+                                 x9, x10, x11, x12, x13, x14, x15, x16};           \
+     return vld1q_u8(array);                                                       \
+   }())
+#endif
+#ifndef simdjson_make_int8x16_t
+#define simdjson_make_int8x16_t(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, \
+                             x13, x14, x15, x16)                                  \
+   ([=]() {                                                                       \
+     int8_t array[16] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8,                    \
+                                 x9, x10, x11, x12, x13, x14, x15, x16};          \
+     return vld1q_s8(array);                                                      \
+   }())
+#endif
 
-simdjson_inline uint8x8_t make_uint8x8_t(uint8_t x1,  uint8_t x2,  uint8_t x3,  uint8_t x4,
-                                         uint8_t x5,  uint8_t x6,  uint8_t x7,  uint8_t x8) {
-  uint8x8_t x{};
-  x = vset_lane_u8(x1, x, 0);
-  x = vset_lane_u8(x2, x, 1);
-  x = vset_lane_u8(x3, x, 2);
-  x = vset_lane_u8(x4, x, 3);
-  x = vset_lane_u8(x5, x, 4);
-  x = vset_lane_u8(x6, x, 5);
-  x = vset_lane_u8(x7, x, 6);
-  x = vset_lane_u8(x8, x, 7);
-  return x;
-}
-
-// We have to do the same work for make_int8x16_t
-simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int8_t x4,
-                                       int8_t x5,  int8_t x6,  int8_t x7,  int8_t x8,
-                                       int8_t x9,  int8_t x10, int8_t x11, int8_t x12,
-                                       int8_t x13, int8_t x14, int8_t x15, int8_t x16) {
-  // Doing a load like so end ups generating worse code.
-  // int8_t array[16] = {x1, x2, x3, x4, x5, x6, x7, x8,
-  //                     x9, x10,x11,x12,x13,x14,x15,x16};
-  // return vld1q_s8(array);
-  int8x16_t x{};
-  // incredibly, Visual Studio does not allow x[0] = x1
-  x = vsetq_lane_s8(x1, x, 0);
-  x = vsetq_lane_s8(x2, x, 1);
-  x = vsetq_lane_s8(x3, x, 2);
-  x = vsetq_lane_s8(x4, x, 3);
-  x = vsetq_lane_s8(x5, x, 4);
-  x = vsetq_lane_s8(x6, x, 5);
-  x = vsetq_lane_s8(x7, x, 6);
-  x = vsetq_lane_s8(x8, x, 7);
-  x = vsetq_lane_s8(x9, x, 8);
-  x = vsetq_lane_s8(x10, x, 9);
-  x = vsetq_lane_s8(x11, x, 10);
-  x = vsetq_lane_s8(x12, x, 11);
-  x = vsetq_lane_s8(x13, x, 12);
-  x = vsetq_lane_s8(x14, x, 13);
-  x = vsetq_lane_s8(x15, x, 14);
-  x = vsetq_lane_s8(x16, x, 15);
-  return x;
-}
+#ifndef simdjson_make_uint8x8_t
+#define simdjson_make_uint8x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                \
+   ([=]() {                                                                    \
+     uint8_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                \
+     return vld1_u8(array);                                                    \
+   }())
+#endif
+#ifndef simdjson_make_int8x8_t
+#define simdjson_make_int8x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                 \
+   ([=]() {                                                                    \
+     int8_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                 \
+     return vld1_s8(array);                                                    \
+   }())
+#endif
+#ifndef simdjson_make_uint16x8_t
+#define simdjson_make_uint16x8_t(x1, x2, x3, x4, x5, x6, x7, x8)               \
+   ([=]() {                                                                    \
+     uint16_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};               \
+     return vld1q_u16(array);                                                  \
+   }())
+#endif
+#ifndef simdjson_make_int16x8_t
+#define simdjson_make_int16x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                \
+   ([=]() {                                                                    \
+     int16_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                \
+     return vld1q_s16(array);                                                  \
+   }())
+#endif
 
 // End of private section with Visual Studio workaround
 } // namespace
@@ -10727,7 +10755,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     // purposes (cutting it down to uint16_t costs performance in some compilers).
     simdjson_inline uint32_t to_bitmask() const {
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      const uint8x16_t bit_mask =  make_uint8x16_t(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+      const uint8x16_t bit_mask =  simdjson_make_uint8x16_t(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
                                                    0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80);
 #else
       const uint8x16_t bit_mask =  {0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
@@ -10761,7 +10789,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     simdjson_inline simd8(
       uint8_t v0,  uint8_t v1,  uint8_t v2,  uint8_t v3,  uint8_t v4,  uint8_t v5,  uint8_t v6,  uint8_t v7,
       uint8_t v8,  uint8_t v9,  uint8_t v10, uint8_t v11, uint8_t v12, uint8_t v13, uint8_t v14, uint8_t v15
-    ) : simd8(make_uint8x16_t(
+    ) : simd8(simdjson_make_uint8x16_t(
       v0, v1, v2, v3, v4, v5, v6, v7,
       v8, v9, v10,v11,v12,v13,v14,v15
     )) {}
@@ -10852,7 +10880,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
       uint8x16_t shufmask = vreinterpretq_u8_u64(shufmask64);
       // we increment by 0x08 the second half of the mask
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      uint8x16_t inc = make_uint8x16_t(0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
+      uint8x16_t inc = simdjson_make_uint8x16_t(0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
 #else
       uint8x16_t inc = {0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
 #endif
@@ -10882,7 +10910,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
       uint8x8_t compactmask2 = vcreate_u8(thintable_epi8[mask2]);
       // we increment by 0x08 the second half of the mask
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      uint8x8_t inc = make_uint8x8_t(0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
+      uint8x8_t inc = simdjson_make_uint8x8_t(0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
 #else
       uint8x8_t inc = {0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
 #endif
@@ -10937,7 +10965,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     simdjson_inline simd8(
       int8_t v0,  int8_t v1,  int8_t v2,  int8_t v3, int8_t v4,  int8_t v5,  int8_t v6,  int8_t v7,
       int8_t v8,  int8_t v9,  int8_t v10, int8_t v11, int8_t v12, int8_t v13, int8_t v14, int8_t v15
-    ) : simd8(make_int8x16_t(
+    ) : simd8(simdjson_make_int8x16_t(
       v0, v1, v2, v3, v4, v5, v6, v7,
       v8, v9, v10,v11,v12,v13,v14,v15
     )) {}
@@ -11055,7 +11083,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
 
     simdjson_inline uint64_t to_bitmask() const {
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      const uint8x16_t bit_mask = make_uint8x16_t(
+      const uint8x16_t bit_mask = simdjson_make_uint8x16_t(
         0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
         0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80
       );
@@ -12639,7 +12667,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -12838,7 +12866,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -14691,7 +14719,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -14890,7 +14918,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -17235,7 +17263,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -17434,7 +17462,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -19778,7 +19806,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -19977,7 +20005,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -22436,7 +22464,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -22635,7 +22663,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -25417,7 +25445,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double(const uint8
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -25616,7 +25644,7 @@ simdjson_unused simdjson_inline simdjson_result<double> parse_double_in_string(c
       // Skip leading 0.00000 and see if it still overflows
       const uint8_t *start_digits = src + 2;
       while (*start_digits == '0') { start_digits++; }
-      overflow = start_digits-src > 19;
+      overflow = p-start_digits > 19;
     }
   } else {
     overflow = p-src > 19;
@@ -26114,89 +26142,53 @@ namespace {
 // Start of private section with Visual Studio workaround
 
 
-/**
- * make_uint8x16_t initializes a SIMD register (uint8x16_t).
- * This is needed because, incredibly, the syntax uint8x16_t x = {1,2,3...}
- * is not recognized under Visual Studio! This is a workaround.
- * Using a std::initializer_list<uint8_t>  as a parameter resulted in
- * inefficient code. With the current approach, if the parameters are
- * compile-time constants,
- * GNU GCC compiles it to ldr, the same as uint8x16_t x = {1,2,3...}.
- * You should not use this function except for compile-time constants:
- * it is not efficient.
- */
-simdjson_inline uint8x16_t make_uint8x16_t(uint8_t x1,  uint8_t x2,  uint8_t x3,  uint8_t x4,
-                                         uint8_t x5,  uint8_t x6,  uint8_t x7,  uint8_t x8,
-                                         uint8_t x9,  uint8_t x10, uint8_t x11, uint8_t x12,
-                                         uint8_t x13, uint8_t x14, uint8_t x15, uint8_t x16) {
-  // Doing a load like so end ups generating worse code.
-  // uint8_t array[16] = {x1, x2, x3, x4, x5, x6, x7, x8,
-  //                     x9, x10,x11,x12,x13,x14,x15,x16};
-  // return vld1q_u8(array);
-  uint8x16_t x{};
-  // incredibly, Visual Studio does not allow x[0] = x1
-  x = vsetq_lane_u8(x1, x, 0);
-  x = vsetq_lane_u8(x2, x, 1);
-  x = vsetq_lane_u8(x3, x, 2);
-  x = vsetq_lane_u8(x4, x, 3);
-  x = vsetq_lane_u8(x5, x, 4);
-  x = vsetq_lane_u8(x6, x, 5);
-  x = vsetq_lane_u8(x7, x, 6);
-  x = vsetq_lane_u8(x8, x, 7);
-  x = vsetq_lane_u8(x9, x, 8);
-  x = vsetq_lane_u8(x10, x, 9);
-  x = vsetq_lane_u8(x11, x, 10);
-  x = vsetq_lane_u8(x12, x, 11);
-  x = vsetq_lane_u8(x13, x, 12);
-  x = vsetq_lane_u8(x14, x, 13);
-  x = vsetq_lane_u8(x15, x, 14);
-  x = vsetq_lane_u8(x16, x, 15);
-  return x;
-}
+#ifndef simdjson_make_uint8x16_t
+#define simdjson_make_uint8x16_t(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, \
+                             x13, x14, x15, x16)                                   \
+   ([=]() {                                                                        \
+     uint8_t array[16] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8,                    \
+                                 x9, x10, x11, x12, x13, x14, x15, x16};           \
+     return vld1q_u8(array);                                                       \
+   }())
+#endif
+#ifndef simdjson_make_int8x16_t
+#define simdjson_make_int8x16_t(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, \
+                             x13, x14, x15, x16)                                  \
+   ([=]() {                                                                       \
+     int8_t array[16] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8,                    \
+                                 x9, x10, x11, x12, x13, x14, x15, x16};          \
+     return vld1q_s8(array);                                                      \
+   }())
+#endif
 
-simdjson_inline uint8x8_t make_uint8x8_t(uint8_t x1,  uint8_t x2,  uint8_t x3,  uint8_t x4,
-                                         uint8_t x5,  uint8_t x6,  uint8_t x7,  uint8_t x8) {
-  uint8x8_t x{};
-  x = vset_lane_u8(x1, x, 0);
-  x = vset_lane_u8(x2, x, 1);
-  x = vset_lane_u8(x3, x, 2);
-  x = vset_lane_u8(x4, x, 3);
-  x = vset_lane_u8(x5, x, 4);
-  x = vset_lane_u8(x6, x, 5);
-  x = vset_lane_u8(x7, x, 6);
-  x = vset_lane_u8(x8, x, 7);
-  return x;
-}
-
-// We have to do the same work for make_int8x16_t
-simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int8_t x4,
-                                       int8_t x5,  int8_t x6,  int8_t x7,  int8_t x8,
-                                       int8_t x9,  int8_t x10, int8_t x11, int8_t x12,
-                                       int8_t x13, int8_t x14, int8_t x15, int8_t x16) {
-  // Doing a load like so end ups generating worse code.
-  // int8_t array[16] = {x1, x2, x3, x4, x5, x6, x7, x8,
-  //                     x9, x10,x11,x12,x13,x14,x15,x16};
-  // return vld1q_s8(array);
-  int8x16_t x{};
-  // incredibly, Visual Studio does not allow x[0] = x1
-  x = vsetq_lane_s8(x1, x, 0);
-  x = vsetq_lane_s8(x2, x, 1);
-  x = vsetq_lane_s8(x3, x, 2);
-  x = vsetq_lane_s8(x4, x, 3);
-  x = vsetq_lane_s8(x5, x, 4);
-  x = vsetq_lane_s8(x6, x, 5);
-  x = vsetq_lane_s8(x7, x, 6);
-  x = vsetq_lane_s8(x8, x, 7);
-  x = vsetq_lane_s8(x9, x, 8);
-  x = vsetq_lane_s8(x10, x, 9);
-  x = vsetq_lane_s8(x11, x, 10);
-  x = vsetq_lane_s8(x12, x, 11);
-  x = vsetq_lane_s8(x13, x, 12);
-  x = vsetq_lane_s8(x14, x, 13);
-  x = vsetq_lane_s8(x15, x, 14);
-  x = vsetq_lane_s8(x16, x, 15);
-  return x;
-}
+#ifndef simdjson_make_uint8x8_t
+#define simdjson_make_uint8x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                \
+   ([=]() {                                                                    \
+     uint8_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                \
+     return vld1_u8(array);                                                    \
+   }())
+#endif
+#ifndef simdjson_make_int8x8_t
+#define simdjson_make_int8x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                 \
+   ([=]() {                                                                    \
+     int8_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                 \
+     return vld1_s8(array);                                                    \
+   }())
+#endif
+#ifndef simdjson_make_uint16x8_t
+#define simdjson_make_uint16x8_t(x1, x2, x3, x4, x5, x6, x7, x8)               \
+   ([=]() {                                                                    \
+     uint16_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};               \
+     return vld1q_u16(array);                                                  \
+   }())
+#endif
+#ifndef simdjson_make_int16x8_t
+#define simdjson_make_int16x8_t(x1, x2, x3, x4, x5, x6, x7, x8)                \
+   ([=]() {                                                                    \
+     int16_t array[8] = {x1, x2,  x3,  x4,  x5,  x6,  x7,  x8};                \
+     return vld1q_s16(array);                                                  \
+   }())
+#endif
 
 // End of private section with Visual Studio workaround
 } // namespace
@@ -26255,7 +26247,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     // purposes (cutting it down to uint16_t costs performance in some compilers).
     simdjson_inline uint32_t to_bitmask() const {
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      const uint8x16_t bit_mask =  make_uint8x16_t(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+      const uint8x16_t bit_mask =  simdjson_make_uint8x16_t(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
                                                    0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80);
 #else
       const uint8x16_t bit_mask =  {0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
@@ -26289,7 +26281,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     simdjson_inline simd8(
       uint8_t v0,  uint8_t v1,  uint8_t v2,  uint8_t v3,  uint8_t v4,  uint8_t v5,  uint8_t v6,  uint8_t v7,
       uint8_t v8,  uint8_t v9,  uint8_t v10, uint8_t v11, uint8_t v12, uint8_t v13, uint8_t v14, uint8_t v15
-    ) : simd8(make_uint8x16_t(
+    ) : simd8(simdjson_make_uint8x16_t(
       v0, v1, v2, v3, v4, v5, v6, v7,
       v8, v9, v10,v11,v12,v13,v14,v15
     )) {}
@@ -26380,7 +26372,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
       uint8x16_t shufmask = vreinterpretq_u8_u64(shufmask64);
       // we increment by 0x08 the second half of the mask
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      uint8x16_t inc = make_uint8x16_t(0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
+      uint8x16_t inc = simdjson_make_uint8x16_t(0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
 #else
       uint8x16_t inc = {0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
 #endif
@@ -26410,7 +26402,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
       uint8x8_t compactmask2 = vcreate_u8(thintable_epi8[mask2]);
       // we increment by 0x08 the second half of the mask
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      uint8x8_t inc = make_uint8x8_t(0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
+      uint8x8_t inc = simdjson_make_uint8x8_t(0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08);
 #else
       uint8x8_t inc = {0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
 #endif
@@ -26465,7 +26457,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
     simdjson_inline simd8(
       int8_t v0,  int8_t v1,  int8_t v2,  int8_t v3, int8_t v4,  int8_t v5,  int8_t v6,  int8_t v7,
       int8_t v8,  int8_t v9,  int8_t v10, int8_t v11, int8_t v12, int8_t v13, int8_t v14, int8_t v15
-    ) : simd8(make_int8x16_t(
+    ) : simd8(simdjson_make_int8x16_t(
       v0, v1, v2, v3, v4, v5, v6, v7,
       v8, v9, v10,v11,v12,v13,v14,v15
     )) {}
@@ -26583,7 +26575,7 @@ simdjson_inline int8x16_t make_int8x16_t(int8_t x1,  int8_t x2,  int8_t x3,  int
 
     simdjson_inline uint64_t to_bitmask() const {
 #ifdef SIMDJSON_REGULAR_VISUAL_STUDIO
-      const uint8x16_t bit_mask = make_uint8x16_t(
+      const uint8x16_t bit_mask = simdjson_make_uint8x16_t(
         0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
         0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80
       );
@@ -27045,6 +27037,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -27061,7 +27055,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -27276,7 +27272,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -27370,6 +27369,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -27713,8 +27727,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -27840,6 +27866,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<arm64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -27932,6 +27960,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -28417,6 +28446,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -28924,7 +28954,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -28971,6 +29001,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -29051,6 +29083,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -29627,6 +29660,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -29657,6 +29705,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -29686,13 +29740,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -29773,10 +29833,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -30144,6 +30209,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -30213,6 +30280,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<arm64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -30285,6 +30354,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<arm64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -30577,8 +30648,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -31574,7 +31644,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -31633,6 +31713,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -31903,6 +31987,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondeman
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<arm64::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -32089,6 +32178,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -32224,6 +32315,11 @@ simdjson_inline simdjson_result<double> simdjson_result<arm64::ondemand::documen
 simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<arm64::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -34063,6 +34159,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -34083,6 +34181,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -34106,6 +34211,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -34118,6 +34225,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -34765,6 +34876,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -34911,6 +35026,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -35037,6 +35172,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondeman
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<arm64::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -35135,6 +35275,11 @@ simdjson_inline simdjson_result<arm64::ondemand::value>::operator bool() noexcep
 simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<arm64::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<arm64::ondemand::value>::current_location() noexcept {
@@ -35673,6 +35818,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -35795,6 +35948,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());
@@ -36797,6 +36958,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -36813,7 +36976,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -37028,7 +37193,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -37122,6 +37290,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -37465,8 +37648,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -37592,6 +37787,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<fallback::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -37684,6 +37881,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -38169,6 +38367,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -38676,7 +38875,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -38723,6 +38922,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -38803,6 +39004,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -39379,6 +39581,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -39409,6 +39626,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -39438,13 +39661,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -39525,10 +39754,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -39896,6 +40130,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -39965,6 +40201,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<fallback::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -40037,6 +40275,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<fallback::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -40329,8 +40569,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -41326,7 +41565,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -41385,6 +41634,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -41655,6 +41908,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::onde
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<fallback::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -41841,6 +42099,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -41976,6 +42236,11 @@ simdjson_inline simdjson_result<double> simdjson_result<fallback::ondemand::docu
 simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<fallback::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -43815,6 +44080,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -43835,6 +44102,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -43858,6 +44132,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -43870,6 +44146,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -44517,6 +44797,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -44663,6 +44947,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -44789,6 +45093,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::onde
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<fallback::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -44887,6 +45196,11 @@ simdjson_inline simdjson_result<fallback::ondemand::value>::operator bool() noex
 simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<fallback::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<fallback::ondemand::value>::current_location() noexcept {
@@ -45425,6 +45739,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -45547,6 +45869,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());
@@ -47041,6 +47371,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -47057,7 +47389,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -47272,7 +47606,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -47366,6 +47703,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -47709,8 +48061,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -47836,6 +48200,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<haswell::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -47928,6 +48294,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -48413,6 +48780,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -48920,7 +49288,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -48967,6 +49335,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -49047,6 +49417,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -49623,6 +49994,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -49653,6 +50039,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -49682,13 +50074,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -49769,10 +50167,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -50140,6 +50543,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -50209,6 +50614,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<haswell::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -50281,6 +50688,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<haswell::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -50573,8 +50982,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -51570,7 +51978,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -51629,6 +52047,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -51899,6 +52321,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondem
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<haswell::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -52085,6 +52512,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -52220,6 +52649,11 @@ simdjson_inline simdjson_result<double> simdjson_result<haswell::ondemand::docum
 simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<haswell::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -54059,6 +54493,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -54079,6 +54515,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -54102,6 +54545,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -54114,6 +54559,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -54761,6 +55210,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -54907,6 +55360,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -55033,6 +55506,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondem
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<haswell::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -55131,6 +55609,11 @@ simdjson_inline simdjson_result<haswell::ondemand::value>::operator bool() noexc
 simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<haswell::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<haswell::ondemand::value>::current_location() noexcept {
@@ -55669,6 +56152,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -55791,6 +56282,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());
@@ -57284,6 +57783,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -57300,7 +57801,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -57515,7 +58018,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -57609,6 +58115,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -57952,8 +58473,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -58079,6 +58612,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<icelake::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -58171,6 +58706,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -58656,6 +59192,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -59163,7 +59700,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -59210,6 +59747,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -59290,6 +59829,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -59866,6 +60406,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -59896,6 +60451,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -59925,13 +60486,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -60012,10 +60579,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -60383,6 +60955,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -60452,6 +61026,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<icelake::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -60524,6 +61100,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<icelake::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -60816,8 +61394,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -61813,7 +62390,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -61872,6 +62459,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -62142,6 +62733,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondem
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<icelake::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -62328,6 +62924,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -62463,6 +63061,11 @@ simdjson_inline simdjson_result<double> simdjson_result<icelake::ondemand::docum
 simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<icelake::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -64302,6 +64905,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -64322,6 +64927,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -64345,6 +64957,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -64357,6 +64971,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -65004,6 +65622,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -65150,6 +65772,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -65276,6 +65918,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondem
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<icelake::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -65374,6 +66021,11 @@ simdjson_inline simdjson_result<icelake::ondemand::value>::operator bool() noexc
 simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<icelake::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<icelake::ondemand::value>::current_location() noexcept {
@@ -65912,6 +66564,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -66034,6 +66694,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());
@@ -67642,6 +68310,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -67658,7 +68328,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -67873,7 +68545,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -67967,6 +68642,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -68310,8 +69000,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -68437,6 +69139,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<ppc64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -68529,6 +69233,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -69014,6 +69719,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -69521,7 +70227,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -69568,6 +70274,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -69648,6 +70356,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -70224,6 +70933,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -70254,6 +70978,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -70283,13 +71013,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -70370,10 +71106,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -70741,6 +71482,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -70810,6 +71553,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<ppc64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -70882,6 +71627,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<ppc64::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -71174,8 +71921,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -72171,7 +72917,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -72230,6 +72986,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -72500,6 +73260,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondeman
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<ppc64::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -72686,6 +73451,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -72821,6 +73588,11 @@ simdjson_inline simdjson_result<double> simdjson_result<ppc64::ondemand::documen
 simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<ppc64::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -74660,6 +75432,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -74680,6 +75454,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -74703,6 +75484,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -74715,6 +75498,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -75362,6 +76149,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -75508,6 +76299,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -75634,6 +76445,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondeman
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<ppc64::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -75732,6 +76548,11 @@ simdjson_inline simdjson_result<ppc64::ondemand::value>::operator bool() noexcep
 simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<ppc64::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<ppc64::ondemand::value>::current_location() noexcept {
@@ -76270,6 +77091,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -76392,6 +77221,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());
@@ -78323,6 +79160,8 @@ public:
    */
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_uint64() noexcept;
@@ -78339,7 +79178,9 @@ public:
   simdjson_warn_unused simdjson_inline simdjson_result<number> get_number() noexcept;
 
   simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_string(bool check_trailing, bool allow_replacement) noexcept;
-    simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
+  template <typename string_type>
+  simdjson_warn_unused simdjson_inline error_code get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept;
+  simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> get_root_wobbly_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<raw_json_string> get_root_raw_json_string(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64(bool check_trailing) noexcept;
   simdjson_warn_unused simdjson_inline simdjson_result<uint64_t> get_root_uint64_in_string(bool check_trailing) noexcept;
@@ -78554,7 +79395,10 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -78648,6 +79492,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
 
+  /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
 
   /**
    * Cast this JSON value to a "wobbly" string.
@@ -78991,8 +79850,20 @@ public:
    * - true
    * - false
    * - null
+   *
+   * See also value::raw_json().
    */
   simdjson_inline std::string_view raw_json_token() noexcept;
+
+  /**
+   * Get a string_view pointing at this value in the JSON document.
+   * If this element is an array or an object, it consumes the array or the object
+   * and returns a string_view instance corresponding to the
+   * array as represented in JSON. It points inside the original document.
+   * If this element is a scalar (string, number, Boolean, null), it returns what
+   * raw_json_token() would return.
+   */
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /**
    * Returns the current location in the document if in bounds.
@@ -79118,6 +79989,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<westmere::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -79210,6 +80083,7 @@ public:
 
   /** @copydoc simdjson_inline std::string_view value::raw_json_token() const noexcept */
   simdjson_inline simdjson_result<std::string_view> raw_json_token() noexcept;
+  simdjson_inline simdjson_result<std::string_view> raw_json() noexcept;
 
   /** @copydoc simdjson_inline simdjson_result<const char *> current_location() noexcept */
   simdjson_inline simdjson_result<const char *> current_location() noexcept;
@@ -79695,6 +80569,7 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> unescape(raw_json_string in, bool allow_replacement) noexcept;
   simdjson_inline simdjson_result<std::string_view> unescape_wobbly(raw_json_string in) noexcept;
+
   simdjson_inline void reenter_child(token_position position, depth_t child_depth) noexcept;
 
   simdjson_inline error_code consume_character(char c) noexcept;
@@ -80202,7 +81077,7 @@ public:
    * It is expected that the content is a valid UTF-8 file, containing a valid JSON document.
    * Otherwise the iterate method may return an error. In particular, the whole input should be
    * valid: we do not attempt to tolerate incorrect content either before or after a JSON
-   * document.
+   * document. If there is a UTF-8 BOM, the parser skips it.
    *
    * ### IMPORTANT: Validate what you use
    *
@@ -80249,6 +81124,8 @@ public:
   simdjson_warn_unused simdjson_result<document> iterate(std::string_view json, size_t capacity) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const std::string &json) & noexcept;
+  /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
+  simdjson_warn_unused simdjson_result<document> iterate(std::string &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
   simdjson_warn_unused simdjson_result<document> iterate(const simdjson_result<padded_string> &json) & noexcept;
   /** @overload simdjson_result<document> iterate(padded_string_view json) & noexcept */
@@ -80329,6 +81206,7 @@ public:
    * arrays or objects) MUST be separated with ASCII whitespace.
    *
    * The characters inside a JSON document, and between JSON documents, must be valid Unicode (UTF-8).
+   * If there is a UTF-8 BOM, the parser skips it.
    *
    * The documents must not exceed batch_size bytes (by default 1MB) or they will fail to parse.
    * Setting batch_size to excessively large or excessively small values may impact negatively the
@@ -80905,6 +81783,21 @@ public:
    */
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
   /**
+   * Attempts to fill the provided std::string reference with the parsed value of the current string.
+   *
+   * The string is guaranteed to be valid UTF-8.
+   *
+   * Important: a value should be consumed once. Calling get_string() twice on the same value
+   * is an error.
+   *
+   * Performance: This method may be slower than get_string() or get_string(bool) because it may need to allocate memory.
+   * We recommend you avoid allocating an std::string unless you need to.
+   *
+   * @returns INCORRECT_TYPE if the JSON value is not a string. Otherwise, we return SUCCESS.
+   */
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
+  /**
    * Cast this JSON value to a string.
    *
    * The string is not guaranteed to be valid UTF-8. See https://simonsapin.github.io/wtf-8/
@@ -80935,6 +81828,12 @@ public:
   /**
    * Cast this JSON value to a value when the document is an object or an array.
    *
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is set to 1 (which is the case when building in Debug mode
+   * by default), and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
    * @returns A value if a JSON array or object cannot be found.
    * @returns SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
@@ -80964,13 +81863,19 @@ public:
   template<typename T> simdjson_inline simdjson_result<T> get() & noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
   /** @overload template<typename T> simdjson_result<T> get() & noexcept */
   template<typename T> simdjson_inline simdjson_result<T> get() && noexcept {
     // Unless the simdjson library provides an inline implementation, calling this method should
     // immediately fail.
-    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library.");
+    static_assert(!sizeof(T), "The get method with given type is not implemented by the simdjson library. "
+      "The supported types are ondemand::object, ondemand::array, raw_json_string, std::string_view, uint64_t, "
+      "int64_t, double, and bool. We recommend you use get_double(), get_bool(), get_uint64(), get_int64(), "
+      " get_object(), get_array(), get_raw_json_string(), or get_string() instead of the get template.");
   }
 
   /**
@@ -81051,10 +81956,15 @@ public:
    */
   simdjson_inline operator bool() noexcept(false);
   /**
-   * Cast this JSON value to a value.
+   * Cast this JSON value to a value when the document is an object or an array.
    *
-   * @returns A value value.
-   * @exception if a JSON value cannot be found
+   * You must not have begun iterating through the object or array. When
+   * SIMDJSON_DEVELOPMENT_CHECKS is defined, and you have already begun iterating,
+   * you will get an OUT_OF_ORDER_ITERATION error. If you have begun iterating, you can use
+   * rewind() to reset the document to its initial state before calling this method.
+   *
+   * @returns A value value if a JSON array or object cannot be found.
+   * @exception SCALAR_DOCUMENT_AS_VALUE error is the document is a scalar (see is_scalar() function).
    */
   simdjson_inline operator value() noexcept(false);
 #endif
@@ -81422,6 +82332,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -81491,6 +82403,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<westmere::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -81563,6 +82477,8 @@ public:
   simdjson_inline simdjson_result<double> get_double() noexcept;
   simdjson_inline simdjson_result<double> get_double_in_string() noexcept;
   simdjson_inline simdjson_result<std::string_view> get_string(bool allow_replacement = false) noexcept;
+  template <typename string_type>
+  simdjson_inline error_code get_string(string_type& receiver, bool allow_replacement = false) noexcept;
   simdjson_inline simdjson_result<std::string_view> get_wobbly_string() noexcept;
   simdjson_inline simdjson_result<westmere::ondemand::raw_json_string> get_raw_json_string() noexcept;
   simdjson_inline simdjson_result<bool> get_bool() noexcept;
@@ -81855,8 +82771,7 @@ private:
    * Parse the next document found in the buffer previously given to document_stream.
    *
    * The content should be a valid JSON document encoded as UTF-8. If there is a
-   * UTF-8 BOM, the caller is responsible for omitting it, UTF-8 BOM are
-   * discouraged.
+   * UTF-8 BOM, the parser skips it.
    *
    * You do NOT need to pre-allocate a parser.  This function takes care of
    * pre-allocating a capacity defined by the batch_size defined when creating the
@@ -82852,7 +83767,17 @@ simdjson_inline simdjson_result<object> document::start_or_resume_object() noexc
 simdjson_inline simdjson_result<value> document::get_value() noexcept {
   // Make sure we start any arrays or objects before returning, so that start_root_<object/array>()
   // gets called.
-  iter.assert_at_document_depth();
+
+  // It is the convention throughout the code that  the macro `SIMDJSON_DEVELOPMENT_CHECKS` determines whether
+  // we check for OUT_OF_ORDER_ITERATION. Proper on::demand code should never trigger this error.
+#if SIMDJSON_DEVELOPMENT_CHECKS
+  if (!iter.at_root()) { return OUT_OF_ORDER_ITERATION; }
+#endif
+  // assert_at_root() serves two purposes: in Debug mode, whether or not
+  // SIMDJSON_DEVELOPMENT_CHECKS is set or not, it checks that we are at the root of
+  // the document (this will typically be redundant). In release mode, it generates
+  // SIMDJSON_ASSUME statements to allow the compiler to make assumptions.
+  iter.assert_at_root();
   switch (*iter.peek()) {
     case '[': {
       // The following lines check that the document ends with ].
@@ -82911,6 +83836,10 @@ simdjson_inline simdjson_result<double> document::get_double_in_string() noexcep
 }
 simdjson_inline simdjson_result<std::string_view> document::get_string(bool allow_replacement) noexcept {
   return get_root_value_iterator().get_root_string(true, allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code document::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return get_root_value_iterator().get_root_string(receiver, true, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> document::get_wobbly_string() noexcept {
   return get_root_value_iterator().get_root_wobbly_string(true);
@@ -83181,6 +84110,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::onde
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<westmere::ondemand::document>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::document>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -83367,6 +84301,8 @@ simdjson_inline simdjson_result<int64_t> document_reference::get_int64_in_string
 simdjson_inline simdjson_result<double> document_reference::get_double() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<double> document_reference::get_double_in_string() noexcept { return doc->get_root_value_iterator().get_root_double(false); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_string(bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(false, allow_replacement); }
+template <typename string_type>
+simdjson_inline error_code document_reference::get_string(string_type& receiver, bool allow_replacement) noexcept { return doc->get_root_value_iterator().get_root_string(receiver, false, allow_replacement); }
 simdjson_inline simdjson_result<std::string_view> document_reference::get_wobbly_string() noexcept { return doc->get_root_value_iterator().get_root_wobbly_string(false); }
 simdjson_inline simdjson_result<raw_json_string> document_reference::get_raw_json_string() noexcept { return doc->get_root_value_iterator().get_root_raw_json_string(false); }
 simdjson_inline simdjson_result<bool> document_reference::get_bool() noexcept { return doc->get_root_value_iterator().get_root_bool(false); }
@@ -83502,6 +84438,11 @@ simdjson_inline simdjson_result<double> simdjson_result<westmere::ondemand::docu
 simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::document_reference>::get_string(bool allow_replacement) noexcept {
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
+}
+template <typename string_type>
+simdjson_inline error_code simdjson_result<westmere::ondemand::document_reference>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
 }
 simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::document_reference>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
@@ -85341,6 +86282,8 @@ simdjson_warn_unused simdjson_inline error_code parser::allocate(size_t new_capa
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length() || !string_buf) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -85361,6 +86304,13 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string_view json, size_t allocated) & noexcept {
   return iterate(padded_string_view(json, allocated));
+}
+
+simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(std::string &json) & noexcept {
+  if(json.capacity() - json.size() < SIMDJSON_PADDING) {
+    json.reserve(json.size() + SIMDJSON_PADDING);
+  }
+  return iterate(padded_string_view(json));
 }
 
 simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(const std::string &json) & noexcept {
@@ -85384,6 +86334,8 @@ simdjson_warn_unused simdjson_inline simdjson_result<document> parser::iterate(c
 simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iterate_raw(padded_string_view json) & noexcept {
   if (json.padding() < SIMDJSON_PADDING) { return INSUFFICIENT_PADDING; }
 
+  json.remove_utf8_bom();
+
   // Allocate if needed
   if (capacity() < json.length()) {
     SIMDJSON_TRY( allocate(json.length(), max_depth()) );
@@ -85396,6 +86348,10 @@ simdjson_warn_unused simdjson_inline simdjson_result<json_iterator> parser::iter
 
 inline simdjson_result<document_stream> parser::iterate_many(const uint8_t *buf, size_t len, size_t batch_size, bool allow_comma_separated) noexcept {
   if(batch_size < MINIMAL_BATCH_SIZE) { batch_size = MINIMAL_BATCH_SIZE; }
+  if((len >= 3) && (std::memcmp(buf, "\xEF\xBB\xBF", 3) == 0)) {
+    buf += 3;
+    len -= 3;
+  }
   if(allow_comma_separated && batch_size < len) { batch_size = len; }
   return document_stream(*this, buf, len, batch_size, allow_comma_separated);
 }
@@ -86043,6 +86999,10 @@ simdjson_inline simdjson_result<raw_json_string> value::get_raw_json_string() no
 simdjson_inline simdjson_result<std::string_view> value::get_string(bool allow_replacement) noexcept {
   return iter.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code value::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  return iter.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> value::get_wobbly_string() noexcept {
   return iter.get_wobbly_string();
 }
@@ -86189,6 +87149,26 @@ simdjson_inline std::string_view value::raw_json_token() noexcept {
   return std::string_view(reinterpret_cast<const char*>(iter.peek_start()), iter.peek_start_length());
 }
 
+simdjson_inline simdjson_result<std::string_view> value::raw_json() noexcept {
+  json_type t;
+  SIMDJSON_TRY(type().get(t));
+  switch (t)
+  {
+    case json_type::array: {
+      ondemand::array array;
+      SIMDJSON_TRY(get_array().get(array));
+      return array.raw_json();
+    }
+    case json_type::object: {
+      ondemand::object object;
+      SIMDJSON_TRY(get_object().get(object));
+      return object.raw_json();
+    }
+    default:
+      return raw_json_token();
+  }
+}
+
 simdjson_inline simdjson_result<const char *> value::current_location() noexcept {
   return iter.json_iter().current_location();
 }
@@ -86315,6 +87295,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::onde
   if (error()) { return error(); }
   return first.get_string(allow_replacement);
 }
+template <typename string_type>
+simdjson_inline error_code simdjson_result<westmere::ondemand::value>::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  if (error()) { return error(); }
+  return first.get_string(receiver, allow_replacement);
+}
 simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::value>::get_wobbly_string() noexcept {
   if (error()) { return error(); }
   return first.get_wobbly_string();
@@ -86413,6 +87398,11 @@ simdjson_inline simdjson_result<westmere::ondemand::value>::operator bool() noex
 simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::value>::raw_json_token() noexcept {
   if (error()) { return error(); }
   return first.raw_json_token();
+}
+
+simdjson_inline simdjson_result<std::string_view> simdjson_result<westmere::ondemand::value>::raw_json() noexcept {
+  if (error()) { return error(); }
+  return first.raw_json();
 }
 
 simdjson_inline simdjson_result<const char *> simdjson_result<westmere::ondemand::value>::current_location() noexcept {
@@ -86951,6 +87941,14 @@ simdjson_warn_unused simdjson_inline simdjson_result<bool> value_iterator::parse
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_string(bool allow_replacement) noexcept {
   return get_raw_json_string().unescape(json_iter(), allow_replacement);
 }
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_string(string_type& receiver, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_string(allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
+}
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_wobbly_string() noexcept {
   return get_raw_json_string().unescape_wobbly(json_iter());
 }
@@ -87073,6 +88071,14 @@ simdjson_inline simdjson_result<number> value_iterator::get_root_number(bool che
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_string(bool check_trailing, bool allow_replacement) noexcept {
   return get_root_raw_json_string(check_trailing).unescape(json_iter(), allow_replacement);
+}
+template <typename string_type>
+simdjson_warn_unused simdjson_inline error_code value_iterator::get_root_string(string_type& receiver, bool check_trailing, bool allow_replacement) noexcept {
+  std::string_view content;
+  auto err = get_root_string(check_trailing, allow_replacement).get(content);
+  if (err) { return err; }
+  receiver = content;
+  return SUCCESS;
 }
 simdjson_warn_unused simdjson_inline simdjson_result<std::string_view> value_iterator::get_root_wobbly_string(bool check_trailing) noexcept {
   return get_root_raw_json_string(check_trailing).unescape_wobbly(json_iter());

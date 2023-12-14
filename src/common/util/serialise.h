@@ -5,6 +5,7 @@
 #pragma once
 
 #include "bson.h"
+#include "date.h"
 #include "concept.h"
 #if defined __has_include
 #if __has_include("../../log/NanoLog.h")
@@ -310,9 +311,21 @@ template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::oid& model ) { return { model }; }
 
 template <>
-inline bsoncxx::types::bson_value::value spt::util::bson( const std::chrono::time_point<std::chrono::system_clock>& model )
+inline bsoncxx::types::bson_value::value spt::util::bson( const DateTime& model )
 {
   return { bsoncxx::types::b_date{ model } };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const DateTimeMs& model )
+{
+  return { bsoncxx::types::b_date{ model } };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const DateTimeNs& model )
+{
+  return { bsoncxx::types::b_date{ std::chrono::duration_cast<std::chrono::milliseconds>( model.time_since_epoch() ) } };
 }
 
 template <spt::util::Visitable M>
@@ -496,13 +509,17 @@ inline void spt::util::set( uint32_t& field, bsoncxx::types::bson_value::view va
 template <>
 inline void spt::util::set( int64_t& field, bsoncxx::types::bson_value::view value )
 {
+  using enum bsoncxx::type;
   switch ( value.type() )
   {
-  case bsoncxx::type::k_int32:
+  case k_int32:
     field = static_cast<int64_t>( value.get_int32().value );
     break;
-  case bsoncxx::type::k_double:
+  case k_double:
     field = static_cast<int64_t>( value.get_double().value );
+    break;
+  case k_date:
+    field = static_cast<int64_t>( value.get_date().value.count() );
     break;
   default:
     field = value.get_int64().value;
@@ -534,17 +551,33 @@ template <>
 inline void spt::util::set( std::string& field, bsoncxx::types::bson_value::view value ) { field = value.get_string().value; }
 
 template <>
-inline void spt::util::set( std::chrono::time_point<std::chrono::system_clock>& field, bsoncxx::types::bson_value::view value )
+inline void spt::util::set( DateTime& field, bsoncxx::types::bson_value::view value )
 {
-  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::time_point<std::chrono::system_clock>{ std::chrono::microseconds{ value.get_int32() } };
-  else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::time_point<std::chrono::system_clock>{ std::chrono::microseconds{ value.get_int64() } };
-  else field = std::chrono::time_point<std::chrono::system_clock>{ value.get_date().value };
+  if ( bsoncxx::type::k_int32 == value.type() ) field = DateTime{ std::chrono::seconds{ value.get_int32() } };
+  else if ( bsoncxx::type::k_int64 == value.type() ) field = DateTime{ std::chrono::microseconds{ value.get_int64() } };
+  else field = DateTime{ value.get_date().value };
+}
+
+template <>
+inline void spt::util::set( DateTimeMs& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_int32 == value.type() ) field = DateTimeMs{ std::chrono::seconds{ value.get_int32() } };
+  else if ( bsoncxx::type::k_int64 == value.type() ) field = DateTimeMs{ std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::microseconds{ value.get_int64() } ) };
+  else field = DateTimeMs{ value.get_date().value };
+}
+
+template <>
+inline void spt::util::set( DateTimeNs& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_int32 == value.type() ) field = DateTimeNs{ std::chrono::seconds{ value.get_int32() } };
+  else if ( bsoncxx::type::k_int64 == value.type() ) field = DateTimeNs{ std::chrono::microseconds{ value.get_int64() } };
+  else field = DateTimeNs{ value.get_date().value };
 }
 
 template <>
 inline void spt::util::set( std::chrono::milliseconds& field, bsoncxx::types::bson_value::view value )
 {
-  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::milliseconds{ value.get_int32() };
+  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
   else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::milliseconds{ value.get_int64() };
   else field = value.get_date().value;
 }
@@ -552,7 +585,7 @@ inline void spt::util::set( std::chrono::milliseconds& field, bsoncxx::types::bs
 template <>
 inline void spt::util::set( std::chrono::microseconds& field, bsoncxx::types::bson_value::view value )
 {
-  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::microseconds{ value.get_int32() };
+  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
   else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::microseconds{ value.get_int64() };
   else field = std::chrono::duration_cast<std::chrono::microseconds>( value.get_date().value );
 }
@@ -560,7 +593,7 @@ inline void spt::util::set( std::chrono::microseconds& field, bsoncxx::types::bs
 template <>
 inline void spt::util::set( std::chrono::nanoseconds& field, bsoncxx::types::bson_value::view value )
 {
-  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::microseconds{ value.get_int32() };
+  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
   else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::microseconds{ value.get_int64() };
   else field = std::chrono::duration_cast<std::chrono::nanoseconds>( value.get_date().value );
 }

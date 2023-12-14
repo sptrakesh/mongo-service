@@ -7,6 +7,7 @@
 #include "concept.h"
 #include "date.h"
 #include "magic_enum.hpp"
+#include "parser.h"
 #include "../simdjson/simdjson.h"
 #if defined __has_include
 #if __has_include("../../log/NanoLog.h")
@@ -272,9 +273,11 @@ namespace spt::util::json
   template <Model M>
   void unmarshall( M& model, std::string_view view )
   {
-    simdjson::ondemand::parser parser;
+    auto& pool = parser::Pool::instance();
+    auto proxy = pool.acquire();
+    auto& parser = proxy.value().operator*();
     auto str = simdjson::padded_string{ view };
-    auto doc = parser.iterate( str );
+    auto doc = parser.parser().iterate( str );
     auto obj = doc.get_object().value();
     set( model, obj );
   }

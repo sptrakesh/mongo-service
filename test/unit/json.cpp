@@ -5,6 +5,7 @@
 #include "model.h"
 
 #include <sstream>
+#include <thread>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
@@ -460,6 +461,28 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
         CHECK_THAT( copy.hidden, Catch::Matchers::Equals( obj.hidden ) );
         CHECK( copy.id == obj.id );
       }
+    }
+  }
+}
+
+SCENARIO( "Pooled parser test suite", "[pooled-parser]" )
+{
+  GIVEN( "A fully visitable struct" )
+  {
+    const auto obj = test::serial::Full{};
+    const auto data = json::str( obj );
+
+    WHEN( "Deserialising data in a loop" )
+    {
+      for ( auto i = 0; i < 100; ++i ) json::unmarshall<test::serial::Full>( data );
+    }
+
+    AND_WHEN( "Deserialing data in parallel" )
+    {
+      auto threads = std::vector<std::thread>{};
+      threads.reserve( 100 );
+      for ( auto i = 0; i < 100; ++i ) threads.emplace_back( [&data](){ json::unmarshall<test::serial::Full>( data ); } );
+      for ( auto i = 0; i < 100; ++i ) if ( threads[i].joinable() ) threads[i].join();
     }
   }
 }

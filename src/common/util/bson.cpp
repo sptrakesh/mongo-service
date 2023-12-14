@@ -15,7 +15,6 @@
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/types.hpp>
 #include <bsoncxx/oid.hpp>
-#include <bsoncxx/json.hpp>
 #include <bsoncxx/array/view.hpp>
 
 #include <iomanip>
@@ -194,24 +193,75 @@ namespace spt::util
   }
 
   template<>
-  std::chrono::time_point<std::chrono::system_clock> bsonValue( std::string_view key, const bsoncxx::document::view& view )
+  DateTime bsonValue( std::string_view key, const bsoncxx::document::view& view )
   {
+    using enum bsoncxx::type;
     const auto type = view[key].type();
-    if ( bsoncxx::type::k_date == type ) return std::chrono::time_point<std::chrono::system_clock>( view[key].get_date().value );
+    if ( k_date == type ) return DateTime{ view[key].get_date().value };
+    if ( k_int32 == type ) return DateTime{ std::chrono::seconds{ view[key].get_int32().value } };
+    if ( k_int64 == type ) return DateTime{ std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::microseconds{ view[key].get_int64().value } ) };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
 
     std::string ss;
-    ss.reserve( 64 );
+    ss.reserve( 18 + key.size() );
     ss.append( "Invalid type for " ).append( key );
     throw std::runtime_error( ss );
   }
 
   template<>
-  std::optional<std::chrono::time_point<std::chrono::system_clock>> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
+  std::optional<DateTime> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
   {
     if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
-    return bsonValue<std::chrono::time_point<std::chrono::system_clock>>( key, view );
+    return bsonValue<DateTime>( key, view );
+  }
+
+  template<>
+  DateTimeMs bsonValue( std::string_view key, const bsoncxx::document::view& view )
+  {
+    using enum bsoncxx::type;
+    const auto type = view[key].type();
+    if ( k_date == type ) return DateTimeMs{ view[key].get_date().value };
+    if ( k_int32 == type ) return DateTimeMs{ std::chrono::seconds{ view[key].get_int32().value } };
+    if ( k_int64 == type ) return DateTimeMs{ std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::microseconds{ view[key].get_int64().value } ) };
+
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
+
+    std::string ss;
+    ss.reserve( 18 + key.size() );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
+  }
+
+  template<>
+  std::optional<DateTimeMs> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
+  {
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    return bsonValue<DateTimeMs>( key, view );
+  }
+
+  template<>
+  DateTimeNs bsonValue( std::string_view key, const bsoncxx::document::view& view )
+  {
+    using enum bsoncxx::type;
+    const auto type = view[key].type();
+    if ( k_date == type ) return DateTimeNs{ view[key].get_date().value };
+    if ( k_int32 == type ) return DateTimeNs{ std::chrono::seconds{ view[key].get_int32().value } };
+    if ( k_int64 == type ) return DateTimeNs{ std::chrono::microseconds{ view[key].get_int64().value } };
+
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
+
+    std::string ss;
+    ss.reserve( 18 + key.size() );
+    ss.append( "Invalid type for " ).append( key );
+    throw std::runtime_error( ss );
+  }
+
+  template<>
+  std::optional<DateTimeNs> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
+  {
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    return bsonValue<DateTimeNs>( key, view );
   }
 
   template<>
