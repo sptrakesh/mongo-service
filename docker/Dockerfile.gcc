@@ -22,7 +22,7 @@ COPY --from=base /opt/spt/bin /opt/spt/bin
 COPY --from=base /opt/spt/lib /opt/spt/lib
 COPY --from=base /opt/spt/include /opt/spt/include
 
-RUN adduser --shell /bin/sh --home /home/spt spt \
+RUN useradd --shell /bin/sh --home-dir /home/spt spt \
   && mkdir -p /opt/spt/logs /opt/spt/data \
   && chown spt:spt /opt/spt/logs /opt/spt/data
 

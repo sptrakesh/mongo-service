@@ -21,7 +21,7 @@ target_compile_definitions(integration
 )
 
 target_link_libraries(integration
-  PRIVATE nanolog mongo-service-common mongo-service-api ilp ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::json Catch2::Catch2 cpr::cpr fmt::fmt ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
+  PRIVATE nanolog mongo-service-common mongo-service-api ilp mongo::mongocxx_static Boost::boost Boost::json Catch2::Catch2 cpr::cpr fmt::fmt ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
 
 add_test(NAME integration COMMAND integration)
 install(TARGETS integration DESTINATION bin)
