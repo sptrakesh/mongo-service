@@ -368,6 +368,28 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
         CHECK_FALSE( ss.str().empty() );
       }
     }
+
+    AND_WHEN( "Parsing data with invalid characters" )
+    {
+      using spt::util::json::operator<<;
+      obj.strings = { "one"s, "two"s, "three"s, "$%^$%)*&%*&(&&*(**&"s };
+
+      std::ostringstream ss;
+      ss << obj;
+
+      REQUIRE_THROWS( json::unmarshall<test::serial::Full>( ss.str() ) );
+    }
+
+    AND_WHEN( "Parsing data with partial invalid characters" )
+    {
+      using spt::util::json::operator<<;
+      obj.strings = { "one"s, "two"s, "three"s, "$%^$%abcde0gzyx234"s };
+
+      std::ostringstream ss;
+      ss << obj;
+
+      REQUIRE_NOTHROW( json::unmarshall<test::serial::Full>( ss.str() ) );
+    }
   }
 
   GIVEN( "A partially visitable struct" )

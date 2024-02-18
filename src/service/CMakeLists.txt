@@ -3,6 +3,11 @@ FILE(GLOB_RECURSE mongo-service_SRCS *.cpp *.cc *.hpp *.h)
 set(mongo-service_SRCS ${mongo-service_SRCS})
 add_executable(${Target_Name} ${mongo-service_SRCS} )
 
+target_compile_definitions(${Target_Name}
+  PRIVATE _FORTIFY_SOURCE=2
+)
+
+
 if (UNIX)
   if (APPLE)
     target_link_libraries(${Target_Name}

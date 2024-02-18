@@ -181,6 +181,19 @@ namespace spt::util::json
   void populate( M& model, simdjson::ondemand::object& object );
 
   /**
+   * Validate the parsed JSON value in the specified field.  Generally only useful for string
+   * types.  Implement your own version of this function as appropriate.
+   *
+   * The set functions invoke this function, and throw simdjson::simdjson_error exception when validation fails.
+   * @tparam M The type of field that will be populated from the JSON value.
+   * @param name The name of the field in the entity being de-serialised.
+   * @param field The field in the entity being de-serialised.
+   * @return true if the raw JSON value is acceptable.
+   */
+  template <typename M>
+  bool validate( const char*, M& ) { return true; }
+
+  /**
    * Populate the fields in the visitable type from the JSON object.
    * @tparam M The visitable type
    * @param field The model instance that is to be populated from the JSON object.
@@ -423,6 +436,33 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
   return arr.empty() ? boost::json::value{} : arr;
 }
 
+template <>
+inline bool spt::util::json::validate( const char* name, std::string_view& field )
+{
+  if ( field.empty() ) return true;
+  std::size_t special{ 0 };
+
+  for ( const char c : field )
+  {
+    if ( c < 32 || ( c >= 33 && c <= 47 ) || ( c >= 58 && c <= 64 ) || ( c >= 91 && c <= 96 ) || ( c >= 123 && c < 127 ) ) ++special;
+  }
+
+  const auto valid = double(special) / double(field.size()) < 0.3;
+  if ( !valid )
+  {
+    LOG_WARN << "Field " << name << " has too many special characters.  Limit is 30% of value. Size: " <<
+        int(field.size()) << "; special characters: " << int(special) << ". " << field;
+  }
+  return valid;
+}
+
+template <>
+inline bool spt::util::json::validate( const char* name, std::string& field )
+{
+  auto view = std::string_view{ field };
+  return validate( name, view );
+}
+
 template <spt::util::Visitable M>
 void spt::util::json::set( M& field, simdjson::ondemand::object& object )
 {
@@ -453,7 +493,11 @@ inline void spt::util::json::set( const char* name, bool& field, simdjson::ondem
   {
     LOG_WARN << "Expected field " << name << " of type bool, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  value.get( field );
+  bool bv;
+  value.get( bv );
+
+  if ( !validate( name, bv ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
+  field = bv;
 }
 
 template <>
@@ -465,7 +509,10 @@ inline void spt::util::json::set( const char* name, int8_t& field, simdjson::ond
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<int8_t>( v );
+  const auto iv = static_cast<int8_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
+  field = iv;
 }
 
 template <>
@@ -477,7 +524,10 @@ inline void spt::util::json::set( const char* name, uint8_t& field, simdjson::on
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<uint8_t>( v );
+  auto iv = static_cast<uint8_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
+  field = iv;
 }
 
 template <>
@@ -489,7 +539,10 @@ inline void spt::util::json::set( const char* name, int16_t& field, simdjson::on
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<int16_t>( v );
+  auto iv = static_cast<int16_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = iv;
 }
 
 template <>
@@ -501,7 +554,10 @@ inline void spt::util::json::set( const char* name, uint16_t& field, simdjson::o
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<uint16_t>( v );
+  auto iv = static_cast<uint16_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = iv;
 }
 
 template <>
@@ -513,7 +569,10 @@ inline void spt::util::json::set( const char* name, int32_t& field, simdjson::on
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<int32_t>( v );
+  auto iv = static_cast<int32_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = iv;
 }
 
 template <>
@@ -525,7 +584,10 @@ inline void spt::util::json::set( const char* name, uint32_t& field, simdjson::o
   }
   int64_t v{ 0 };
   value.get( v );
-  field = static_cast<uint32_t>( v );
+  auto iv = static_cast<uint32_t>( v );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = iv;
 }
 
 template <>
@@ -535,7 +597,11 @@ inline void spt::util::json::set( const char* name, int64_t& field, simdjson::on
   {
     LOG_WARN << "Expected field " << name << " of type int64_t, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  value.get( field );
+  int64_t iv{ 0 };
+  value.get( iv );
+
+  if ( !validate( name, iv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = iv;
 }
 
 template <>
@@ -545,7 +611,11 @@ inline void spt::util::json::set( const char* name, double& field, simdjson::ond
   {
     LOG_WARN << "Expected field " << name << " of type double, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  value.get( field );
+  double dv;
+  value.get( dv );
+
+  if ( !validate( name, dv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+  field = dv;
 }
 
 template <>
@@ -557,15 +627,20 @@ inline void spt::util::json::set( const char* name, bsoncxx::oid& field, simdjso
   }
   std::string_view v;
   value.get( v );
+
+  bsoncxx::oid id;
   try
   {
-    field = bsoncxx::oid{ v };
+    id = bsoncxx::oid{ v };
   }
   catch ( const std::exception& ex )
   {
-    LOG_CRIT << "Invalid BSON object id " << v << ". " << ex.what();
+    LOG_CRIT << "Invalid BSON object id " << v << " for field " << name << ". " << ex.what();
     throw;
   }
+
+  if ( !validate( name, id ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+  field = id;
 }
 
 template <>
@@ -577,9 +652,12 @@ inline void spt::util::json::set( const char* name, std::string& field, simdjson
   }
   std::string_view v;
   value.get( v );
-  field.clear();
-  field.reserve( v.size() );
-  field.append( v );
+  std::string str;
+  str.reserve( v.size() );
+  str.append( v );
+
+  if ( !validate( name, str ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
+  field = std::move( str );
 }
 
 template <>
@@ -592,7 +670,12 @@ inline void spt::util::json::set( const char* name, std::chrono::time_point<std:
   std::string_view v;
   value.get( v );
   auto date = util::parseISO8601( v );
-  if ( std::holds_alternative<DateTime>( date ) ) field = DateTime{ std::get<DateTime>( date ).time_since_epoch() };
+  if ( std::holds_alternative<DateTime>( date ) )
+  {
+    auto dt = DateTime{ std::get<DateTime>( date ).time_since_epoch() };
+    if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+    field = dt;
+  }
   else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
 }
 
@@ -604,7 +687,11 @@ inline void spt::util::json::set( const char* name, std::set<bool>& field, simdj
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( bool x: arr ) field.insert( x );
+  for ( bool x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
+    field.insert( x );
+  }
 }
 
 template <>
@@ -616,7 +703,11 @@ inline void spt::util::json::set( const char* name, std::vector<bool>& field, si
   }
   auto arr = value.get_array();
   field.reserve( arr.count_elements() );
-  for ( bool x: arr ) field.push_back( x );
+  for ( bool x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
+    field.push_back( x );
+  }
 }
 
 template <>
@@ -627,7 +718,12 @@ inline void spt::util::json::set( const char* name, std::set<int32_t>& field, si
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( int64_t x: arr ) field.insert( static_cast<int32_t>( x ) );
+  for ( int64_t x: arr )
+  {
+    const auto v = static_cast<int32_t>( x );
+    if ( !validate( name, v ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.insert( v );
+  }
 }
 
 template <>
@@ -639,7 +735,12 @@ inline void spt::util::json::set( const char* name, std::vector<int32_t>& field,
   }
   auto arr = value.get_array();
   field.reserve( 8 );
-  for ( int64_t x: arr ) field.push_back( static_cast<int32_t>( x ) );
+  for ( int64_t x: arr )
+  {
+    const auto v = static_cast<int32_t>( x );
+    if ( !validate( name, v ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.push_back( v );
+  }
 }
 
 template <>
@@ -650,7 +751,11 @@ inline void spt::util::json::set( const char* name, std::set<int64_t>& field, si
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( int64_t x: arr ) field.insert( x );
+  for ( int64_t x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.insert( x );
+  }
 }
 
 template <>
@@ -662,7 +767,11 @@ inline void spt::util::json::set( const char* name, std::vector<int64_t>& field,
   }
   auto arr = value.get_array();
   field.reserve( 8 );
-  for ( int64_t x: arr ) field.push_back( x );
+  for ( int64_t x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.push_back( x );
+  }
 }
 
 template <>
@@ -673,7 +782,11 @@ inline void spt::util::json::set( const char* name, std::set<double>& field, sim
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( double x: arr ) field.insert( x );
+  for ( double x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.insert( x );
+  }
 }
 
 template <>
@@ -685,18 +798,26 @@ inline void spt::util::json::set( const char* name, std::vector<double>& field, 
   }
   auto arr = value.get_array();
   field.reserve( 8 );
-  for ( double x: arr ) field.push_back( x );
+  for ( double x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
+    field.push_back( x );
+  }
 }
 
 template <>
-inline void spt::util::json::set( const char* name, std::set<std::string>& field, simdjson::ondemand::value& value )
+inline void spt::util::json::set( const char* name, std::set<std::string, std::less<>>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( std::string_view x: arr ) field.emplace( x );
+  for ( std::string_view x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
+    field.emplace( x );
+  }
 }
 
 template <>
@@ -708,7 +829,11 @@ inline void spt::util::json::set( const char* name, std::vector<std::string>& fi
   }
   auto arr = value.get_array();
   field.reserve( 8 );
-  for ( std::string_view x: arr ) field.emplace_back( x );
+  for ( std::string_view x: arr )
+  {
+    if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
+    field.emplace_back( x );
+  }
 }
 
 template <>
@@ -719,7 +844,12 @@ inline void spt::util::json::set( const char* name, std::set<bsoncxx::oid>& fiel
     LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
   }
   auto arr = value.get_array();
-  for ( std::string_view x: arr ) field.emplace( x );
+  for ( std::string_view x: arr )
+  {
+    auto v = bsoncxx::oid{ x };
+    if ( !validate( name, v ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+    field.insert( v );
+  }
 }
 
 template <>
@@ -731,7 +861,12 @@ inline void spt::util::json::set( const char* name, std::vector<bsoncxx::oid>& f
   }
   auto arr = value.get_array();
   field.reserve( 8 );
-  for ( std::string_view x: arr ) field.emplace_back( x );
+  for ( std::string_view x: arr )
+  {
+    auto v = bsoncxx::oid{ x };
+    if ( !validate( name, v ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+    field.push_back( v );
+  }
 }
 
 template <>
@@ -745,7 +880,11 @@ inline void spt::util::json::set( const char* name, std::set<std::chrono::time_p
   for ( std::string_view x: arr )
   {
     auto date = util::parseISO8601( x );
-    if ( std::holds_alternative<DateTime>( date ) ) field.emplace( std::get<DateTime>( date ).time_since_epoch() );
+    if ( std::holds_alternative<DateTime>( date ) )
+    {
+      if ( !validate( name, std::get<DateTime>( date ) ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace( std::get<DateTime>( date ).time_since_epoch() );
+    }
     else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
   }
 }
@@ -762,7 +901,11 @@ inline void spt::util::json::set( const char* name, std::vector<std::chrono::tim
   for ( std::string_view x: arr )
   {
     auto date = util::parseISO8601( x );
-    if ( std::holds_alternative<DateTime>( date ) ) field.emplace_back( std::get<DateTime>( date ).time_since_epoch() );
+    if ( std::holds_alternative<DateTime>( date ) )
+    {
+      if ( !validate( name, std::get<DateTime>( date ) ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace_back( std::get<DateTime>( date ).time_since_epoch() );
+    }
     else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
   }
 }

@@ -1,8 +1,13 @@
 set(Target_Name "mongo-service-api")
 file(GLOB_RECURSE mongo-service_SRCS *.cpp *.h)
 add_library(${Target_Name} STATIC ${mongo-service_SRCS})
+
 target_link_libraries(${Target_Name}
-  PRIVATE mongo::mongocxx_static
+  PRIVATE mongo::bsoncxx_static mongo::mongocxx_static
+)
+
+target_compile_definitions(${Target_Name}
+  PRIVATE _FORTIFY_SOURCE=2
 )
 
 if (UNIX)
