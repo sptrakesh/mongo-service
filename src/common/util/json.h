@@ -440,9 +440,10 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 template <>
 inline bool spt::util::json::validate( const char* name, std::string_view& field )
 {
+  using std::operator""sv;
   auto str = std::string{ name };
   boost::algorithm::to_lower( str );
-  if ( field.empty() || str.find( "password" ) != std::string::npos ) return true;
+  if ( field.empty() || str.contains( "password"sv ) || str.contains( "version"sv ) ) return true;
   std::size_t special{ 0 };
 
   for ( const char c : field )
@@ -496,7 +497,7 @@ inline void spt::util::json::set( const char* name, bool& field, simdjson::ondem
   {
     LOG_WARN << "Expected field " << name << " of type bool, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  bool bv;
+  bool bv{ false };
   value.get( bv );
 
   if ( !validate( name, bv ) ) throw simdjson::simdjson_error{ simdjson::error_code::F_ATOM_ERROR };
@@ -614,7 +615,7 @@ inline void spt::util::json::set( const char* name, double& field, simdjson::ond
   {
     LOG_WARN << "Expected field " << name << " of type double, value of type " << magic_enum::enum_name( value.type().value() );
   }
-  double dv;
+  double dv{ 0.0 };
   value.get( dv );
 
   if ( !validate( name, dv ) ) throw simdjson::simdjson_error{ simdjson::error_code::NUMBER_OUT_OF_RANGE };
