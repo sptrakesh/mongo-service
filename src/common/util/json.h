@@ -21,6 +21,7 @@
 #include <ostream>
 #include <set>
 #include <vector>
+#include <boost/algorithm/string.hpp>
 #include <boost/json/value.hpp>
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/oid.hpp>
@@ -439,7 +440,9 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 template <>
 inline bool spt::util::json::validate( const char* name, std::string_view& field )
 {
-  if ( field.empty() ) return true;
+  auto str = std::string{ name };
+  boost::algorithm::to_lower( str );
+  if ( field.empty() || str.find( "password" ) != std::string::npos ) return true;
   std::size_t special{ 0 };
 
   for ( const char c : field )
