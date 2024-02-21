@@ -769,7 +769,9 @@ Custom implementations can be implemented.
 
 A `validate( const char*, M& )` function is also defined.  This is to for validating the JSON input being parsed.  A
 default specialisation is provided for `std::string` fields.  This rejects strings with more than `30%` special
-characters.  Users are advised to implement specific implementations specific to their domain requirements.
+characters.  Users are advised to implement specific implementations specific to their domain requirements.  Users
+may also set an environment variable (`SPT_JSON_PARSE_VALIDATION_IGNORE`) with a comma or space separated list of
+field names that should be ignored by the validator.
 
 ## Testing
 Integration tests for the service will be developed in a few different languages
