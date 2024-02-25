@@ -8,21 +8,13 @@
 #include "date.h"
 #include "magic_enum.hpp"
 #include "parser.h"
+#include "validate.h"
 #include "../simdjson/simdjson.h"
-#if defined __has_include
-#if __has_include("../../log/NanoLog.h")
-#include "../../log/NanoLog.h"
-#else
-#include <log/NanoLog.h>
-#endif
-#endif
 
-#include <cstdlib>
 #include <memory>
 #include <ostream>
 #include <set>
 #include <vector>
-#include <boost/algorithm/string.hpp>
 #include <boost/json/value.hpp>
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/oid.hpp>
@@ -59,43 +51,6 @@
 
 namespace spt::util::json
 {
-  namespace pjson
-  {
-    struct IgnoreList
-    {
-      static const IgnoreList& instance()
-      {
-        static IgnoreList il;
-        return il;
-      }
-
-      IgnoreList(const IgnoreList&) = delete;
-      IgnoreList& operator=(const IgnoreList&) = delete;
-      IgnoreList(IgnoreList&&) = delete;
-      IgnoreList& operator=(IgnoreList&&) = delete;
-
-      std::vector<std::string> names;
-
-    private:
-      IgnoreList()
-      {
-        names.reserve( 8 );
-        if ( const char* value = std::getenv( "SPT_JSON_PARSE_VALIDATION_IGNORE" ); value )
-        {
-          auto str = std::string{ value };
-          boost::algorithm::split( names, str, boost::is_any_of( " ," ) );
-        }
-        else
-        {
-          names.emplace_back( "password" );
-          names.emplace_back( "version" );
-          names.emplace_back( "identifier" );
-          names.emplace_back( "file" );
-        }
-      }
-    };
-  }
-
   /**
    * Add non-visitable fields in the model to the document.  A callback function that library users can implement to
    * fully serialise partially visitable models.
@@ -218,19 +173,6 @@ namespace spt::util::json
    */
   template <Visitable M>
   void populate( M& model, simdjson::ondemand::object& object );
-
-  /**
-   * Validate the parsed JSON value in the specified field.  Generally only useful for string
-   * types.  Implement your own version of this function as appropriate.
-   *
-   * The set functions invoke this function, and throw simdjson::simdjson_error exception when validation fails.
-   * @tparam M The type of field that will be populated from the JSON value.
-   * @param name The name of the field in the entity being de-serialised.
-   * @param field The field in the entity being de-serialised.
-   * @return true if the raw JSON value is acceptable.
-   */
-  template <typename M>
-  bool validate( const char*, M& ) { return true; }
 
   /**
    * Populate the fields in the visitable type from the JSON object.
@@ -473,38 +415,6 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
     if ( !v.is_null() ) arr.push_back( std::move( v ) );
   }
   return arr.empty() ? boost::json::value{} : arr;
-}
-
-template <>
-inline bool spt::util::json::validate( const char* name, std::string_view& field )
-{
-  if ( field.size() < 2 ) return true;
-  using std::operator""sv;
-  auto str = std::string{ name };
-  boost::algorithm::to_lower( str );
-  for ( const auto& ignore : pjson::IgnoreList::instance().names ) if ( str.contains( ignore ) ) return true;
-
-  std::size_t special{ 0 };
-
-  for ( const char c : field )
-  {
-    if ( c < 32 || ( c >= 33 && c <= 47 ) || ( c >= 58 && c <= 64 ) || ( c >= 91 && c <= 96 ) || ( c >= 123 && c < 127 ) ) ++special;
-  }
-
-  const auto valid = double(special) / double(field.size()) <= 0.3;
-  if ( !valid )
-  {
-    LOG_WARN << "Field " << name << " has too many special characters.  Limit is 30% of value. Size: " <<
-        int(field.size()) << "; special characters: " << int(special) << ". " << field;
-  }
-  return valid;
-}
-
-template <>
-inline bool spt::util::json::validate( const char* name, std::string& field )
-{
-  auto view = std::string_view{ field };
-  return validate( name, view );
 }
 
 template <spt::util::Visitable M>

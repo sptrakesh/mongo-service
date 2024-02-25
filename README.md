@@ -767,11 +767,19 @@ Custom implementations can be implemented.
   * `void populate( const <Class/Struct Type>& model, boost::json::object& object )` to add non-visitable fields to the JSON object.
   * `void populate( const <Class/Struct Type>& model, simdjson::ondemand::object& object )` to populate non-visitable fields from the JSON object.
 
-A `validate( const char*, M& )` function is also defined.  This is to for validating the JSON input being parsed.  A
-default specialisation is provided for `std::string` fields.  This rejects strings with more than `30%` special
-characters.  Users are advised to implement specific implementations specific to their domain requirements.  Users
-may also set an environment variable (`SPT_JSON_PARSE_VALIDATION_IGNORE`) with a comma or space separated list of
-field names that should be ignored by the validator.
+#### Validation
+JSON input mostly comes via HTTP from untrusted sources.  Consequently, there is a need for validating the JSON
+input.  Basic support for input validation is provided via a `validate` function.
+
+A `validate( const char*, M& )` function is defined.  This is to for validating the JSON input being parsed. A
+default specialisation is provided for `std::string` fields.  This rejects strings with more than `40%` (configurable)
+special characters.  Users are advised to implement specific implementations specific to their domain requirements.
+Users may also use environment variables to influence the default implementation.
+* `JSON_PARSE_VALIDATION_IGNORE` - Environment variable that expects a comma or space separated list of
+  field names that should be ignored by the validator.  Default values are `password, version`.  Example:
+  `export SPT_JSON_PARSE_VALIDATION_IGNORE='password, file, version, firmware, identifier'`
+* `SPT_JSON_PARSE_VALIDATION_RATIO` - Environment variable (`double`) that sets the maximum allowed ratio of
+  special characters in the input string.  Default is `0.4`.  Example: `export SPT_JSON_PARSE_VALIDATION_RATIO='0.35'`
 
 ## Testing
 Integration tests for the service will be developed in a few different languages
