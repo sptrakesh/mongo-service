@@ -16,6 +16,9 @@
 #include <bsoncxx/types.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/array/view.hpp>
+#include <bsoncxx/builder/stream/array.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/exception/exception.hpp>
 
 #include <iomanip>
 
@@ -400,6 +403,41 @@ namespace spt::util
 
     return {};
   }
+
+  namespace pbson
+  {
+    std::variant<std::optional<std::string>, bsoncxx::oid, DateTime> parseString( const boost::json::value& value )
+    {
+      if ( !value.is_string() )
+      {
+        LOG_CRIT << "Value not string";
+        return std::nullopt;
+      }
+
+      const auto& v = value.as_string();
+      if ( v.empty() ) return std::nullopt;
+
+      if ( v.size() == 24 && v.find( '-' ) == boost::json::string::npos )
+      {
+        try
+        {
+          return bsoncxx::oid{ v };
+        }
+        catch ( const bsoncxx::exception& ex )
+        {
+          LOG_DEBUG << "Error trying to parse " << v << " as potential BSON ObjectId";
+        }
+      }
+
+      if ( v.front() > 47 && v.front() < 58 && v.find( '-' ) != boost::json::string::npos )
+      {
+        auto dt = parseISO8601( v );
+        if ( std::holds_alternative<DateTime>( dt ) ) return std::get<DateTime>( dt );
+      }
+
+      return std::string{ v };
+    }
+  }
 }
 
 boost::json::array spt::util::toJson( const bsoncxx::array::view& view )
@@ -507,6 +545,188 @@ std::ostream& spt::util::toJson( std::ostream& os, const bsoncxx::document::view
 {
   os << toJson( view );
   return os;
+}
+
+bsoncxx::array::value spt::util::toBson( const boost::json::array& array )
+{
+  using boost::json::kind;
+  auto arr = bsoncxx::builder::stream::array{};
+
+  for ( const auto& item : array )
+  {
+    switch ( item.kind() )
+    {
+    case kind::bool_:
+      arr << item.as_bool();
+      break;
+    case kind::array:
+      arr << toBson( item.as_array() );
+      break;
+    case kind::object:
+      arr << toBson( item.as_object() );
+      break;
+    case kind::string:
+    {
+      auto parsed = pbson::parseString( item );
+      if ( std::holds_alternative<bsoncxx::oid>( parsed ) ) arr << std::get<bsoncxx::oid>( parsed );
+      else if ( std::holds_alternative<DateTime>( parsed ) ) arr << bsoncxx::types::b_date{ std::get<DateTime>( parsed ) };
+      else
+      {
+        auto str = std::get<std::optional<std::string>>( parsed );
+        if ( str ) arr << *str;
+      }
+      break;
+    }
+    case kind::double_:
+      arr << item.as_double();
+      break;
+    case kind::int64:
+      arr << item.as_int64();
+      break;
+    case kind::uint64:
+      arr << static_cast<int64_t>( item.as_uint64() );
+      break;
+    case kind::null:
+      break;
+    }
+  }
+
+  return arr << bsoncxx::builder::stream::finalize;
+}
+
+bsoncxx::document::value spt::util::toBson( const boost::json::object& object )
+{
+  using boost::json::kind;
+  auto obj = bsoncxx::builder::stream::document{};
+
+  for ( const auto& [key,value] : object )
+  {
+    switch ( value.kind() )
+    {
+    case kind::bool_:
+      obj << std::string_view{ key } << value.as_bool();
+      break;
+    case kind::array:
+      obj << std::string_view{ key } << toBson( value.as_array() );
+      break;
+    case kind::object:
+      obj << std::string_view{ key } << toBson( value.as_object() );
+      break;
+    case kind::string:
+    {
+      auto parsed = pbson::parseString( value );
+      if ( std::holds_alternative<bsoncxx::oid>( parsed ) ) obj << std::string_view{ key } << std::get<bsoncxx::oid>( parsed );
+      else if ( std::holds_alternative<DateTime>( parsed ) ) obj << std::string_view{ key } << bsoncxx::types::b_date{ std::get<DateTime>( parsed ) };
+      else
+      {
+        auto str = std::get<std::optional<std::string>>( parsed );
+        if ( str ) obj << std::string_view{ key } << *str;
+      }
+      break;
+    }
+    case kind::double_:
+      obj << std::string_view{ key } << value.as_double();
+      break;
+    case kind::int64:
+      obj << std::string_view{ key } << value.as_int64();
+      break;
+    case kind::uint64:
+      obj << std::string_view{ key } << static_cast<int64_t>( value.as_uint64() );
+      break;
+    case kind::null:
+      break;
+    }
+  }
+
+  return obj << bsoncxx::builder::stream::finalize;
+}
+
+boost::json::array spt::util::fromBson( bsoncxx::array::view array )
+{
+  using bsoncxx::type;
+  auto arr = boost::json::array{};
+
+  for ( const auto& item : array )
+  {
+    switch ( item.type() )
+    {
+    case type::k_bool:
+      arr.emplace_back( item.get_bool().value );
+      break;
+    case type::k_int32:
+      arr.emplace_back( item.get_int32().value );
+      break;
+    case type::k_int64:
+      arr.emplace_back( item.get_int64().value );
+      break;
+    case type::k_double:
+      arr.emplace_back( item.get_double().value );
+      break;
+    case type::k_oid:
+      arr.emplace_back( item.get_oid().value.to_string() );
+      break;
+    case type::k_date:
+      arr.emplace_back( isoDateMillis( item.get_date().value ) );
+      break;
+    case type::k_utf8:
+      arr.emplace_back( item.get_string().value );
+      break;
+    case type::k_array:
+      arr.emplace_back( fromBson( item.get_array().value ) );
+      break;
+    case type::k_document:
+      arr.emplace_back( fromBson( item.get_document().value ) );
+      break;
+    default:
+      break;
+    }
+  }
+
+  return arr;
+}
+
+boost::json::object spt::util::fromBson( bsoncxx::document::view document )
+{
+  using bsoncxx::type;
+  auto obj = boost::json::object{};
+
+  for ( const auto& item : document )
+  {
+    switch ( item.type() )
+    {
+    case type::k_bool:
+      obj.emplace( std::string_view{ item.key() }, item.get_bool().value );
+      break;
+    case type::k_int32:
+      obj.emplace( std::string_view{ item.key() }, item.get_int32().value );
+      break;
+    case type::k_int64:
+      obj.emplace( std::string_view{ item.key() }, item.get_int64().value );
+      break;
+    case type::k_double:
+      obj.emplace( std::string_view{ item.key() }, item.get_double().value );
+      break;
+    case type::k_oid:
+      obj.emplace( std::string_view{ item.key() }, item.get_oid().value.to_string() );
+      break;
+    case type::k_date:
+      obj.emplace( std::string_view{ item.key() }, isoDateMillis( item.get_date().value ) );
+      break;
+    case type::k_utf8:
+      obj.emplace( std::string_view{ item.key() }, item.get_string().value );
+      break;
+    case type::k_array:
+      obj.emplace( std::string_view{ item.key() }, fromBson( item.get_array().value ) );
+      break;
+    case type::k_document:
+      obj.emplace( std::string_view{ item.key() }, fromBson( item.get_document().value ) );
+      break;
+    default:
+      break;
+    }
+  }
+
+  return obj;
 }
 
 std::optional<bsoncxx::oid> spt::util::parseId( std::string_view id )

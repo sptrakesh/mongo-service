@@ -5,6 +5,7 @@
 #pragma once
 
 #include "concept.h"
+#include "bson.h"
 #include "date.h"
 #include "magic_enum.hpp"
 #include "parser.h"
@@ -16,6 +17,7 @@
 #include <set>
 #include <vector>
 #include <boost/json/value.hpp>
+#include <boost/json/parse.hpp>
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/oid.hpp>
 
@@ -374,6 +376,30 @@ inline boost::json::value spt::util::json::json( const std::chrono::time_point<s
   return boost::json::value( spt::util::isoDateMillis( c ) );
 }
 
+template <>
+inline boost::json::value spt::util::json::json( const boost::json::array& model )
+{
+  return model.empty() ? boost::json::value{} : boost::json::value( model );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const boost::json::object& model )
+{
+  return model.empty() ? boost::json::value{} : boost::json::value( model );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const bsoncxx::array::value& model )
+{
+  return toJson( model );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const bsoncxx::document::value& model )
+{
+  return toJson( model );
+}
+
 template <spt::util::Visitable M>
 inline boost::json::value spt::util::json::json( const M &model )
 {
@@ -631,6 +657,86 @@ inline void spt::util::json::set( const char* name, std::chrono::time_point<std:
     field = dt;
   }
   else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
+}
+
+template <>
+inline void spt::util::json::set( const char* name, boost::json::array& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+    return;
+  }
+
+  auto str = value.raw_json();
+  if ( str.error() == simdjson::error_code::SUCCESS )
+  {
+    auto ec = boost::system::error_code{};
+    auto p = boost::json::parse( str.value(), ec );
+    if ( ec ) LOG_WARN << "Error parsing from JSON. " << ec.message() << ". " << str.value();
+    else field = p.as_array();
+  }
+  else LOG_WARN << "Error converting value to string. " << simdjson::error_message( str.error() );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, boost::json::object& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::object )
+  {
+    LOG_WARN << "Expected field " << name << " of type object, value of type " << magic_enum::enum_name( value.type().value() );
+    return;
+  }
+
+  auto str = value.raw_json();
+  if ( str.error() == simdjson::error_code::SUCCESS )
+  {
+    auto ec = boost::system::error_code{};
+    auto p = boost::json::parse( str.value(), ec );
+    if ( ec ) LOG_WARN << "Error parsing from JSON. " << ec.message() << ". " << str.value();
+    else field = p.as_object();
+  }
+  else LOG_WARN << "Error converting value to string. " << simdjson::error_message( str.error() );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, bsoncxx::array::value& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+    return;
+  }
+
+  auto str = value.raw_json();
+  if ( str.error() == simdjson::error_code::SUCCESS )
+  {
+    auto ec = boost::system::error_code{};
+    auto p = boost::json::parse( str.value(), ec );
+    if ( ec ) LOG_WARN << "Error parsing from JSON. " << ec.message() << ". " << str.value();
+    else field = toBson( p.as_array() );
+  }
+  else LOG_WARN << "Error converting value to string. " << simdjson::error_message( str.error() );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, bsoncxx::document::value& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::object )
+  {
+    LOG_WARN << "Expected field " << name << " of type object, value of type " << magic_enum::enum_name( value.type().value() );
+    return;
+  }
+
+  auto str = value.raw_json();
+  if ( str.error() == simdjson::error_code::SUCCESS )
+  {
+    auto ec = boost::system::error_code{};
+    auto p = boost::json::parse( str.value(), ec );
+    if ( ec ) LOG_WARN << "Error parsing from JSON. " << ec.message() << ". " << str.value();
+    else field = toBson( p.as_object() );
+  }
+  else LOG_WARN << "Error converting value to string. " << simdjson::error_message( str.error() );
 }
 
 template <>

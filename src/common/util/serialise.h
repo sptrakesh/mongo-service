@@ -20,6 +20,7 @@
 #include <string_view>
 #include <vector>
 #include <boost/cast.hpp>
+#include <boost/json/object.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
 #include <bsoncxx/builder/stream/array.hpp>
@@ -328,6 +329,30 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const DateTimeNs& mode
   return { bsoncxx::types::b_date{ std::chrono::duration_cast<std::chrono::milliseconds>( model.time_since_epoch() ) } };
 }
 
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const boost::json::array& model )
+{
+  return bsoncxx::types::b_array{ toBson( model ) };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const boost::json::object& model )
+{
+  return bsoncxx::types::b_document{ toBson( model ) };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::array::value& model )
+{
+  return bsoncxx::types::b_array{ model };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::document::value& model )
+{
+  return bsoncxx::types::b_document{ model };
+}
+
 template <spt::util::Visitable M>
 inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
 {
@@ -596,6 +621,30 @@ inline void spt::util::set( std::chrono::nanoseconds& field, bsoncxx::types::bso
   if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
   else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::microseconds{ value.get_int64() };
   else field = std::chrono::duration_cast<std::chrono::nanoseconds>( value.get_date().value );
+}
+
+template <>
+inline void spt::util::set( boost::json::array& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_array == value.type() ) field = fromBson( value.get_array().value );
+}
+
+template <>
+inline void spt::util::set( boost::json::object& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_document == value.type() ) field = fromBson( value.get_document().value );
+}
+
+template <>
+inline void spt::util::set( bsoncxx::array::value& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_array == value.type() ) field = bsoncxx::array::value{ value.get_array().value };
+}
+
+template <>
+inline void spt::util::set( bsoncxx::document::value& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_document == value.type() ) field = bsoncxx::document::value{ value.get_document().value };
 }
 
 template <>
