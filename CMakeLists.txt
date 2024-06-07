@@ -15,7 +15,7 @@ if (WIN32)
   endif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif(WIN32)
 
-# Enable C++20 features
+# Enable C++23 features
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -56,6 +56,19 @@ if (APPLE)
   endif()
 
   execute_process(
+      COMMAND brew --prefix zstd
+      RESULT_VARIABLE BREW_ZSTD
+      OUTPUT_VARIABLE BREW_ZSTD_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (BREW_ZSTD EQUAL 0 AND EXISTS "${BREW_ZSTD_PREFIX}")
+    message(STATUS "Found zstd keg installed by Homebrew at ${BREW_ZSTD_PREFIX}")
+    set(ZSTD_ROOT_DIR "${BREW_ZSTD_PREFIX}/")
+    set(ZSTD_LIBRARIES "${BREW_ZSTD_PREFIX}/lib")
+    set(ZSTD_LIBRARY "${BREW_ZSTD_PREFIX}/lib/libzstd.dylib")
+  endif()
+
+  execute_process(
     COMMAND brew --prefix jemalloc
     RESULT_VARIABLE BREW_JEMALLOC
     OUTPUT_VARIABLE BREW_JEMALLOC_PREFIX
@@ -68,11 +81,11 @@ if (APPLE)
     set(JEMALLOC_LIBRARY "${BREW_JEMALLOC_PREFIX}/lib/libjemalloc.dylib")
   endif()
 
-  find_package(OpenSSL REQUIRED)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
 endif()
 find_package(mongocxx REQUIRED)
 find_package(fmt REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(Threads)
 find_package(ZLIB REQUIRED)
 

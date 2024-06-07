@@ -775,8 +775,7 @@ inline void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_valu
   field.reserve( 8 );
   for ( const auto& item : value.get_array().value )
   {
-    auto m = Model{};
-    set( m, bsoncxx::types::bson_value::value{ item.get_document().value } );
-    field.push_back( std::move( m ) );
+    field.emplace_back();
+    set( field.back(), bsoncxx::types::bson_value::value{ item.get_document().value } );
   }
 }

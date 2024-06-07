@@ -22,7 +22,7 @@ find_package(hayai REQUIRED)
 add_executable(performance ${performance_SRCS})
 
 target_link_libraries(performance
-  PRIVATE ${HAYAI_LIBRARY} Boost::boost mongo::mongocxx_static
+  PRIVATE ${HAYAI_LIBRARY} Boost::boost mongo::mongocxx_static ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY}
 )
 
 add_test(NAME performance COMMAND performance)

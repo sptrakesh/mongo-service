@@ -293,6 +293,30 @@ namespace spt::util::json
   }
 
   /**
+   * Unmarshall a JSON array into the specified vector of model objects.
+   * @tparam M The type of the model.
+   * @param container The vector into which model instances in the JSON array are to be unmarshalled into.
+   * @param view The JSON string to parse.
+   */
+  template <Model M>
+  void unmarshall( std::vector<M>& container, std::string_view view )
+  {
+    auto& pool = parser::Pool::instance();
+    auto proxy = pool.acquire();
+    auto& parser = proxy.value().operator*();
+    auto str = simdjson::padded_string{ view };
+    auto doc = parser.parser().iterate( str );
+
+    auto arr = doc.get_array().value();
+    container.reserve( arr.count_elements() );
+    for ( simdjson::ondemand::object obj : arr )
+    {
+      container.emplace_back();
+      set( container.back(), obj );
+    }
+  }
+
+  /**
    * General purpose interface to unmarshall a model from a JSON document.  Users can specialise this function
    * for their non-visitable structures.
    * @tparam M The type of the model
@@ -997,9 +1021,8 @@ inline void spt::util::json::set( const char* name, std::vector<M>& field, simdj
   field.reserve( arr.count_elements() );
   for ( simdjson::ondemand::object obj : arr )
   {
-    auto m = M{};
-    set( m, obj );
-    field.push_back( std::move( m ) );
+    field.emplace_back();
+    set( field.back(), obj );
   }
 }
 

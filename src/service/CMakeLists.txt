@@ -11,7 +11,7 @@ target_compile_definitions(${Target_Name}
 if (UNIX)
   if (APPLE)
     target_link_libraries(${Target_Name}
-      PRIVATE nanolog mongo-service-common ilp mongo::mongocxx_static Boost::boost Boost::json fmt::fmt ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} ZLIB::ZLIB
+      PRIVATE nanolog mongo-service-common ilp mongo::mongocxx_static Boost::boost Boost::json fmt::fmt ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY} ZLIB::ZLIB
     )
   else()
     target_link_libraries(${Target_Name}

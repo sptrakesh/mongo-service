@@ -392,6 +392,77 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
     }
   }
 
+  GIVEN( "A vector of fully visitable structs" )
+  {
+    auto arr = boost::json::array{};
+    arr.reserve( 4 );
+
+    for ( auto i = 0ul; i < 4; ++i )
+    {
+      auto obj = test::serial::Full{};
+      obj.notVisitable.identifier = "xyz-987";
+      obj.notVisitable.integer = 456;
+      obj.customFields.id = "lmn-456";
+      obj.identifier = "abc-123"s;
+      obj.nested = test::serial::Full::Nested{ .identifier = "nested-123"s, .integer = 1234, .number = 1.234, .date = std::chrono::system_clock::now(), .numbers = { 1.2, 2.3, 3.4 } };
+      obj.nesteds = {
+          test::serial::Full::Nested{ .identifier = "nested-1"s, .integer = 1, .number = 1.1, .date = std::chrono::system_clock::now(), .numbers = { 1.1, 1.2, 1.3 } },
+          test::serial::Full::Nested{ .identifier = "nested-2"s, .integer = 2, .number = 2.1, .date = std::chrono::system_clock::now(), .numbers = { 2.1, 2.2, 2.3 } },
+          test::serial::Full::Nested{ .identifier = "nested-3"s, .integer = 3, .number = 3.1, .date = std::chrono::system_clock::now(), .numbers = { 3.1, 3.2, 3.3 } }
+      };
+      obj.nestedp = std::make_shared<test::serial::Full::Nested>();
+      obj.nestedp->identifier = "nested-p"s;
+      obj.nestedp->integer = 234;
+      obj.nestedp->number = 234.567;
+      obj.nestedp->date = std::chrono::system_clock::now();
+      obj.nestedp->numbers = { 1.2, 2.3, 3.4 };
+      obj.strings = { "one"s, "two"s, "three"s };
+      obj.ostring = "some string value"s;
+      obj.obool = true;
+      obj.time = std::chrono::system_clock::now();
+      obj.boolean = true;
+      arr.emplace_back( json::marshall( obj ) );
+    }
+
+    THEN( "Unmarshalling array to vector" )
+    {
+      auto vec = std::vector<test::serial::Full>{};
+      json::unmarshall( vec, boost::json::serialize( arr ) );
+      CHECK( vec.size() == 4 );
+      for ( const auto& obj : vec )
+      {
+        CHECK( obj.notVisitable.identifier == "xyz-987" );
+        CHECK( obj.notVisitable.integer == 456 );
+        CHECK( obj.customFields.id == "lmn-456" );
+        CHECK( obj.identifier == "abc-123"s );
+        REQUIRE( obj.nested );
+        CHECK( obj.nested->identifier == "nested-123" );
+        CHECK( obj.nested->integer == 1234 );
+        CHECK( obj.nested->number == 1.234 );
+        REQUIRE( obj.nested->numbers.size() == 3 );
+        CHECK( obj.nested->numbers[0] == 1.2 );
+        CHECK( obj.nested->numbers[1] == 2.3 );
+        CHECK( obj.nested->numbers[2] == 3.4 );
+        REQUIRE( obj.nestedp );
+        CHECK( obj.nestedp->identifier == "nested-p" );
+        CHECK( obj.nestedp->integer == 234 );
+        CHECK( obj.nestedp->number == 234.567 );
+        REQUIRE( obj.nestedp->numbers.size() == 3 );
+        CHECK( obj.nestedp->numbers[0] == 1.2 );
+        CHECK( obj.nestedp->numbers[1] == 2.3 );
+        CHECK( obj.nestedp->numbers[2] == 3.4 );
+        REQUIRE( obj.strings.size() == 3 );
+        CHECK( obj.strings[0] == "one" );
+        CHECK( obj.strings[1] == "two" );
+        CHECK( obj.strings[2] == "three" );
+        REQUIRE( obj.ostring );
+        CHECK( *obj.ostring == "some string value" );
+        REQUIRE( obj.obool );
+        CHECK( *obj.obool );
+      }
+    }
+  }
+
   GIVEN( "A partially visitable struct" )
   {
     static_assert( !visit_struct::traits::ext::is_fully_visitable<test::serial::Partial>(), "Partial is fully visitable" );
