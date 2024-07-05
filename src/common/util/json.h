@@ -394,9 +394,23 @@ inline boost::json::value spt::util::json::json( const std::string& model )
 }
 
 template <>
-inline boost::json::value spt::util::json::json( const std::chrono::time_point<std::chrono::system_clock>& model )
+inline boost::json::value spt::util::json::json( const DateTime& model )
 {
-  const auto c = std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() ).count();
+  const auto c = std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() );
+  return boost::json::value( spt::util::isoDateMillis( c ) );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const DateTimeMs& model )
+{
+  const auto c = std::chrono::duration_cast<std::chrono::milliseconds>( model.time_since_epoch() );
+  return boost::json::value( spt::util::isoDateMillis( c ) );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const DateTimeNs& model )
+{
+  const auto c = std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() );
   return boost::json::value( spt::util::isoDateMillis( c ) );
 }
 
@@ -665,7 +679,7 @@ inline void spt::util::json::set( const char* name, std::string& field, simdjson
 }
 
 template <>
-inline void spt::util::json::set( const char* name, std::chrono::time_point<std::chrono::system_clock>& field, simdjson::ondemand::value& value )
+inline void spt::util::json::set( const char* name, DateTime& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::string )
   {
@@ -674,11 +688,49 @@ inline void spt::util::json::set( const char* name, std::chrono::time_point<std:
   std::string_view v;
   value.get( v );
   auto date = util::parseISO8601( v );
-  if ( std::holds_alternative<DateTime>( date ) )
+  if ( date.has_value() )
   {
-    auto dt = DateTime{ std::get<DateTime>( date ).time_since_epoch() };
+    auto dt = DateTime{ date->time_since_epoch() };
     if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
     field = dt;
+  }
+  else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
+}
+
+template <>
+inline void spt::util::json::set( const char* name, DateTimeMs& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::string )
+  {
+    LOG_WARN << "Expected field " << name << " of type string, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  std::string_view v;
+  value.get( v );
+  auto date = util::parseISO8601( v );
+  if ( date.has_value() )
+  {
+    auto dt = DateTime{ date->time_since_epoch() };
+    if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+    field = DateTimeMs{ std::chrono::duration_cast<std::chrono::milliseconds>( dt.time_since_epoch() ) };
+  }
+  else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
+}
+
+template <>
+inline void spt::util::json::set( const char* name, DateTimeNs& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::string )
+  {
+    LOG_WARN << "Expected field " << name << " of type string, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  std::string_view v;
+  value.get( v );
+  auto date = util::parseISO8601( v );
+  if ( date.has_value() )
+  {
+    auto dt = DateTime{ date->time_since_epoch() };
+    if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+    field = DateTimeNs{ std::chrono::duration_cast<std::chrono::microseconds>( dt.time_since_epoch() ) };
   }
   else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
 }
@@ -954,7 +1006,7 @@ inline void spt::util::json::set( const char* name, std::vector<bsoncxx::oid>& f
 }
 
 template <>
-inline void spt::util::json::set( const char* name, std::set<std::chrono::time_point<std::chrono::system_clock>>& field, simdjson::ondemand::value& value )
+inline void spt::util::json::set( const char* name, std::set<DateTime>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -963,18 +1015,55 @@ inline void spt::util::json::set( const char* name, std::set<std::chrono::time_p
   auto arr = value.get_array();
   for ( std::string_view x: arr )
   {
-    auto date = util::parseISO8601( x );
-    if ( std::holds_alternative<DateTime>( date ) )
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
     {
-      if ( !validate( name, std::get<DateTime>( date ) ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
-      field.emplace( std::get<DateTime>( date ).time_since_epoch() );
+      if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace( date->time_since_epoch() );
     }
     else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
   }
 }
 
 template <>
-inline void spt::util::json::set( const char* name, std::vector<std::chrono::time_point<std::chrono::system_clock>>& field, simdjson::ondemand::value& value )
+inline void spt::util::json::set( const char* name, std::set<DateTimeMs>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( std::string_view x: arr )
+  {
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    {
+      if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace( std::chrono::duration_cast<std::chrono::milliseconds>( date->time_since_epoch() ) );
+    }
+    else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::set<DateTimeNs>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  for ( std::string_view x: arr )
+  {
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    {
+      if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace( date->time_since_epoch() );
+    }
+    else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::vector<DateTime>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -984,11 +1073,50 @@ inline void spt::util::json::set( const char* name, std::vector<std::chrono::tim
   field.reserve( 8 );
   for ( std::string_view x: arr )
   {
-    auto date = util::parseISO8601( x );
-    if ( std::holds_alternative<DateTime>( date ) )
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
     {
-      if ( !validate( name, std::get<DateTime>( date ) ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
-      field.emplace_back( std::get<DateTime>( date ).time_since_epoch() );
+      if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace_back( date->time_since_epoch() );
+    }
+    else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::vector<DateTimeMs>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  field.reserve( 8 );
+  for ( std::string_view x: arr )
+  {
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    {
+      if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace_back( std::chrono::duration_cast<std::chrono::milliseconds>( date->time_since_epoch() ) );
+    }
+    else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
+  }
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::vector<DateTimeNs>& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::array )
+  {
+    LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  auto arr = value.get_array();
+  field.reserve( 8 );
+  for ( std::string_view x: arr )
+  {
+    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    {
+      if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+      field.emplace_back( date->time_since_epoch() );
     }
     else LOG_WARN << "Error parsing ISO datetime from " << x << " for field " << name;
   }

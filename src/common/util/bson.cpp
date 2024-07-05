@@ -408,10 +408,11 @@ namespace spt::util
   {
     std::variant<std::optional<std::string>, bsoncxx::oid, DateTime> parseString( const boost::json::value& value )
     {
+      using O =  std::variant<std::optional<std::string>, bsoncxx::oid, DateTime>;
       if ( !value.is_string() )
       {
         LOG_CRIT << "Value not string";
-        return std::nullopt;
+        return O{ std::nullopt };
       }
 
       const auto& v = value.as_string();
@@ -422,7 +423,7 @@ namespace spt::util
         try
         {
           LOG_INFO << "Attempting to parse value " << v << " as BSON ObjectId.";
-          return bsoncxx::oid{ v };
+          return O{ bsoncxx::oid{ v } };
         }
         catch ( const bsoncxx::exception& ex )
         {
@@ -434,10 +435,10 @@ namespace spt::util
       {
         LOG_INFO << "Attempting to parse value " << v << " as ISO8601 date-time.";
         auto dt = parseISO8601( v );
-        if ( std::holds_alternative<DateTime>( dt ) ) return std::get<DateTime>( dt );
+        if ( dt.has_value() ) return O{ dt.value() };
       }
 
-      return std::string{ v };
+      return O{ std::string{ v } };
     }
   }
 }
@@ -459,7 +460,7 @@ boost::json::array spt::util::toJson( const bsoncxx::array::view& view )
       arr.emplace_back( e.get_bool().value );
       break;
     case bsoncxx::type::k_date:
-      arr.emplace_back( isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( e.get_date().value ).count() ) );
+      arr.emplace_back( isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( e.get_date().value ) ) );
       break;
     case bsoncxx::type::k_double:
       arr.emplace_back( e.get_double().value );
@@ -514,7 +515,7 @@ boost::json::object spt::util::toJson( const bsoncxx::document::view& view )
       root.emplace( key, e.get_bool().value );
       break;
     case bsoncxx::type::k_date:
-      root.emplace( key, isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( e.get_date().value ).count() ) );
+      root.emplace( key, isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( e.get_date().value ) ) );
       break;
     case bsoncxx::type::k_double:
       root.emplace( key, e.get_double().value );

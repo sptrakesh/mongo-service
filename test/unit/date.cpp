@@ -4,630 +4,119 @@
 
 #include "../../src/common/util/date.h"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 using namespace spt::util;
 using std::operator""s;
+using std::operator""sv;
 
 SCENARIO( "DateTime test suite", "[datetime]" )
 {
   GIVEN( "Valid date-time values" )
   {
-    WHEN( "Time at UNIX epoch" )
+    WHEN( "Testing round trip conversions" )
     {
-      const auto date = "1970-01-01T00:00:00+00:00"s;
-      auto us = microSeconds( date );
-      REQUIRE( us == 0 );
-      REQUIRE( isoDateMillis( us ) == "1970-01-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-01-01T00:00:00.000000Z"s );
+      const auto data = GENERATE(
+        Catch::Generators::table<std::string_view, std::string_view, int64_t, std::string_view, std::string_view>( {
+          { "Time at UNIX epoch"sv, "1970-01-01T00:00:00+00:00"sv, 0, "1970-01-01T00:00:00.000Z"sv, "1970-01-01T00:00:00.000000Z"sv },
+          { "Time at 1s past UNIX epoch"sv, "1970-01-01T00:00:01+00:00"sv, 1000000, "1970-01-01T00:00:01.000Z"sv, "1970-01-01T00:00:01.000000Z"sv },
+          { "Time at 1m past UNIX epoch"sv, "1970-01-01T00:01:00+00:00"sv, 60000000, "1970-01-01T00:01:00.000Z"sv, "1970-01-01T00:01:00.000000Z"sv },
+          { "Time at 1h past UNIX epoch"sv, "1970-01-01T01:00:00+00:00"sv, 3600000000, "1970-01-01T01:00:00.000Z"sv, "1970-01-01T01:00:00.000000Z"sv },
+          { "Time at 1d past UNIX epoch"sv, "1970-01-02T00:00:00+00:00"sv, 3600000000 * 24, "1970-01-02T00:00:00.000Z"sv, "1970-01-02T00:00:00.000000Z"sv },
+          { "Time at 1 month past UNIX epoch"sv, "1970-02-01T00:00:00+00:00"sv, 3600000000 * 24 * 31, "1970-02-01T00:00:00.000Z"sv, "1970-02-01T00:00:00.000000Z"sv },
+          { "Time at 2 months past UNIX epoch"sv, "1970-03-01T00:00:00+00:00"sv, 5097600000 * 1000, "1970-03-01T00:00:00.000Z"sv, "1970-03-01T00:00:00.000000Z"sv },
+          { "Time at 3 months past UNIX epoch"sv, "1970-04-01T00:00:00+00:00"sv, 7776000000 * 1000, "1970-04-01T00:00:00.000Z"sv, "1970-04-01T00:00:00.000000Z"sv },
+          { "Time at 4 months past UNIX epoch"sv, "1970-05-01T00:00:00+00:00"sv, 10368000000 * 1000, "1970-05-01T00:00:00.000Z"sv, "1970-05-01T00:00:00.000000Z"sv },
+          { "Time at 5 months past UNIX epoch"sv, "1970-06-01T00:00:00+00:00"sv, 13046400000 * 1000, "1970-06-01T00:00:00.000Z"sv, "1970-06-01T00:00:00.000000Z"sv },
+          { "Time at 6 months past UNIX epoch"sv, "1970-07-01T00:00:00+00:00"sv, 15638400000 * 1000, "1970-07-01T00:00:00.000Z"sv, "1970-07-01T00:00:00.000000Z"sv },
+          { "Time at 7 months past UNIX epoch"sv, "1970-08-01T00:00:00+00:00"sv, 18316800000 * 1000, "1970-08-01T00:00:00.000Z"sv, "1970-08-01T00:00:00.000000Z"sv },
+          { "Time at 8 months past UNIX epoch"sv, "1970-09-01T00:00:00+00:00"sv, 20995200000 * 1000, "1970-09-01T00:00:00.000Z"sv, "1970-09-01T00:00:00.000000Z"sv },
+          { "Time at 9 months past UNIX epoch"sv, "1970-10-01T00:00:00+00:00"sv, 23587200000 * 1000, "1970-10-01T00:00:00.000Z"sv, "1970-10-01T00:00:00.000000Z"sv },
+          { "Time at 10 months past UNIX epoch"sv, "1970-11-01T00:00:00+00:00"sv, 26265600000 * 1000, "1970-11-01T00:00:00.000Z"sv, "1970-11-01T00:00:00.000000Z"sv },
+          { "Time at 11 months past UNIX epoch"sv, "1970-12-01T00:00:00+00:00"sv, 28857600000 * 1000, "1970-12-01T00:00:00.000Z"sv, "1970-12-01T00:00:00.000000Z"sv },
+          { "Time at 1 year past UNIX epoch"sv, "1971-01-01T00:00:00+00:00"sv, 31536000000 * 1000, "1971-01-01T00:00:00.000Z"sv, "1971-01-01T00:00:00.000000Z"sv },
+          { "Time at 2 years past UNIX epoch"sv, "1972-01-01T00:00:00+00:00"sv, 63072000000 * 1000, "1972-01-01T00:00:00.000Z"sv, "1972-01-01T00:00:00.000000Z"sv },
+          { "Time at 3 years past UNIX epoch"sv, "1973-01-01T00:00:00+00:00"sv, 94694400000 * 1000, "1973-01-01T00:00:00.000Z"sv, "1973-01-01T00:00:00.000000Z"sv },
+          { "Time at Y2K"sv, "2000-01-01T00:00:00+00:00"sv, 946684800000 * 1000, "2000-01-01T00:00:00.000Z"sv, "2000-01-01T00:00:00.000000Z"sv }
+        } ) );
+
+      const auto [msg, date, expected, millis, micros] = data;
+      INFO( msg );
+      auto us = std::chrono::microseconds{ microSeconds( date ) };
+      CHECK( us.count() == expected );
+      CHECK( isoDateMillis( us ) == millis );
+      CHECK( isoDateMicros( us ) == micros );
 
       const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 0 );
+      REQUIRE( var.has_value() );
+      CHECK( var->time_since_epoch().count() == expected );
     }
 
-    AND_THEN( "Time at 1s past UNIX epoch" )
+    AND_WHEN( "Testing at some known times" )
     {
-      const auto date = "1970-01-01T00:00:01+00:00"s;
-      const auto expected = 1000000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-01-01T00:00:01.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-01-01T00:00:01.000000Z"s );
+      const auto data = GENERATE(
+        Catch::Generators::table<std::string_view, std::string_view, int64_t>( {
+          { "Time at UTC long"sv, "2015-05-04T02:51:59+00:00"sv, 1430707919000000 },
+          { "Time at UTC medium"sv, "2015-05-04T02:51:59+0000"sv, 1430707919000000 },
+          { "Time at UTC short"sv, "2015-05-04T02:51:59Z"sv, 1430707919000000 },
+          { "Time at one hour past UTC long"sv, "2015-05-04T02:51:59+01:00"sv, 1430704319000000 },
+          { "Time at one hour past UTC medium"sv, "2015-05-04T02:51:59+0100"sv, 1430704319000000 },
+          { "Time at one hour before UTC long"sv, "2015-05-04T02:51:59-01:00"sv, 1430711519000000 },
+          { "Time with millis at UTC long"sv, "2015-05-04T02:51:59.123+00:00"sv, 1430707919123000 },
+          { "Time with millis at UTC medium"sv, "2015-05-04T02:51:59.456+0000"sv, 1430707919456000 },
+          { "Time with millis at UTC short"sv, "2015-05-04T02:51:59.789Z"sv, 1430707919789000 },
+          { "Time with millis at one hour past UTC long"sv, "2015-05-04T02:51:59.123+01:00"sv, 1430704319123000 },
+          { "Time with millis at one hour past UTC medium"sv, "2015-05-04T02:51:59.456+0100"sv, 1430704319456000 },
+          { "Time with millis at one hour before UTC long"sv, "2015-05-04T02:51:59.789-01:00"sv, 1430711519789000 },
+          { "Time with millis at one hour before UTC long"sv, "2015-05-04T02:51:59.238-0100"sv, 1430711519238000 },
+          { "Time with micros at UTC long"sv, "2015-05-04T02:51:59.123456+00:00"sv, 1430707919123456 },
+          { "Time with micros at UTC medium"sv, "2015-05-04T02:51:59.456789+0000"sv, 1430707919456789 },
+          { "Time with micros at UTC short"sv, "2015-05-04T02:51:59.789123Z"sv, 1430707919789123 },
+          { "Time with micros at one hour past UTC long"sv, "2015-05-04T02:51:59.123789+01:00"sv, 1430704319123789 },
+          { "Time with micros at one hour past UTC medium"sv, "2015-05-04T02:51:59.456231+0100"sv, 1430704319456231 },
+          { "Time with micros at one hour before UTC long"sv, "2015-05-04T02:51:59.789654-01:00"sv, 1430711519789654 },
+          { "Time with micros at one hour before UTC long"sv, "2015-05-04T02:51:59.238971-0100"sv, 1430711519238971 },
+          { "Day only"sv, "2015-05-04"sv, 1430697600000000 },
+          { "Date time with simplified millisecond"sv, "2020-10-18T15:01:59.31Z"sv, 1603033319310000 },
+          { "Date time with simplified millisecond with zone"sv, "2015-05-04T02:51:59.12+05:30"sv, 1430688119120000 }
+        } ) );
 
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 1m past UNIX epoch" )
-    {
-      const auto date = "1970-01-01T00:01:00+00:00"s;
-      const auto expected = 60000000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-01-01T00:01:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-01-01T00:01:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 1h past UNIX epoch" )
-    {
-      const auto date = "1970-01-01T01:00:00+00:00"s;
-      const auto expected = 3600000000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-01-01T01:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-01-01T01:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 1d past UNIX epoch" )
-    {
-      const auto date = "1970-01-02T00:00:00+00:00"s;
-      const auto expected = 3600000000 * 24;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-01-02T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-01-02T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 1 month past UNIX epoch" )
-    {
-      const auto date = "1970-02-01T00:00:00+00:00"s;
-      const auto expected = 3600000000 * 24 * 31;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-02-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-02-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 2 months past UNIX epoch" )
-    {
-      const auto date = "1970-03-01T00:00:00+00:00"s;
-      const auto expected = 5097600000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-03-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-03-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 3 months past UNIX epoch" )
-    {
-      const auto date = "1970-04-01T00:00:00+00:00"s;
-      const auto expected = 7776000000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-04-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-04-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 4 months past UNIX epoch" )
-    {
-      const auto date = "1970-05-01T00:00:00+00:00"s;
-      const auto expected = 10368000000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-05-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-05-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 5 months past UNIX epoch" )
-    {
-      const auto date = "1970-06-01T00:00:00+00:00"s;
-      const auto expected = 13046400000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-06-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-06-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 6 months past UNIX epoch" )
-    {
-      const auto date = "1970-07-01T00:00:00+00:00"s;
-      const auto expected = 15638400000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-07-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-07-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 7 months past UNIX epoch" )
-    {
-      const auto date = "1970-08-01T00:00:00+00:00"s;
-      const auto expected = 18316800000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-08-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-08-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 8 months past UNIX epoch" )
-    {
-      const auto date = "1970-09-01T00:00:00+00:00"s;
-      const auto expected = 20995200000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-09-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-09-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 9 months past UNIX epoch" )
-    {
-      const auto date = "1970-10-01T00:00:00+00:00"s;
-      const auto expected = 23587200000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-10-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-10-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 10 months past UNIX epoch" )
-    {
-      const auto date = "1970-11-01T00:00:00+00:00"s;
-      const auto expected = 26265600000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-11-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-11-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 11 months past UNIX epoch" )
-    {
-      const auto date = "1970-12-01T00:00:00+00:00"s;
-      const auto expected = 28857600000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1970-12-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1970-12-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 1 year past UNIX epoch" )
-    {
-      const auto date = "1971-01-01T00:00:00+00:00"s;
-      const auto expected = 31536000000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1971-01-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1971-01-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 2 years past UNIX epoch" )
-    {
-      const auto date = "1972-01-01T00:00:00+00:00"s;
-      const auto expected = 63072000000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1972-01-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1972-01-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at 3 years past UNIX epoch" )
-    {
-      const auto date = "1973-01-01T00:00:00+00:00"s;
-      const auto expected = 94694400000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "1973-01-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "1973-01-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at Y2K" )
-    {
-      const auto date = "2000-01-01T00:00:00+00:00"s;
-      const auto expected = 946684800000 * 1000;
-      auto us = microSeconds( date );
-      REQUIRE( us == expected );
-      REQUIRE( isoDateMillis( us ) == "2000-01-01T00:00:00.000Z"s );
-      REQUIRE( isoDateMicros( us ) == "2000-01-01T00:00:00.000000Z"s );
-
-      const auto var = parseISO8601( isoDateMillis( us ) );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == expected );
-    }
-
-    AND_THEN( "Time at UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59+00:00"s;
+      const auto [msg, date, expected] = data;
+      INFO( msg );
       const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919000000 );
-    }
-
-    AND_THEN( "Time at UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59+0000"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919000000 );
-    }
-
-    AND_THEN( "Time at UTC short" )
-    {
-      const auto date = "2015-05-04T02:51:59Z"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919000000 );
-    }
-
-    AND_THEN( "Time at one hour past UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59+01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319000000 );
-    }
-
-    AND_THEN( "Time at one hour past UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59+0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319000000 );
-    }
-
-    AND_THEN( "Time at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59-01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519000000 );
-    }
-
-    AND_THEN( "Time at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59-0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519000000 );
-    }
-
-    AND_THEN( "Time with millis at UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.123+00:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919123000 );
-    }
-
-    AND_THEN( "Time with millis at UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59.456+0000"s;
-      const auto var = parseISO8601( date );
-      if ( std::holds_alternative<std::string>( var ) )
-      {
-        UNSCOPED_INFO( std::get<std::string>( var ) );
-      }
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919456000 );
-    }
-
-    AND_THEN( "Time with millis at UTC short" )
-    {
-      const auto date = "2015-05-04T02:51:59.789Z"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919789000 );
-    }
-
-    AND_THEN( "Time with millis at one hour past UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.123+01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319123000 );
-    }
-
-    AND_THEN( "Time with millis at one hour past UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59.456+0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319456000 );
-    }
-
-    AND_THEN( "Time with millis at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.789-01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519789000 );
-    }
-
-    AND_THEN( "Time with millis at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.238-0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519238000 );
-    }
-
-    AND_THEN( "Time with micros at UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.123456+00:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919123456 );
-    }
-
-    AND_THEN( "Time with micros at UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59.456789+0000"s;
-      const auto var = parseISO8601( date );
-      if ( std::holds_alternative<std::string>( var ) )
-      {
-        UNSCOPED_INFO( std::get<std::string>( var ) );
-      }
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919456789 );
-    }
-
-    AND_THEN( "Time with micros at UTC short" )
-    {
-      const auto date = "2015-05-04T02:51:59.789123Z"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430707919789123 );
-    }
-
-    AND_THEN( "Time with micros at one hour past UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.123789+01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319123789 );
-    }
-
-    AND_THEN( "Time with micros at one hour past UTC medium" )
-    {
-      const auto date = "2015-05-04T02:51:59.456231+0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430704319456231 );
-    }
-
-    AND_THEN( "Time with micros at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.789654-01:00"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519789654 );
-    }
-
-    AND_THEN( "Time with micros at one hour before UTC long" )
-    {
-      const auto date = "2015-05-04T02:51:59.238971-0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430711519238971 );
-    }
-
-    AND_THEN( "Day only" )
-    {
-      const auto date = "2015-05-04"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430697600000000 );
-    }
-
-    AND_THEN( "Date time with simplified millisecond" )
-    {
-      const auto date = "2020-10-18T15:01:59.31Z"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1603033319310000 );
-    }
-
-    AND_THEN( "Date time with simplified millisecond with zone" )
-    {
-      const auto date = "2015-05-04T02:51:59.12+05:30"s;
-      const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
-      REQUIRE( std::get<DateTime>( var ).time_since_epoch().count() == 1430688119120000 );
+      REQUIRE( var.has_value() );
+      REQUIRE( var->time_since_epoch().count() ==  expected );
     }
 
     AND_THEN( "ISO date time converted to UTC" )
     {
       const auto date = "2023-05-18T09:00:00.000-05:00"s;
       const auto var = parseISO8601( date );
-      REQUIRE_FALSE( std::holds_alternative<std::string>( var ) );
-      REQUIRE( std::holds_alternative<DateTime>( var ) );
+      REQUIRE( var.has_value() );
 
-      const auto ts = std::get<DateTime>( var ).time_since_epoch();
-      const auto utc = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( ts ).count() );
-      REQUIRE( utc == "2023-05-18T14:00:00.000Z" );
+      const auto ts = var->time_since_epoch();
+      REQUIRE( isoDateMillis( ts ) == "2023-05-18T14:00:00.000Z" );
     }
   }
 
   GIVEN( "Invalid date-time values" )
   {
-    WHEN( "Shorter than minimum day format" )
-    {
-      const auto date = "2015-05"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
+    const auto data = GENERATE(
+      Catch::Generators::table<std::string_view, std::string_view>( {
+        { "Shorter than minimum day format"sv, "2015-05"sv },
+        { "Invalid time part"sv, "2015-05-04T02"sv },
+        { "Time with space instead of 'T'"sv, "2015-05-04 02:51:59.238971-0100"sv },
+        { "Date time without zone"sv, "2015-05-04T02:51:59"sv },
+        { "Date time with invalid zone code"sv, "2015-05-04T02:51:59X"sv },
+        { "Date time with invalid zone value"sv, "2015-05-04T02:51:59X"sv },
+        { "Date time with invalid zone hour"sv, "2015-05-04T02:51:59+24:30"sv },
+        { "Date time with invalid zone minute"sv, "2015-05-04T02:51:59+05:60"sv },
+        { "Date time with invalid millisecond"sv, "2015-05-04T02:51:59.1+05:30"sv },
+        { "Date time with invalid microsecond"sv, "2015-05-04T02:51:59.1234+05:30"sv }
+      } ) );
 
-    AND_THEN( "Invalid time part" )
-    {
-      const auto date = "2015-05-04T02"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Time with space instead of 'T'" )
-    {
-      const auto date = "2015-05-04 02:51:59.238971-0100"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time without zone" )
-    {
-      const auto date = "2015-05-04T02:51:59"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid zone code" )
-    {
-      const auto date = "2015-05-04T02:51:59X"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid zone value" )
-    {
-      const auto date = "2015-05-04T02:51:59X"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid zone hour" )
-    {
-      const auto date = "2015-05-04T02:51:59+24:30"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid zone minute" )
-    {
-      const auto date = "2015-05-04T02:51:59+05:60"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid millisecond" )
-    {
-      const auto date = "2015-05-04T02:51:59.1+05:30"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
-
-    AND_THEN( "Date time with invalid microsecond" )
-    {
-      const auto date = "2015-05-04T02:51:59.1234+05:30"s;
-      const auto var = parseISO8601( date );
-      REQUIRE( std::holds_alternative<std::string>( var ) );
-      REQUIRE_FALSE( std::holds_alternative<DateTime>( var ) );
-    }
+    const auto [msg, date] = data;
+    const auto var = parseISO8601( date );
+    REQUIRE_FALSE( var.has_value() );
   }
 }

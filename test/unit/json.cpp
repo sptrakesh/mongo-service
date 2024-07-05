@@ -118,7 +118,7 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
           CHECK( nested["identifier"sv].as_string() == obj.nested->identifier );
           CHECK( nested["integer"sv] == obj.nested->integer );
           CHECK( nested["number"sv] == obj.nested->number );
-          auto date = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nested->date.time_since_epoch() ).count() );
+          auto date = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nested->date.time_since_epoch() ) );
           CHECK( nested["date"sv].as_string() == date );
           REQUIRE( nested.contains( "numbers"sv ) );
           REQUIRE( nested["numbers"sv].is_array() );
@@ -145,7 +145,7 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
             CHECK( n["identifier"sv].as_string() == obj.nesteds[i].identifier );
             CHECK( n["integer"sv].as_int64() == obj.nesteds[i].integer );
             CHECK( n["number"sv].as_double() == obj.nesteds[i].number );
-            auto dt = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nesteds[i].date.time_since_epoch() ).count() );
+            auto dt = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nesteds[i].date.time_since_epoch() ) );
             CHECK( n["date"sv].as_string() == dt );
             CHECK( n["numbers"sv].as_array().size() == obj.nesteds[i].numbers.size() );
           }
@@ -158,7 +158,7 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
           CHECK( nested["identifier"sv].as_string() == obj.nestedp->identifier );
           CHECK( nested["integer"sv] == obj.nestedp->integer );
           CHECK( nested["number"sv] == obj.nestedp->number );
-          auto date = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nestedp->date.time_since_epoch() ).count() );
+          auto date = isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.nestedp->date.time_since_epoch() ) );
           CHECK( nested["date"sv].as_string() == date );
           REQUIRE( nested.contains( "numbers"sv ) );
           REQUIRE( nested["numbers"sv].is_array() );
@@ -178,7 +178,7 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
         REQUIRE( data.contains( "obool"sv ) );
         CHECK( data["obool"sv].as_bool() == *obj.obool );
         REQUIRE( data.contains( "time"sv ) );
-        CHECK( data["time"sv].as_string() == isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.time.time_since_epoch() ).count() ) );
+        CHECK( data["time"sv].as_string() == isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( obj.time.time_since_epoch() ) ) );
         REQUIRE( data.contains( "boolean"sv ) );
         CHECK( data["boolean"sv].as_bool() == obj.boolean );
       }

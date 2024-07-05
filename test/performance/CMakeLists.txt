@@ -18,11 +18,12 @@ if (APPLE)
   endif()
 endif()
 find_package(hayai REQUIRED)
+find_package(zstd REQUIRED)
 
 add_executable(performance ${performance_SRCS})
 
 target_link_libraries(performance
-  PRIVATE ${HAYAI_LIBRARY} Boost::boost mongo::mongocxx_static ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY}
+  PRIVATE ${HAYAI_LIBRARY} Boost::boost mongo::mongocxx_static ${JEMALLOC_LIBRARY} zstd::libzstd_static
 )
 
 add_test(NAME performance COMMAND performance)

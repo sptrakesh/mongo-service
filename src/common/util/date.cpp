@@ -32,13 +32,12 @@ namespace spt::util
 
   int64_t microSeconds( std::string_view date )
   {
-    const auto var = parseISO8601( date );
-    if ( std::holds_alternative<std::string>( var ) ) return 0;
-    return std::get<DateTime>( var ).time_since_epoch().count();
+    return parseISO8601( date ).value_or( DateTime{ std::chrono::microseconds{ 0 } } ).time_since_epoch().count();
   }
 
-  std::variant<DateTime, std::string> parseISO8601( std::string_view date )
+  std::expected<DateTime, std::string> parseISO8601( std::string_view date )
   {
+    using O = std::expected<DateTime, std::string>;
     // 2021-02-11
     // 2021-02-11T11:17:43Z
     // 2021-02-11T11:17:43-0600
@@ -55,17 +54,17 @@ namespace spt::util
     if ( date.size() < 10 )
     {
       LOG_WARN << "Invalid date-time: " << date;
-      return "Invalid date format";
+      return O{ std::unexpect, "Invalid date format" };
     }
     if ( date.size() > 10 && date.size() < 20 )
     {
       LOG_WARN << "Invalid date-time: " << date;
-      return "Invalid datetime format";
+      return O{ std::unexpect, "Invalid datetime format" };
     }
     if ( date.size() > 10 && date[10] != 'T' )
     {
       LOG_WARN << "Invalid date-time: " << date;
-      return "Invalid datetime separator";
+      return O{ std::unexpect, "Invalid datetime separator" };
     }
 
     static constexpr auto microSecondsPerHour = int64_t( 3600000000 );
@@ -77,7 +76,7 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime year";
+        return O{ std::unexpect, "Invalid datetime year" };
       }
     }
 
@@ -88,7 +87,7 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime month";
+        return O{ std::unexpect, "Invalid datetime month" };
       }
     }
 
@@ -99,7 +98,7 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime day";
+        return O{ std::unexpect, "Invalid datetime day" };
       }
     }
 
@@ -111,7 +110,7 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime hour";
+        return O{ std::unexpect, "Invalid datetime hour" };
       }
     }
 
@@ -123,7 +122,7 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime minute";
+        return O{ std::unexpect, "Invalid datetime minute" };
       }
     }
 
@@ -135,18 +134,19 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime second";
+        return O{ std::unexpect, "Invalid datetime second" };
       }
     }
 
-    const auto parseMillis = [date]() -> std::variant<int16_t, std::string>
+    const auto parseMillis = [date]() -> std::expected<int16_t, std::string>
     {
-      if (date.size() < 20) return int16_t( 0 );
-      if ( date[19] != '.' ) return int16_t( 0 );
+      using O = std::expected<int16_t, std::string>;
+      if (date.size() < 20) return O{ std::in_place, 0 };
+      if ( date[19] != '.' ) return O{ std::in_place, 0 };
       if ( date.size() < 22 )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime millis";
+        return O{ std::unexpect, "Invalid datetime millis" };
       }
 
       int16_t m{0};
@@ -155,16 +155,17 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime millis";
+        return O{ std::unexpect, "Invalid datetime millis" };
       }
-      return m;
+      return O{ std::in_place, m };
     };
 
-    const auto parseMicros = [date]( int16_t millis ) -> std::variant<int16_t, std::string>
+    const auto parseMicros = [date]( int16_t millis ) -> std::expected<int16_t, std::string>
     {
-      if (date.size() < 20) return int16_t( 0 );
-      if ( date[19] != '.' ) return int16_t( 0 );
-      if ( date.size() < 25 ) return int16_t( 0 );
+      using O = std::expected<int16_t, std::string>;
+      if (date.size() < 20) return O{ std::in_place, 0 };
+      if ( date[19] != '.' ) return O{ std::in_place, 0 };
+      if ( date.size() < 25 ) return O{ std::in_place, 0 };
 
       std::size_t idx = 23;
       if ( millis < 100 && !std::isdigit( date[22] ) )
@@ -176,7 +177,7 @@ namespace spt::util
       case '+':
       case '-':
       case 'Z':
-        return int16_t( 0 );
+        return O{ std::in_place, 0 };
       }
 
       int16_t m{0};
@@ -185,28 +186,29 @@ namespace spt::util
       if ( ec != std::errc() )
       {
         LOG_WARN << "Invalid date-time: " << date;
-        return "Invalid datetime micros";
+        return O{ std::unexpect, "Invalid datetime micros" };
       }
-      return m;
+      return O{ std::in_place, m };
     };
 
     using Tuple = std::tuple<int16_t, int16_t>;
-    const auto parseZone = [&date]( int16_t millis ) -> std::variant<Tuple, std::string>
+    const auto parseZone = [&date]( int16_t millis ) -> std::expected<Tuple, std::string>
     {
-      if ( date.size() < 20 ) return Tuple{ int16_t( 0 ), int16_t( 0 ) };
+      using O = std::expected<Tuple, std::string>;
+      if ( date.size() < 20 ) return O{ std::in_place, Tuple{ 0, 0 } };
 
       const auto c19 = date[19];
       switch ( c19 )
       {
       case 'Z':
-        return Tuple{ int16_t( 0 ), int16_t( 0 ) };
+        return O{ std::in_place, Tuple{ 0, 0 } };
       case '+':
       case '-':
       {
         if ( date.size() < 24 )
         {
           LOG_WARN << "Invalid date-time: " << date;
-          return "Invalid datetime zone";
+          return O{ std::unexpect, "Invalid datetime zone" };
         }
         const int16_t mult = date[19] == '+' ? 1 : -1;
         if ( date.size() == 24 )
@@ -218,7 +220,7 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone hour";
+              return O{ std::unexpect, "Invalid datetime zone hour" };
             }
           }
 
@@ -229,7 +231,7 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone minute";
+              return O{ std::unexpect, "Invalid datetime zone minute" };
             }
           }
           return Tuple{ h * mult, s };
@@ -237,7 +239,7 @@ namespace spt::util
         if ( date[22] != ':' )
         {
           LOG_WARN << "Invalid date-time: " << date << " at 22 " << date[22] << " for size " << int( date.size() );
-          return "Invalid datetime zone";
+          return O{ std::unexpect, "Invalid datetime zone" };
         }
 
         int16_t h{0};
@@ -247,7 +249,7 @@ namespace spt::util
           if ( ec != std::errc() )
           {
             LOG_WARN << "Invalid date-time: " << date;
-            return "Invalid datetime zone hour";
+            return O{ std::unexpect, "Invalid datetime zone hour" };
           }
         }
 
@@ -258,21 +260,21 @@ namespace spt::util
           if ( ec != std::errc() )
           {
             LOG_WARN << "Invalid date-time: " << date;
-            return "Invalid datetime zone minute";
+            return O{ std::unexpect, "Invalid datetime zone minute" };
           }
         }
-        return Tuple{ h * mult, s };
+        return O{ std::in_place, Tuple{ h * mult, s } };
       }
       case '.':
         if ( millis < 100 && date.size() < 23 )
         {
           LOG_WARN << "Invalid date-time: " << date;
-          return "Invalid datetime fraction";
+          return O{ std::unexpect, "Invalid datetime fraction" };
         }
         if ( millis > 100 && date.size() < 24 )
         {
           LOG_WARN << "Invalid date-time: " << date;
-          return "Invalid datetime fraction";
+          return O{ std::unexpect, "Invalid datetime fraction" };
         }
 
         std::size_t idx = 23;
@@ -280,8 +282,8 @@ namespace spt::util
         {
           idx = 22;
         }
-        const auto c23 = date[idx];
-        switch ( c23 )
+
+        switch ( const auto c23 = date[idx]; c23 )
         {
         case 'Z':
           return Tuple{ int16_t( 0 ), int16_t( 0 ) };
@@ -290,7 +292,7 @@ namespace spt::util
           if ( date.size() < ( idx + 5 ) )
           {
             LOG_WARN << "Invalid date-time: " << date;
-            return "Invalid datetime zone";
+            return O{ std::unexpect, "Invalid datetime zone" };
           }
           const int16_t mult = date[idx] == '+' ? 1 : -1;
           if ( date.size() == ( idx + 5 ) )
@@ -302,7 +304,7 @@ namespace spt::util
               if ( ec != std::errc() )
               {
                 LOG_WARN << "Invalid date-time: " << date;
-                return "Invalid datetime zone hour";
+                return O{ std::unexpect, "Invalid datetime zone hour" };
               }
             }
 
@@ -313,7 +315,7 @@ namespace spt::util
               if ( ec != std::errc() )
               {
                 LOG_WARN << "Invalid date-time: " << date;
-                return "Invalid datetime zone minute";
+                return O{ std::unexpect, "Invalid datetime zone minute" };
               }
             }
             return Tuple{ h * mult, s };
@@ -321,7 +323,7 @@ namespace spt::util
           if ( date[idx + 3] != ':' )
           {
             LOG_WARN << "Invalid date-time: " << date << " at 26 " << date[26] << " for size " << int( date.size() );
-            return "Invalid datetime zone";
+            return O{ std::unexpect, "Invalid datetime zone" };
           }
 
           int16_t h{0};
@@ -331,7 +333,7 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone hour";
+              return O{ std::unexpect, "Invalid datetime zone hour" };
             }
           }
 
@@ -342,16 +344,16 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone minute";
+              return O{ std::unexpect, "Invalid datetime zone minute" };
             }
           }
-          return Tuple{ h * mult, s };
+          return O{ std::in_place, Tuple{ h * mult, s } };
         }
 
         if ( date.size() < ( idx + 4 ) )
         {
           LOG_WARN << "Invalid date-time: " << date;
-          return "Invalid datetime zone";
+          return O{ std::unexpect, "Invalid datetime zone" };
         }
         const auto c26 = date[idx + 3];
         switch ( c26 )
@@ -363,7 +365,7 @@ namespace spt::util
           if ( date.size() < idx + 8 )
           {
             LOG_WARN << "Invalid date-time: " << date;
-            return "Invalid datetime zone";
+            return O{ std::unexpect, "Invalid datetime zone" };
           }
           const int16_t mult = date[idx + 3] == '+' ? 1 : -1;
           if ( date.size() == ( idx + 8 ) )
@@ -375,7 +377,7 @@ namespace spt::util
               if ( ec != std::errc() )
               {
                 LOG_WARN << "Invalid date-time: " << date;
-                return "Invalid datetime zone hour";
+                return O{ std::unexpect, "Invalid datetime zone hour" };
               }
             }
 
@@ -386,15 +388,15 @@ namespace spt::util
               if ( ec != std::errc() )
               {
                 LOG_WARN << "Invalid date-time: " << date;
-                return "Invalid datetime zone minute";
+                return O{ std::unexpect, "Invalid datetime zone minute" };
               }
             }
-            return Tuple{ h * mult, s };
+            return O{ std::in_place, Tuple{ h * mult, s } };
           }
           if ( date[idx + 6] != ':' )
           {
             LOG_WARN << "Invalid date-time: " << date << " at 29 " << date[idx + 6] << " for size " << int( date.size() );
-            return "Invalid datetime zone";
+            return O{ std::unexpect, "Invalid datetime zone" };
           }
 
           int16_t h{0};
@@ -404,7 +406,7 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone hour";
+              return O{ std::unexpect, "Invalid datetime zone hour" };
             }
           }
 
@@ -415,33 +417,33 @@ namespace spt::util
             if ( ec != std::errc() )
             {
               LOG_WARN << "Invalid date-time: " << date;
-              return "Invalid datetime zone minute";
+              return O{ std::unexpect, "Invalid datetime zone minute" };
             }
           }
-          return Tuple{ h * mult, s };
+          return O{ std::in_place, Tuple{ h * mult, s } };
         }
       }
 
       LOG_WARN << "Invalid date-time: " << date;
-      return "Invalid datetime format zone";
+      return O{ std::unexpect, "Invalid datetime format zone" };
     };
 
     const auto pm = parseMillis();
-    if ( std::holds_alternative<std::string>( pm ) ) return std::get<std::string>( pm );
-    int16_t millis = std::get<int16_t>( pm );
+    if ( !pm.has_value() ) return O{ std::unexpect, pm.error() };
+    int16_t millis = pm.value();
 
     const auto pmi = parseMicros( millis );
-    if ( std::holds_alternative<std::string>( pmi ) ) return std::get<std::string>( pmi );
-    const int16_t micros = std::get<int16_t>( pmi );
+    if ( !pmi.has_value() ) return O{ std::unexpect, pmi.error() };
+    const int16_t micros = pmi.value();
 
     const auto z = parseZone( millis );
-    if ( std::holds_alternative<std::string>( z ) ) return std::get<std::string>( z );
+    if ( !z.has_value() ) return O{ std::unexpect, z.error() };
 
-    const auto [dsth, dstm] = std::get<Tuple>( z );
+    const auto [dsth, dstm] = z.value();
     if ( dsth > 23 || dstm > 59 )
     {
       LOG_WARN << "Invalid date-time: " << date;
-      return "Invalid datetime zone";
+      return O{ std::unexpect, "Invalid datetime zone" };
     }
 
     if ( millis > 0 && !std::isdigit( date[22] ) ) millis *= 10;
@@ -460,7 +462,7 @@ namespace spt::util
       switch ( i )
       {
       case 2:
-        epoch += ( (isLeap) ? 29 : 28 ) * 24 * microSecondsPerHour;
+        epoch += ( isLeap ? 29 : 28 ) * 24 * microSecondsPerHour;
         break;
       case 4:
       case 6:
@@ -473,7 +475,7 @@ namespace spt::util
       }
     }
 
-    for ( int i = 1970; i < year; ++i )
+    for ( int16_t i = 1970; i < year; ++i )
     {
       if ( pdate::isLeapYear( i ) ) epoch += 366 * 24 * microSecondsPerHour;
       else epoch += 365 * 24 * microSecondsPerHour;
@@ -485,11 +487,17 @@ namespace spt::util
       if ( dsth > 0 ) epoch -= dstm * int64_t( 60000000 );
       else epoch += dstm * int64_t( 60000000 );
     }
-    return DateTime{ std::chrono::microseconds{ epoch } };
+    return O{ std::in_place, std::chrono::microseconds{ epoch } };
   }
 
   std::string isoDateMicros( int64_t epoch )
   {
+    return isoDateMicros( std::chrono::microseconds( epoch ) );
+  }
+
+  std::string isoDateMicros( std::chrono::microseconds us )
+  {
+    int64_t epoch = us.count();
     const int micros = epoch % int64_t( 1000 );
     epoch /= int64_t( 1000 );
 
@@ -570,23 +578,34 @@ namespace spt::util
     return ss.str();
   }
 
-  std::string isoDateMicros( std::chrono::microseconds epoch )
-  {
-    return isoDateMicros( epoch.count() );
-  }
-
   std::string isoDateMicros( std::chrono::milliseconds epoch )
   {
-    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch ).count() );
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch ) );
   }
 
   std::string isoDateMicros( const DateTime& epoch )
   {
-    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
+  }
+
+  std::string isoDateMicros( const DateTimeMs& epoch )
+  {
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
+  }
+
+  std::string isoDateMicros( const DateTimeNs& epoch )
+  {
+    return isoDateMicros( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
   }
 
   std::string isoDateMillis( int64_t epoch )
   {
+    return isoDateMillis( std::chrono::microseconds( epoch ) );
+  }
+
+  std::string isoDateMillis( std::chrono::microseconds us )
+  {
+    int64_t epoch = us.count();
     epoch /= int64_t( 1000 );
 
     const int millis = epoch % int64_t( 1000 );
@@ -662,29 +681,24 @@ namespace spt::util
     return ss.str();
   }
 
-  std::string isoDateMillis( std::chrono::microseconds epoch )
-  {
-    return isoDateMillis( epoch.count() );
-  }
-
   std::string isoDateMillis( std::chrono::milliseconds epoch )
   {
-    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch ).count() );
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch ) );
   }
 
   std::string isoDateMillis( const DateTime& epoch )
   {
-    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
   }
 
   std::string isoDateMillis( const DateTimeMs& epoch )
   {
-    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
   }
 
   std::string isoDateMillis( const DateTimeNs& epoch )
   {
-    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ).count() );
+    return isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( epoch.time_since_epoch() ) );
   }
 }
 

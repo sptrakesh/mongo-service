@@ -31,6 +31,7 @@
   * [Windows](#windows)
     * [Limitations](#limitations)
 * [Clients](#clients)
+  * [API](#api-usage)
 * [Acknowledgements](#acknowledgements)
     
 A TCP service for routing all requests to **MongoDB** via a centralised service.
@@ -1045,7 +1046,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr/local/spt \
   -DBUILD_TESTING=OFF -S . -B build
 cmake --build build -j12
-(cd build; sudo make install)
+sudo cmake --install build
 ```
 </details>
 
@@ -1179,6 +1180,26 @@ have been disabled when running on Windows to avoid running into these issues.
 ## Clients
 Sample clients in other languages that use the service.
 * **Julia** - Sample client package for [Julia](https://julialang.org) is available under the [julia](client/julia) directory.
+* **Python** - Sample client package for [Python](https://python.org) is available under the [python](client/python) directory.
+
+### API Usage
+The [API](src/api/api.h) can be used to communicate with the TCP service.  Client code bases
+can use cmake to use the library.
+
+```shell
+# In your CMakeLists.txt file
+find_package(MongoService REQUIRED COMPONENTS api)
+if (APPLE)
+  include_directories(/usr/local/spt/include)
+else()
+  include_directories(/opt/spt/include)
+endif (APPLE)
+target_link_libraries(${Target_Name} PRIVATE mongo-service::api ...)
+
+# Run cmake
+cmake -DCMAKE_PREFIX_PATH=/usr/local/boost -DCMAKE_PREFIX_PATH=/usr/local/mongo -DCMAKE_PREFIX_PATH=/usr/local/spt -S . -B build
+cmake --build build -j12
+```
 
 ## Acknowledgements
 This software has been developed mainly using work other people/projects have contributed.

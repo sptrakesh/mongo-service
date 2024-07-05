@@ -2,8 +2,10 @@ FROM sptrakesh/config-db:alpine as config
 FROM sptrakesh/encrypter as encrypter
 FROM sptrakesh/mongocxx-boost as base
 
-COPY CMakeLists.txt /opt/spt/mongo-service/CMakeLists.txt
+COPY CMakeLists.txt /opt/spt/mongo-service/
+COPY MongoServiceConfig.cmake /opt/spt/mongo-service/
 COPY src /opt/spt/mongo-service/src
+COPY docker/env.sh /opt/spt/mongo-service/docker/
 
 WORKDIR /opt/spt/mongo-service/build
 RUN rm -rf * \

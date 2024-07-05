@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-cmake_policy(SET CMP0069 NEW)
-project(mongo-service)
+
+if (POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
+endif(POLICY CMP0069)
+if (POLICY CMP0079)
+  cmake_policy(SET CMP0079 NEW)
+endif(POLICY CMP0079)
+
+file(STRINGS "docker/env.sh" ver REGEX "VERSION=([0-9]*)")
+string(REGEX REPLACE "VERSION='" "" project_version ${ver})
+string(REGEX REPLACE "'" "" project_version ${project_version})
+message("Project version: ${project_version}")
+
+project(mongo-service LANGUAGES CXX VERSION ${project_version})
 
 if (WIN32)
   if (POLICY CMP0111)
@@ -49,10 +61,7 @@ if (APPLE)
   )
   if (BREW_OPENSSL EQUAL 0 AND EXISTS "${BREW_OPENSSL_PREFIX}")
     message(STATUS "Found OpenSSL keg installed by Homebrew at ${BREW_OPENSSL_PREFIX}")
-    set(OPENSSL_ROOT_DIR "${BREW_OPENSSL_PREFIX}/")
-    set(OPENSSL_INCLUDE_DIR "${BREW_OPENSSL_PREFIX}/include")
-    set(OPENSSL_LIBRARIES "${BREW_OPENSSL_PREFIX}/lib")
-    set(OPENSSL_CRYPTO_LIBRARY "${BREW_OPENSSL_PREFIX}/lib/libcrypto.dylib")
+    list(APPEND CMAKE_PREFIX_PATH "${BREW_OPENSSL_PREFIX}/")
   endif()
 
   execute_process(
@@ -63,9 +72,7 @@ if (APPLE)
   )
   if (BREW_ZSTD EQUAL 0 AND EXISTS "${BREW_ZSTD_PREFIX}")
     message(STATUS "Found zstd keg installed by Homebrew at ${BREW_ZSTD_PREFIX}")
-    set(ZSTD_ROOT_DIR "${BREW_ZSTD_PREFIX}/")
-    set(ZSTD_LIBRARIES "${BREW_ZSTD_PREFIX}/lib")
-    set(ZSTD_LIBRARY "${BREW_ZSTD_PREFIX}/lib/libzstd.dylib")
+    list(APPEND CMAKE_PREFIX_PATH "${BREW_ZSTD_PREFIX}/")
   endif()
 
   execute_process(
@@ -139,3 +146,11 @@ if (BUILD_TESTING)
   endif(UNIX)
 endif()
 
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "ConfigdbConfigVersion.cmake"
+    VERSION ${configdb_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+install(FILES "MongoServiceConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ConfigdbConfigVersion.cmake" DESTINATION lib/cmake/MongoService)

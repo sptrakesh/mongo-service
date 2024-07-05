@@ -3,9 +3,6 @@ FILE(GLOB_RECURSE client_SRCS *.cpp *.hpp *.h)
 set(client_SRCS ${client_SRCS})
 add_executable(client ${client_SRCS})
 
-target_link_libraries(client
-  PRIVATE nanolog mongo-service-common mongo-service-api mongo::mongocxx_static Boost::boost ${OPENSSL_LIBRARIES} ZLIB::ZLIB
-)
-
+target_link_libraries(client PRIVATE api ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
 add_test(NAME client COMMAND client)
 install(TARGETS client DESTINATION bin)
