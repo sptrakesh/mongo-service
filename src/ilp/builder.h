@@ -33,6 +33,14 @@ namespace spt::ilp
     Builder& addValue( std::string_view key, double value );
     Builder& addValue( std::string_view key, std::string_view value );
     Builder& timestamp( std::chrono::nanoseconds value );
+
+    using DateTime = std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds>;
+    using DateTimeMs = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
+    using DateTimeNs = std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::nanoseconds>;
+    Builder& addValue( std::string_view key, DateTime value );
+    Builder& addValue( std::string_view key, DateTimeMs value );
+    Builder& addValue( std::string_view key, DateTimeNs value );
+
     Builder& endRecord();
 
     [[nodiscard]] std::string finish();

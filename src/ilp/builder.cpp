@@ -5,6 +5,8 @@
 #include "builder.h"
 #include <fmt/format.h>
 
+#include "../common/util/date.h"
+
 using spt::ilp::Builder;
 
 namespace spt::ilp::pbuilder
@@ -132,6 +134,27 @@ Builder& Builder::addValue( std::string_view key, std::string_view v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
   record->value.append( fmt::format( "{}=\"{}\"", key, pbuilder::clean( v, false ) ) );
+  return *this;
+}
+
+Builder& Builder::addValue( std::string_view key, util::DateTime v )
+{
+  if ( !record->value.empty() ) record->value.append( "," );
+  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
+  return *this;
+}
+
+Builder& Builder::addValue( std::string_view key, util::DateTimeMs v )
+{
+  if ( !record->value.empty() ) record->value.append( "," );
+  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
+  return *this;
+}
+
+Builder& Builder::addValue( std::string_view key, util::DateTimeNs v )
+{
+  if ( !record->value.empty() ) record->value.append( "," );
+  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
   return *this;
 }
 
