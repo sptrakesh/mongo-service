@@ -2,8 +2,8 @@
 // Created by Rakesh on 2019-05-16.
 //
 
-#include "../../src/log/NanoLog.h"
-#include "../../src/api/api.h"
+#include "../../src/log/NanoLog.hpp"
+#include "../../src/api/api.hpp"
 
 #include <catch2/catch_session.hpp>
 #if defined(_WIN32) || defined(WIN32)

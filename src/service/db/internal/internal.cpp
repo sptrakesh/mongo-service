@@ -2,8 +2,8 @@
 // Created by Rakesh on 05/08/2023.
 //
 
-#include "internal.h"
-#include "../common/util/bson.h"
+#include "internal.hpp"
+#include "../common/util/bson.hpp"
 
 mongocxx::write_concern spt::db::internal::writeConcern( bsoncxx::document::view view )
 {

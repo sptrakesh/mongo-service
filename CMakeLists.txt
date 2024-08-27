@@ -6,6 +6,9 @@ endif(POLICY CMP0069)
 if (POLICY CMP0079)
   cmake_policy(SET CMP0079 NEW)
 endif(POLICY CMP0079)
+if (POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
 
 file(STRINGS "docker/env.sh" ver REGEX "VERSION=([0-9]*)")
 string(REGEX REPLACE "VERSION='" "" project_version ${ver})
@@ -113,6 +116,7 @@ if (APPLE)
   set(CMAKE_MACOSX_RPATH 1)
   include_directories(
     /usr/local/fmt/include
+    /usr/local/boost/include
   )
 else()
   include_directories(

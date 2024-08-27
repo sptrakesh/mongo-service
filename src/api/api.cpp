@@ -2,16 +2,16 @@
 // Created by Rakesh on 22/02/2022.
 //
 
-#include "api.h"
-#include "impl/asyncconnection.h"
-#include "impl/connection.h"
-#include "impl/settings.h"
-#include "pool/pool.h"
+#include "api.hpp"
+#include "impl/asyncconnection.hpp"
+#include "impl/connection.hpp"
+#include "impl/settings.hpp"
+#include "pool/pool.hpp"
 #if defined __has_include
-  #if __has_include("../common/util/magic_enum.hpp")
-    #include "../common/util/magic_enum.hpp"
+  #if __has_include("../common/magic_enum/magic_enum_all.hpp")
+    #include "../common/magic_enum/magic_enum_all.hpp"
   #else
-    #include <util/magic_enum.hpp>
+    #include <magic_enum/magic_enum_all.hpp>
   #endif
 #endif
 

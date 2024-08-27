@@ -2,12 +2,12 @@
 // Created by Rakesh on 17/07/2021.
 //
 
-#include "internal.h"
-#include "db/pool.h"
-#include "model/configuration.h"
-#include "model/errors.h"
-#include "../log/NanoLog.h"
-#include "../common/util/bson.h"
+#include "internal.hpp"
+#include "db/pool.hpp"
+#include "model/configuration.hpp"
+#include "model/errors.hpp"
+#include "../log/NanoLog.hpp"
+#include "../common/util/bson.hpp"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>

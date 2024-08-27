@@ -2,7 +2,7 @@
 // Created by Rakesh on 12/05/2023.
 //
 
-#include "model.h"
+#include "model.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

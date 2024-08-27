@@ -1206,10 +1206,10 @@ This software has been developed mainly using work other people/projects have co
 The following are the components used to build this software:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the `TCP socket` server implementation.
 * **[MongoCXX](https://mongocxx.org/)** - MongoDB C++ driver.
+* **[magic_enum](https://github.com/Neargye/magic_enum) - Static reflection for enums.
 * **[visit_struct](https://github.com/cbeck88/visit_struct)** - Struct visitor library used for the [serialisation](src/common/util/serialise.h) utility functions.
 * **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock free concurrent queue implementation for metrics.
-* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used for the server. 
-  I modified the implementation for daily rolling log files.
+* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used for the server. I modified the implementation for daily rolling log files.
 * **[Catch2](https://github.com/catchorg/Catch2)** - Unit testing framework.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
 * **[hayai](https://github.com/nickbruun/hayai)** - Performance testing framework.

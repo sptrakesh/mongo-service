@@ -2,7 +2,7 @@
 // Created by Rakesh on 11/02/2021.
 //
 
-#include "../../src/common/util/date.h"
+#include "../../src/common/util/date.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 

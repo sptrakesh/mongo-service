@@ -2,7 +2,7 @@
 // Created by Rakesh on 19/07/2020.
 //
 
-#include "../../src/log/NanoLog.h"
+#include "../../src/log/NanoLog.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <boost/asio/buffers_iterator.hpp>

@@ -2,13 +2,13 @@
 // Created by Rakesh on 18/07/2020.
 //
 
-#include "service.h"
-#include "db/metricscollector.h"
-#include "db/storage.h"
-#include "model/configuration.h"
-#include "model/document.h"
-#include "model/errors.h"
-#include "../log/NanoLog.h"
+#include "service.hpp"
+#include "db/metricscollector.hpp"
+#include "db/storage.hpp"
+#include "model/configuration.hpp"
+#include "model/document.hpp"
+#include "model/errors.hpp"
+#include "../log/NanoLog.hpp"
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>

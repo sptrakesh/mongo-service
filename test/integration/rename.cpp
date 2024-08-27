@@ -2,8 +2,8 @@
 // Created by Rakesh on 05/08/2023.
 //
 
-#include "../../src/api/api.h"
-#include "../../src/common/util/bson.h"
+#include "../../src/api/api.hpp"
+#include "../../src/common/util/bson.hpp"
 
 #include <thread>
 #include <catch2/catch_test_macros.hpp>

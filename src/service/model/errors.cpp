@@ -2,7 +2,7 @@
 // Created by Rakesh on 19/07/2020.
 //
 
-#include "errors.h"
+#include "errors.hpp"
 
 #include <bsoncxx/builder/basic/array.hpp>
 #include <bsoncxx/builder/basic/document.hpp>

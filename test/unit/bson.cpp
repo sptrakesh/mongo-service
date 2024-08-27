@@ -2,8 +2,8 @@
 // Created by Rakesh on 14/12/2023.
 //
 
-#include "../../src/common/util/bson.h"
-#include "../../src/common/util/date.h"
+#include "../../src/common/util/bson.hpp"
+#include "../../src/common/util/date.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <bsoncxx/builder/list.hpp>

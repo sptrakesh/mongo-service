@@ -2,8 +2,8 @@
 // Created by Rakesh on 01/10/2019.
 //
 
-#include "logger.h"
-#include "../log/NanoLog.h"
+#include "logger.hpp"
+#include "../log/NanoLog.hpp"
 
 void spt::db::Logger::operator()( mongocxx::log_level level,
     bsoncxx::stdx::string_view domain,

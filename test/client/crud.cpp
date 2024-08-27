@@ -2,10 +2,10 @@
 // Created by Rakesh on 15/07/2021.
 //
 
-#include "status.h"
-#include "tasks.h"
-#include "../../src/log/NanoLog.h"
-#include "../../src/common/util/bson.h"
+#include "status.hpp"
+#include "tasks.hpp"
+#include "../../src/log/NanoLog.hpp"
+#include "../../src/common/util/bson.hpp"
 
 #include <iostream>
 

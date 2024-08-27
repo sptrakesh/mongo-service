@@ -2,7 +2,7 @@
 // Created by Rakesh on 29/07/2020.
 //
 
-#include "metric.h"
+#include "metric.hpp"
 
 #include <bsoncxx/types.hpp>
 #include <bsoncxx/builder/stream/document.hpp>

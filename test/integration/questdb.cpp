@@ -2,9 +2,9 @@
 // Created by Rakesh on 03/01/2023.
 //
 
-#include "../../src/api/contextholder.h"
-#include "../../src/ilp/builder.h"
-#include "../../src/ilp/ilp.h"
+#include "../../src/api/contextholder.hpp"
+#include "../../src/ilp/builder.hpp"
+#include "../../src/ilp/ilp.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>

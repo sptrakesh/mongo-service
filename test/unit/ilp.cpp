@@ -3,7 +3,7 @@
 //
 
 #include <catch2/catch_test_macros.hpp>
-#include "../../src/ilp/builder.h"
+#include "../../src/ilp/builder.hpp"
 
 using std::operator""sv;
 using namespace std::literals::chrono_literals;

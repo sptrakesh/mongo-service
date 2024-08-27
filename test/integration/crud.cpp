@@ -1,8 +1,8 @@
 //
 // Created by Rakesh on 22/07/2020.
 //
-#include "../../src/api/api.h"
-#include "../../src/common/util/bson.h"
+#include "../../src/api/api.hpp"
+#include "../../src/common/util/bson.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <bsoncxx/json.hpp>

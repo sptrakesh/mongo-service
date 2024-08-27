@@ -27,15 +27,19 @@ install (
 install (
   DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/util
   DESTINATION include
-  FILES_MATCHING PATTERN "clara.h")
+  FILES_MATCHING PATTERN "clara.hpp")
 install (
   DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/simdjson
   DESTINATION include
-  FILES_MATCHING PATTERN "*.h")
+  FILES_MATCHING PATTERN "*.hpp")
 install (
   DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/visit_struct
   DESTINATION include
   FILES_MATCHING PATTERN "*.hpp")
+install (
+    DIRECTORY ${CMAKE_SOURCE_DIR}/src/common/magic_enum
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.hpp")
 install(EXPORT MongoServiceCommonTargets
     FILE MongoServiceCommonTargets.cmake
     NAMESPACE mongo-service::

@@ -2,15 +2,15 @@
 // Created by Rakesh on 20/07/2020.
 //
 
-#include "metricscollector.h"
-#include "storage.h"
-#include "pool.h"
-#include "internal/internal.h"
-#include "model/configuration.h"
-#include "model/errors.h"
-#include "model/metric.h"
-#include "../log/NanoLog.h"
-#include "../common/util/bson.h"
+#include "metricscollector.hpp"
+#include "storage.hpp"
+#include "pool.hpp"
+#include "internal/internal.hpp"
+#include "model/configuration.hpp"
+#include "model/errors.hpp"
+#include "model/metric.hpp"
+#include "../log/NanoLog.hpp"
+#include "../common/util/bson.hpp"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>

@@ -2,18 +2,18 @@
 // Created by Rakesh on 16/07/2021.
 //
 
-#include "status.h"
-#include "tasks.h"
-#include "../../src/api/contextholder.h"
-#include "../../src/api/pool/pool.h"
-#include "../../src/common/util/bson.h"
+#include "status.hpp"
+#include "tasks.hpp"
+#include "../../src/api/contextholder.hpp"
+#include "../../src/api/pool/pool.hpp"
+#include "../../src/common/util/bson.hpp"
 
 #include <boost/asio/co_spawn.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
 #if defined(_WIN32) || defined(WIN32)
-#include "client.h"
+#include "client.hpp"
 #endif
 
 using spt::mongoservice::pool::Pool;

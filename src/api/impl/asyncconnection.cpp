@@ -2,11 +2,11 @@
 // Created by Rakesh on 22/02/2022.
 //
 
-#include "asyncconnection.h"
-#include "settings.h"
+#include "asyncconnection.hpp"
+#include "settings.hpp"
 #if defined __has_include
-  #if __has_include("../../log/NanoLog.h")
-    #include "../../log/NanoLog.h"
+  #if __has_include("../../log/NanoLog.hpp")
+    #include "../../log/NanoLog.hpp"
   #else
     #include <log/NanoLog.h>
   #endif

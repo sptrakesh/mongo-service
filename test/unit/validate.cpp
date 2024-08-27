@@ -2,7 +2,7 @@
 // Created by Rakesh on 22/02/2024.
 //
 
-#include "model.h"
+#include "model.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>

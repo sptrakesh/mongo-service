@@ -2,9 +2,9 @@
 // Created by Rakesh on 15/07/2021.
 //
 
-#include "client.h"
-#include "../../src/api/contextholder.h"
-#include "../../src/log/NanoLog.h"
+#include "client.hpp"
+#include "../../src/api/contextholder.hpp"
+#include "../../src/log/NanoLog.hpp"
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/connect.hpp>

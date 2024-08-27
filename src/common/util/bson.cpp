@@ -2,11 +2,11 @@
 // Created by Rakesh on 08/01/2020.
 //
 
-#include "bson.h"
-#include "date.h"
+#include "bson.hpp"
+#include "date.hpp"
 #if defined __has_include
-  #if __has_include("../../log/NanoLog.h")
-    #include "../../log/NanoLog.h"
+  #if __has_include("../../log/NanoLog.hpp")
+    #include "../../log/NanoLog.hpp"
   #else
     #include <log/NanoLog.h>
   #endif

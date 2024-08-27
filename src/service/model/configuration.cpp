@@ -2,8 +2,8 @@
 // Created by Rakesh on 02/06/2020.
 //
 
-#include "configuration.h"
-#include "../../common/util/json.h"
+#include "configuration.hpp"
+#include "../../common/util/json.hpp"
 
 std::string spt::model::Configuration::str() const
 {

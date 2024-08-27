@@ -2,7 +2,7 @@
 // Created by Rakesh on 2019-05-16.
 //
 
-#include "../../src/log/NanoLog.h"
+#include "../../src/log/NanoLog.hpp"
 #include <catch2/catch_session.hpp>
 #if defined(_WIN32) || defined(WIN32)
 #include <filesystem>

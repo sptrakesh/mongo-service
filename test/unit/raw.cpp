@@ -2,8 +2,8 @@
 // Created by Rakesh on 28/02/2024.
 //
 
-#include "../../src/common/util/json.h"
-#include "../../src/common/util/serialise.h"
+#include "../../src/common/util/json.hpp"
+#include "../../src/common/util/serialise.hpp"
 #include "../../src/common/visit_struct/visit_struct_intrusive.hpp"
 
 #include <catch2/catch_test_macros.hpp>

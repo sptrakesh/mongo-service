@@ -2,9 +2,9 @@
 // Created by Rakesh on 19/07/2020.
 //
 
-#include "document.h"
-#include "../log/NanoLog.h"
-#include "../common/util/bson.h"
+#include "document.hpp"
+#include "../log/NanoLog.hpp"
+#include "../common/util/bson.hpp"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/validate.hpp>

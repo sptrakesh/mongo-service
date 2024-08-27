@@ -1,8 +1,8 @@
 //
 // Created by Rakesh on 12/08/2020.
 //
-#include "../../src/api/impl/connection.h"
-#include "../../src/api/pool/pool.h"
+#include "../../src/api/impl/connection.hpp"
+#include "../../src/api/pool/pool.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <bsoncxx/json.hpp>

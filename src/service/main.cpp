@@ -2,11 +2,11 @@
 // Created by Rakesh on 2020-06-02.
 //
 
-#include "db/logger.h"
-#include "model/configuration.h"
-#include "server/service.h"
-#include "../log/NanoLog.h"
-#include "../common/util/clara.h"
+#include "db/logger.hpp"
+#include "model/configuration.hpp"
+#include "server/service.hpp"
+#include "../log/NanoLog.hpp"
+#include "../common/util/clara.hpp"
 
 #include <mongocxx/instance.hpp>
 

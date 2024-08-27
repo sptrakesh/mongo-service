@@ -2,10 +2,10 @@
 // Created by Rakesh on 24/02/2022.
 //
 
-#include "status.h"
-#include "tasks.h"
-#include "../../src/api/api.h"
-#include "../../src/common/util/bson.h"
+#include "status.hpp"
+#include "tasks.hpp"
+#include "../../src/api/api.hpp"
+#include "../../src/common/util/bson.hpp"
 
 #include <iostream>
 #include <bsoncxx/json.hpp>

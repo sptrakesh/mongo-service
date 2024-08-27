@@ -2,9 +2,9 @@
 // Created by Rakesh on 19/07/2020.
 //
 
-#include "pool.h"
-#include "model/configuration.h"
-#include "../log/NanoLog.h"
+#include "pool.hpp"
+#include "model/configuration.hpp"
+#include "../log/NanoLog.hpp"
 
 #include <bsoncxx/builder/stream/document.hpp>
 
