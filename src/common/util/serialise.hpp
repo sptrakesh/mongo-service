@@ -11,7 +11,7 @@
 #if __has_include("../../log/NanoLog.hpp")
 #include "../../log/NanoLog.hpp"
 #else
-#include <log/NanoLog.h>
+#include <log/NanoLog.hpp>
 #endif
 #endif
 
