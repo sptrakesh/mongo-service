@@ -36,6 +36,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 #ifdef WITH_BSON_SUPPORT
   #include <bsoncxx/oid.hpp>
+  #include <bsoncxx/array/view.hpp>
+  #include <bsoncxx/document/view.hpp>
 #endif
 
 namespace nanolog
@@ -54,10 +56,13 @@ namespace nanolog
     void stringify(std::ostream & os);
 
     NanoLogLine& operator<<(char arg);
+    NanoLogLine& operator<<(int16_t arg);
+    NanoLogLine& operator<<(uint16_t arg);
     NanoLogLine& operator<<(int32_t arg);
     NanoLogLine& operator<<(uint32_t arg);
     NanoLogLine& operator<<(int64_t arg);
     NanoLogLine& operator<<(uint64_t arg);
+    NanoLogLine& operator<<(float arg);
     NanoLogLine& operator<<(double arg);
     NanoLogLine& operator<<(std::string const & arg);
     NanoLogLine& operator<<(std::string_view arg);
@@ -73,6 +78,8 @@ namespace nanolog
 
 #ifdef WITH_BSON_SUPPORT
     NanoLogLine& operator<<(bsoncxx::oid arg);
+    NanoLogLine& operator<<(bsoncxx::array::view arg);
+    NanoLogLine& operator<<(bsoncxx::document::view arg);
 #endif
 
     template < size_t N >

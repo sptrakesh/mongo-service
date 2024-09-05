@@ -745,3 +745,32 @@ std::optional<bsoncxx::oid> spt::util::parseId( std::string_view id )
 
   return std::nullopt;
 }
+
+bsoncxx::oid spt::util::generateId( std::chrono::system_clock::time_point timestamp, bsoncxx::oid id )
+{
+  char bytes[12];
+  [[maybe_unused]] auto b = id.bytes();
+  std::memcpy( bytes, id.bytes(), 12 );
+
+  const auto swapEndian = []( const int32_t source, int32_t& dest )
+  {
+    const char* in = reinterpret_cast<const char*>( &source );
+    char* out = reinterpret_cast<char*>( &dest );
+
+#if BSON_BYTE_ORDER == BSON_BIG_ENDIAN
+    out[0] = in[3];
+    out[1] = in[2];
+    out[2] = in[1];
+    out[3] = in[0];
+#else
+    for ( int i = 0; i < 4; ++i ) out[i] = in[i];
+#endif
+  };
+
+  int32_t ts{ 0 };
+  swapEndian( static_cast<int32_t>( std::chrono::duration_cast<std::chrono::seconds>( timestamp.time_since_epoch() ).count() ), ts );
+  char* out = reinterpret_cast<char*>( &ts );
+
+  for ( int i = 0; i < 4; ++i ) bytes[i] = out[i];
+  return bsoncxx::oid{ bytes, 12 };
+}

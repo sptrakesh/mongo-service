@@ -44,6 +44,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <thread>
 #include <tuple>
 
+#ifdef WITH_BSON_SUPPORT
+  #include <bsoncxx/json.hpp>
+#endif
+
 namespace
 {
 
@@ -315,6 +319,18 @@ namespace nanolog
     return *this;
   }
 
+  NanoLogLine& NanoLogLine::operator<<(int16_t arg)
+  {
+    encode < int32_t >(arg, TupleIndex < int32_t, SupportedTypes >::value);
+    return *this;
+  }
+
+  NanoLogLine& NanoLogLine::operator<<(uint16_t arg)
+  {
+    encode < uint32_t >(arg, TupleIndex < uint32_t, SupportedTypes >::value);
+    return *this;
+  }
+
   NanoLogLine& NanoLogLine::operator<<(int32_t arg)
   {
     encode < int32_t >(arg, TupleIndex < int32_t, SupportedTypes >::value);
@@ -336,6 +352,12 @@ namespace nanolog
   NanoLogLine& NanoLogLine::operator<<(uint64_t arg)
   {
     encode < uint64_t >(arg, TupleIndex < uint64_t, SupportedTypes >::value);
+    return *this;
+  }
+
+  NanoLogLine& NanoLogLine::operator<<(float arg)
+  {
+    encode < double >(arg, TupleIndex < double, SupportedTypes >::value);
     return *this;
   }
 
@@ -377,6 +399,20 @@ namespace nanolog
   NanoLogLine& NanoLogLine::operator<<(bsoncxx::oid arg)
   {
     const auto str = arg.to_string();
+    encode_c_string(str.c_str(), str.length());
+    return *this;
+  }
+
+  NanoLogLine& NanoLogLine::operator<<(bsoncxx::array::view arg)
+  {
+    const auto str = bsoncxx::to_json( arg );
+    encode_c_string(str.c_str(), str.length());
+    return *this;
+  }
+
+  NanoLogLine& NanoLogLine::operator<<(bsoncxx::document::view arg)
+  {
+    const auto str = bsoncxx::to_json( arg );
     encode_c_string(str.c_str(), str.length());
     return *this;
   }
