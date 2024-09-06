@@ -78,5 +78,16 @@ SCENARIO( "BSON util functions test suite", "[bson]" )
         CHECK_FALSE( orig == generateId( timestamp ) );
       }
     }
+
+    AND_WHEN( "Generating ids with different timestamp and same seed id returns different ids" )
+    {
+      auto orig = generateId( timestamp, seed );
+
+      for ( auto i = 0; i < 100; ++i )
+      {
+        const auto ts = std::chrono::system_clock::now() - std::chrono::seconds{ i };
+        CHECK_FALSE( orig == generateId( ts, seed ) );
+      }
+    }
   }
 }

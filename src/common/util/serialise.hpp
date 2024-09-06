@@ -13,6 +13,12 @@
 #else
 #include <log/NanoLog.hpp>
 #endif
+
+#if __has_include("../magic_enum/magic_enum.hpp")
+#include "../magic_enum/magic_enum.hpp"
+#else
+#include <magic_enum/magic_enum.hpp>
+#endif
 #endif
 
 #include <memory>
@@ -58,6 +64,7 @@ namespace spt::util
    * @param builder The BSON stream builder to add non-visitable fields to.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   void populate( const M& model, bsoncxx::builder::stream::document& builder );
 
   /**
@@ -68,7 +75,21 @@ namespace spt::util
    * @return A BSON value encapsulating the BSON document.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   bsoncxx::types::bson_value::value bson( const M& model );
+
+  /**
+   *
+   * @tparam E The scoped enum type
+   * @param model The enum type field to be converted to a BSON value.  Converts the enum to its name.
+   * @return The BSON value equivalent.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  inline bsoncxx::types::bson_value::value bson( const E& model )
+  {
+    return magic_enum::enum_name( model );
+  }
 
   /**
    * General implementation for converting a set into a BSON array.  For each item in the set delegates
@@ -173,6 +194,7 @@ namespace spt::util
    * @param view The BSON document to unmarshall data from.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   void populate( M& model, bsoncxx::document::view view );
 
   /**
@@ -220,7 +242,22 @@ namespace spt::util
    * @param value The BSON value variant. The value must be a document.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   void set( M& field, bsoncxx::types::bson_value::view value );
+
+  /**
+   *
+   * @tparam E The scoped enum type to unmarshall from the BSON representation.
+   * @param field The enum field that is to be unmarshalled from BSON.
+   * @param value The BSON value from which the enum is to be de-serialised.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  void set( E& field, bsoncxx::types::bson_value::view value )
+  {
+    if ( auto e = magic_enum::enum_cast<E>( value.get_string() ); e ) field = *e;
+    else LOG_WARN << "Value " << value.get_string() << " cannot be cast to enum type " << typeid( E ).name();
+  }
 
   /**
    * General interface used by the {@refitem unmarshall(M&, bsoncxx::document::view)} function to unmarshall a model from a BSON value.
@@ -354,6 +391,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::documen
 }
 
 template <spt::util::Visitable M>
+  requires spt::util::NotEnumeration<M>
 inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
 {
   using std::operator ""sv;
@@ -402,6 +440,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Mode
 }
 
 template <spt::util::Visitable M>
+    requires spt::util::NotEnumeration<M>
 inline void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() != bsoncxx::type::k_document ) LOG_CRIT << "Value not document type but " << bsoncxx::to_string( value.type() );

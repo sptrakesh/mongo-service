@@ -76,7 +76,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
       obj.notVisitable.integer = 456;
       obj.customFields.id = "lmn-456";
       obj.identifier = "abc-123"s;
-      obj.nested = test::serial::Full::Nested{ .identifier = "nested-123"s, .integer = 1234, .number = 1.234, .date = std::chrono::system_clock::now(), .numbers = { 1.2, 2.3, 3.4 } };
+      obj.nested = test::serial::Full::Nested{ .identifier = "nested-123"s, .integer = 1234, .number = 1.234, .date = std::chrono::system_clock::now(), .numbers = { 1.2, 2.3, 3.4 }, .level = test::serial::Full::Level::Info };
       obj.nesteds = {
           test::serial::Full::Nested{ .identifier = "nested-1"s, .integer = 1, .number = 1.1, .date = std::chrono::system_clock::now(), .numbers = { 1.1, 1.2, 1.3 } },
           test::serial::Full::Nested{ .identifier = "nested-2"s, .integer = 2, .number = 2.1, .date = std::chrono::system_clock::now(), .numbers = { 2.1, 2.2, 2.3 } },
@@ -116,6 +116,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
             std::chrono::duration_cast<std::chrono::milliseconds>( obj.nested->date.time_since_epoch() ) );
         CHECK_FALSE( nested.numbers.empty() );
         CHECK( nested.numbers == obj.nested->numbers );
+        CHECK( nested.level == obj.nested->level );
 
         auto cs = test::serial::CustomFields{};
         set( cs, bsoncxx::types::bson_value::value{ bsonValue<bsoncxx::document::view>( "customFields"sv, data ) } );
@@ -138,6 +139,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
           CHECK( std::chrono::duration_cast<std::chrono::milliseconds>( nesteds[i].date.time_since_epoch() ) ==
               std::chrono::duration_cast<std::chrono::milliseconds>( obj.nesteds[i].date.time_since_epoch() ) );
           CHECK( nesteds[i].numbers == obj.nesteds[i].numbers );
+          CHECK( nesteds[i].level == obj.nesteds[i].level );
         }
 
         REQUIRE( data.find( "nestedp"sv ) != data.cend() );
@@ -188,6 +190,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
             std::chrono::duration_cast<std::chrono::milliseconds>( obj.nested->date.time_since_epoch() ) );
         CHECK_FALSE( nested.numbers.empty() );
         CHECK( nested.numbers == obj.nested->numbers );
+        CHECK( nested.level == obj.nested->level );
 
         CHECK( copy.nesteds.size() == obj.nesteds.size() );
         for ( std::size_t i = 0; i < obj.nesteds.size(); ++i )
@@ -198,6 +201,7 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
           CHECK( std::chrono::duration_cast<std::chrono::milliseconds>( copy.nesteds[i].date.time_since_epoch() ) ==
               std::chrono::duration_cast<std::chrono::milliseconds>( obj.nesteds[i].date.time_since_epoch() ) );
           CHECK( copy.nesteds[i].numbers == obj.nesteds[i].numbers );
+          CHECK( copy.nesteds[i].level == obj.nesteds[i].level );
         }
 
         REQUIRE( copy.nestedp );

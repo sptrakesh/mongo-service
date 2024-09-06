@@ -109,6 +109,7 @@ namespace spt::util::test::serial
 
   struct Full
   {
+    enum class Level : uint8_t { Critical, Warning, Info, Debug, None = 255 };
     struct Nested
     {
       BEGIN_VISITABLES(Nested);
@@ -117,6 +118,7 @@ namespace spt::util::test::serial
       VISITABLE(double, number);
       VISITABLE(std::chrono::time_point<std::chrono::system_clock>, date);
       VISITABLE(std::vector<double>, numbers);
+      VISITABLE_DIRECT_INIT(Level, level, {Level::None});
       END_VISITABLES;
     };
 

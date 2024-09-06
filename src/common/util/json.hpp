@@ -61,6 +61,7 @@ namespace spt::util::json
    * @param object The JSON object to add non-visitable fields to.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   void populate( const M& model, boost::json::object& object );
 
   /**
@@ -71,7 +72,18 @@ namespace spt::util::json
    * @return A JSON value encapsulating the JSON document.
    */
   template <Visitable M>
+    requires NotEnumeration<M>
   boost::json::value json( const M& model );
+
+  /**
+   *
+   * @tparam E The scoped enum type to be converted to a JSON value.
+   * @param model The scoped enum instance to be converted to a JSON value.  Outputs the name of the enumerated value.
+   * @return The JSON representation of the enum.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  boost::json::value json( const E& model ) { return boost::json::value{ magic_enum::enum_name( model ) }; }
 
   /**
    * General implementation for converting a set into a JSON array.  For each item in the set delegates
@@ -183,6 +195,7 @@ namespace spt::util::json
    * @param object The JSON object to read data from.
    */
   template <Visitable M>
+      requires NotEnumeration<M>
   void set( M& field, simdjson::ondemand::object& object );
 
   /**
@@ -245,7 +258,29 @@ namespace spt::util::json
    * @param value The JSON value variant. The value must be a document.
    */
   template <Visitable M>
+      requires NotEnumeration<M>
   void set( const char* name, M& field, simdjson::ondemand::value& value );
+
+  /**
+   *
+   * @tparam E The scoped enum type that is to be unmarshalled from JSON.
+   * @param name The name of the field that is being unmarshalled.
+   * @param field The scoped enum field to be unmarshalled.
+   * @param value The JSON value to de-serialise into the enum.
+   */
+  template <typename E>
+      requires std::is_enum_v<E>
+  void set( const char* name, E& field, simdjson::ondemand::value& value )
+  {
+    if ( value.type().value() != simdjson::ondemand::json_type::string )
+    {
+      LOG_WARN << "Expected field " << name << " of type string, value of type " << magic_enum::enum_name( value.type().value() );
+    }
+    std::string_view v;
+    value.get( v );
+    if ( auto e = magic_enum::enum_cast<E>( v ); e ) field = *e;
+    else LOG_WARN << "Value " << v << " is not a valid enumeration of type " << typeid( E ).name();
+  }
 
   /**
    * General interface used by the {@refitem unmarshall(M&, bsoncxx::document::view)} function to unmarshall a model from a JSON value.
@@ -439,7 +474,8 @@ inline boost::json::value spt::util::json::json( const bsoncxx::document::value&
 }
 
 template <spt::util::Visitable M>
-inline boost::json::value spt::util::json::json( const M &model )
+    requires spt::util::NotEnumeration<M>
+inline boost::json::value spt::util::json::json( const M& model )
 {
   auto root = boost::json::object{};
   visit_struct::for_each( model,
@@ -482,6 +518,7 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 }
 
 template <spt::util::Visitable M>
+  requires spt::util::NotEnumeration<M>
 void spt::util::json::set( M& field, simdjson::ondemand::object& object )
 {
   visit_struct::for_each( field,
@@ -498,6 +535,7 @@ void spt::util::json::set( M& field, simdjson::ondemand::object& object )
 }
 
 template <spt::util::Visitable M>
+  requires spt::util::NotEnumeration<M>
 inline void spt::util::json::set( const char*, M& field, simdjson::ondemand::value& value )
 {
   auto obj = value.get_object().value();
