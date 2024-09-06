@@ -7,10 +7,27 @@
 #include "concept.hpp"
 #include "bson.hpp"
 #include "date.hpp"
-#include "../magic_enum/magic_enum_all.hpp"
 #include "parser.hpp"
 #include "validate.hpp"
+#if defined __has_include
+#if __has_include("../../log/NanoLog.hpp")
+#include "../../log/NanoLog.hpp"
+#else
+#include <log/NanoLog.hpp>
+#endif
+
+#if __has_include("../magic_enum/magic_enum.hpp")
+#include "../magic_enum/magic_enum.hpp"
+#else
+#include <magic_enum/magic_enum.hpp>
+#endif
+
+#if __has_include("../simdjson/simdjson.h")
 #include "../simdjson/simdjson.h"
+#else
+#include <simdjson/simdjson.h>
+#endif
+#endif
 
 #include <memory>
 #include <ostream>
@@ -93,7 +110,18 @@ namespace spt::util::json
    * @return The JSON array as a JSON value variant.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   boost::json::value json( const std::set<Model>& items );
+
+  template <typename E>
+    requires std::is_enum_v<E>
+  boost::json::value json( const std::set<E>& items )
+  {
+    auto array = boost::json::array();
+    array.reserve( items.size() );
+    for ( const auto e : items) array.emplace_back( magic_enum::enum_name( e ) );
+    return array;
+  }
 
   /**
    * General implementation for converting a vector into a JSON array.  For each item in the vector delegates
@@ -103,7 +131,18 @@ namespace spt::util::json
    * @return The JSON array as a JSON value variant.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   boost::json::value json( const std::vector<Model>& vec );
+
+  template <typename E>
+    requires std::is_enum_v<E>
+  boost::json::value json( const std::vector<E>& items )
+  {
+    auto array = boost::json::array();
+    array.reserve( items.size() );
+    for ( const auto e : items) array.emplace_back( magic_enum::enum_name( e ) );
+    return array;
+  }
 
   /**
    * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem json(const M&)} function
@@ -216,7 +255,37 @@ namespace spt::util::json
    * @param value The JSON value variant of type array.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   void set( const char* name, std::set<Model>& field, simdjson::ondemand::value& value );
+
+  /**
+   *
+   * @tparam E The scoped enum type to deserialise.
+   * @param name The name of the property from which the value is being deserialised.
+   * @param field The set of enums to deserialise.
+   * @param value The JSON value from which the values are to deserialised.
+   * @throw simdjson::simdjson_error If the input value does not map to a enum name.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  void set( const char* name, std::set<E>& field, simdjson::ondemand::value& value )
+  {
+    if ( value.type().value() != simdjson::ondemand::json_type::array )
+    {
+      LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+    }
+    auto arr = value.get_array();
+    field.reserve( arr.count_elements() );
+    for ( std::string_view x: arr )
+    {
+      if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
+      else
+      {
+        LOG_WARN << "Value " << x << " for field " << name << " of type " << typeid( E ).name() << " is not a valid enum value";
+        throw simdjson::simdjson_error{ simdjson::error_code::INCORRECT_TYPE };
+      }
+    }
+  }
 
   /**
    * General purpose function for populating a vector of items from a JSON value variant which should be of type array.
@@ -226,7 +295,37 @@ namespace spt::util::json
    * @param value The JSON value variant of type array.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   void set( const char* name, std::vector<Model>& field, simdjson::ondemand::value& value );
+
+  /**
+   *
+   * @tparam E The scoped enum type to deserialise.
+   * @param name The name of the property from which the value is being deserialised.
+   * @param field The vector of enums to deserialise.
+   * @param value The JSON value from which the values are to deserialised.
+   * @throw simdjson::simdjson_error If the input value does not map to a enum name.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  void set( const char* name, std::vector<E>& field, simdjson::ondemand::value& value )
+  {
+    if ( value.type().value() != simdjson::ondemand::json_type::array )
+    {
+      LOG_WARN << "Expected field " << name << " of type array, value of type " << magic_enum::enum_name( value.type().value() );
+    }
+    auto arr = value.get_array();
+    field.reserve( arr.count_elements() );
+    for ( std::string_view x: arr )
+    {
+      if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
+      else
+      {
+        LOG_WARN << "Value " << x << " for field " << name << " of type " << typeid( E ).name() << " is not a valid enum value";
+        throw simdjson::simdjson_error{ simdjson::error_code::INCORRECT_TYPE };
+      }
+    }
+  }
 
   /**
    * Standard implementation for setting optional types.  If the JSON value is not `null` delegate to the appropriate
@@ -267,6 +366,7 @@ namespace spt::util::json
    * @param name The name of the field that is being unmarshalled.
    * @param field The scoped enum field to be unmarshalled.
    * @param value The JSON value to de-serialise into the enum.
+   * @throw simdjson::simdjson_error If the input value does not map to a enum name.
    */
   template <typename E>
       requires std::is_enum_v<E>
@@ -279,7 +379,11 @@ namespace spt::util::json
     std::string_view v;
     value.get( v );
     if ( auto e = magic_enum::enum_cast<E>( v ); e ) field = *e;
-    else LOG_WARN << "Value " << v << " is not a valid enumeration of type " << typeid( E ).name();
+    else
+    {
+      LOG_WARN << "Value " << v << " is not a valid enumeration of type " << typeid( E ).name();
+      throw simdjson::simdjson_error{ simdjson::error_code::INCORRECT_TYPE };
+    }
   }
 
   /**
@@ -490,6 +594,7 @@ inline boost::json::value spt::util::json::json( const M& model )
 }
 
 template <typename Model>
+    requires spt::util::NotEnumeration<Model>
 inline boost::json::value spt::util::json::json( const std::set<Model>& items )
 {
   if ( items.empty() ) return boost::json::value{};
@@ -504,6 +609,7 @@ inline boost::json::value spt::util::json::json( const std::set<Model>& items )
 }
 
 template <typename Model>
+    requires spt::util::NotEnumeration<Model>
 inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 {
   if ( vec.empty() ) return boost::json::value{};
@@ -1161,6 +1267,7 @@ inline void spt::util::json::set( const char* name, std::vector<DateTimeNs>& fie
 }
 
 template <typename M>
+  requires spt::util::NotEnumeration<M>
 inline void spt::util::json::set( const char* name, std::set<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
@@ -1177,6 +1284,7 @@ inline void spt::util::json::set( const char* name, std::set<M>& field, simdjson
 }
 
 template <typename M>
+  requires spt::util::NotEnumeration<M>
 inline void spt::util::json::set( const char* name, std::vector<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
