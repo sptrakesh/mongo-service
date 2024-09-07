@@ -88,18 +88,30 @@ namespace spt::util
     requires std::is_enum_v<E>
   inline bsoncxx::types::bson_value::value bson( const E& model )
   {
-    return magic_enum::enum_name( model );
+    auto name = magic_enum::enum_name( model );
+    return name.empty() ? bsoncxx::types::b_null{} : bsoncxx::types::bson_value::value{ name };
   }
 
   /**
    * General implementation for converting a set into a BSON array.  For each item in the set delegates
    * to the appropriate {@xrefitem bson(const M&)} function.
-   * @tparam Model The type stored in the vector.
+   * @tparam Model The type stored in the set.
    * @param items The set to serialise into a BSON array.
    * @return The BSON array as a BSON value variant.
    */
   template<typename Model>
+    requires NotEnumeration<Model>
   bsoncxx::types::bson_value::value bson( const std::set<Model>& items );
+
+  /**
+   * General implementation for converting a set of scoped enums to a BSON array.
+   * @tparam E The scoped enumeration type to serialise.
+   * @param items The set of scoped enum values to serialise.
+   * @return The BSON array representation.
+   */
+  template<typename E>
+    requires std::is_enum_v<E>
+  bsoncxx::types::bson_value::value bson( const std::set<E>& items );
 
   /**
    * General implementation for converting a vector into a BSON array.  For each item in the vector delegates
@@ -109,7 +121,18 @@ namespace spt::util
    * @return The BSON array as a BSON value variant.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   bsoncxx::types::bson_value::value bson( const std::vector<Model>& vec );
+
+  /**
+   * General implementation for converting a vector of scoped enums to a BSON array.
+   * @tparam E The scoped enumeration type to serialise.
+   * @param items The vector of scoped enum values to serialise.
+   * @return The BSON array representation.
+   */
+  template<typename E>
+    requires std::is_enum_v<E>
+  bsoncxx::types::bson_value::value bson( const std::vector<E>& items );
 
   /**
    * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem bson(const M&)} function
@@ -256,7 +279,7 @@ namespace spt::util
   void set( E& field, bsoncxx::types::bson_value::view value )
   {
     if ( auto e = magic_enum::enum_cast<E>( value.get_string() ); e ) field = *e;
-    else LOG_WARN << "Value " << value.get_string() << " cannot be cast to enum type " << typeid( E ).name();
+    else LOG_WARN << "Value (" << value.get_string() << ") cannot be cast to enum type " << typeid( E ).name();
   }
 
   /**
@@ -412,6 +435,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
 }
 
 template<typename Model>
+  requires spt::util::NotEnumeration<Model>
 inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items )
 {
   if ( items.empty()) return bsoncxx::types::b_null{};
@@ -425,7 +449,23 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> 
   return { arr << bsoncxx::builder::stream::finalize };
 }
 
+template<typename E>
+  requires std::is_enum_v<E>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<E> &items )
+{
+  if ( items.empty()) return bsoncxx::types::b_null{};
+
+  auto arr = bsoncxx::builder::stream::array{};
+  for ( const auto &item: items )
+  {
+    auto name = magic_enum::enum_name( item );
+    if ( !name.empty() ) arr << name;
+  }
+  return { arr << bsoncxx::builder::stream::finalize };
+}
+
 template <typename Model>
+  requires spt::util::NotEnumeration<Model>
 inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Model>& vec )
 {
   if ( vec.empty() ) return bsoncxx::types::b_null{};
@@ -435,6 +475,21 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Mode
   {
     auto v = bson( item );
     if ( v.view().type() != bsoncxx::type::k_null ) arr << std::move( v );
+  }
+  return { arr << bsoncxx::builder::stream::finalize };
+}
+
+template<typename E>
+  requires std::is_enum_v<E>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<E> &items )
+{
+  if ( items.empty()) return bsoncxx::types::b_null{};
+
+  auto arr = bsoncxx::builder::stream::array{};
+  for ( const auto &item: items )
+  {
+    auto name = magic_enum::enum_name( item );
+    if ( !name.empty() ) arr << name;
   }
   return { arr << bsoncxx::builder::stream::finalize };
 }
