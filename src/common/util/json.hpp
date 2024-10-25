@@ -37,6 +37,7 @@
 #include <boost/json/parse.hpp>
 #include <boost/json/serialize.hpp>
 #include <bsoncxx/oid.hpp>
+#include <bsoncxx/exception/exception.hpp>
 
 #define FROM_JSON( field, obj ) { \
   auto res = (obj).find_field_unordered( #field ); \
@@ -836,19 +837,15 @@ inline void spt::util::json::set( const char* name, bsoncxx::oid& field, simdjso
   std::string_view v;
   value.get( v );
 
-  bsoncxx::oid id;
-  try
+  auto id = parseId( v );
+  if ( !id )
   {
-    id = bsoncxx::oid{ v };
-  }
-  catch ( const std::exception& ex )
-  {
-    LOG_CRIT << "Invalid BSON object id " << v << " for field " << name << ". " << ex.what();
-    throw;
+    LOG_CRIT << "Invalid BSON object id " << v << " for field " << name << ".";
+    throw simdjson::simdjson_error{ simdjson::INCORRECT_TYPE };
   }
 
-  if ( !validate( name, id ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
-  field = id;
+  if ( !validate( name, *id ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
+  field = *id;
 }
 
 template <>

@@ -150,6 +150,7 @@ add_subdirectory(src/log)
 add_subdirectory(src/common)
 add_subdirectory(src/service)
 add_subdirectory(src/api)
+add_subdirectory(src/genoid)
 
 if (BUILD_TESTING)
   if (UNIX)

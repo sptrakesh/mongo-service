@@ -1,0 +1,6 @@
+file(GLOB_RECURSE genoid_SRCS *.cpp *.cc *.hpp *.h)
+set(genoid_SRCS ${genoid_SRCS})
+add_executable(genoid ${genoid_SRCS} )
+add_compile_definitions(WITH_BSON_SUPPORT)
+target_link_libraries(genoid PRIVATE common)
+install(TARGETS genoid DESTINATION bin)
