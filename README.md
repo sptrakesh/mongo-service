@@ -14,6 +14,8 @@
     * [Bulk Write](#bulk-write)
     * [Aggregation Pipeline](#aggregation-pipeline)
     * [Transaction](#transaction)
+    * [Create Timeseries](#create-timeseries)
+    * [Create Collection](#create-collection)
     * [Rename Collection](#rename-collection)
   * [Document Response](#document-response)
   * [Options](#options)
@@ -90,13 +92,13 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action (string)` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction|renameCollection`.
+  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction|createTimeseries|createCollection|renameCollection`.
 * `database (string)` - The Mongo database the action is to be performed against.
     - Not needed for `transaction` action.
 * `collection (string)` - The Mongo collection the action is to be performed against.
     - Not needed for `transaction` action.
 * `document (document)` - The document payload to associate with the database operation.
-  For `create` and `update` this is assumed to be the documet that is being saved.
+  For `create` and `update` this is assumed to be the document that is being saved.
   For `retrieve` or `count` this is the *query* to execute.  For `delete` this
   is a simple `document` with an `_id` field.
 * `options (document)` - The options to associate with the Mongo request.  These correspond
@@ -623,6 +625,69 @@ Update at present in only partially supported.  Strong assumption is made that
 the document being updated is a full replacement.  In other words, there is a
 strong assumption that the document includes the `_id` property, and that the
 intention is to replace the existing document.
+
+#### Create Timeseries
+The `document` as specified will be inserted into the specified `database` and
+timeseries `collection`.  The **BSON ObjectId** property/field (`_id`) may be omitted 
+in the document.  The response will include the server generated `_id` for the inserted document
+if using *acknowledged* writes.  No version history is created for timeseries data.
+
+Sample request payload:
+```json
+{
+  "action": "createTimeseries",
+  "database": "<database name>",
+  "collection": "<collection name>",
+  "document": {
+    "value": 123.456,
+    "tags": {
+      "property1": "string",
+      "property2": false
+    },
+    "timestamp": "2024-11-21T17:36:28Z"
+  }
+}
+```
+
+Sample response payload when document is created:
+```json
+{
+  "_id": {
+    "$oid": "5f35e5e19e48c37186539141"
+  },
+  "database": "versionHistory",
+  "collection": "entities"
+}
+```
+
+#### Create Collection
+Create a `collection` in the specified `database`.  If a `collection` already exists in the
+`database` with the same *name*, an error is returned.  This is primarily useful when clients
+wish to specify additional options when creating a collection (eg. create a timeseries collection).
+
+Sample create collection payload:
+```json
+{
+  "action": "createCollection",
+  "database": "itest",
+  "collection": "timeseries",
+  "document": {
+    "timeseries": {
+      "timeField" : "date",
+      "metaField": "tags",
+      "granularity": "minutes"
+    }
+  }
+}
+```
+
+Sample response payload:
+```json
+{
+  "database": "itest",
+  "collection": "timeseries"
+}
+```
 
 #### Rename Collection
 Rename a `collection` in the specified `database`.  If a `collection` already exists with the
@@ -1197,13 +1262,23 @@ endif (APPLE)
 target_link_libraries(${Target_Name} PRIVATE mongo-service::api ...)
 
 # Run cmake
-cmake -DCMAKE_PREFIX_PATH=/usr/local/boost -DCMAKE_PREFIX_PATH=/usr/local/mongo -DCMAKE_PREFIX_PATH=/usr/local/spt -S . -B build
+if [ `uname` = "Darwin" ]
+then
+  cmake -DCMAKE_PREFIX_PATH=/usr/local/boost;/usr/local/mongo;/usr/local/spt -S . -B build
+else
+  cmake -DCMAKE_PREFIX_PATH=/opt/local;/opt/spt -S . -B build
+fi
 cmake --build build -j12
 ```
 
+### Command Line Utility
+A simple command line utility is available for generating BSON ObjectId values.  This utility is installed as
+`bin/genoid` under the destination `bin` directory.
+* Run without any arguments to generate a ObjectId at current time.
+* Run with `--at <ISO Format date-time>`.  Example: `/usr/local/spt/bin/genoid --at 2024-10-26T07:28:57Z`
+
 ## Acknowledgements
-This software has been developed mainly using work other people/projects have contributed.
-The following are the components used to build this software:
+The following components are used to build this project:
 * **[Boost:Asio](https://github.com/boostorg/asio)** - We use *Asio* for the `TCP socket` server implementation.
 * **[MongoCXX](https://mongocxx.org/)** - MongoDB C++ driver.
 * **[magic_enum](https://github.com/Neargye/magic_enum) - Static reflection for enums.

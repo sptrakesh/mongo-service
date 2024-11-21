@@ -4,7 +4,8 @@ module Actions
 @enum(Action::UInt8,
     create, retrieve, update, delete, count,
     index, dropCollection, dropIndex,
-    bulk, pipeline, transaction, renameCollection
+    bulk, pipeline, transaction,
+    createTimeseries, createCollection, renameCollection
 )
 end
 
@@ -81,6 +82,16 @@ TransactionRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),
     correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
     Request(database, collection, document, Actions.transaction, options, metadata, correlationId, skipVersion, skipMetric)
+
+CreateTimeseriesRequest(;database::String, collection::String, document::Document,
+    options::Document = Document(), metadata::Document = Document(),
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.createTimeseries, options, metadata, correlationId, skipVersion, skipMetric)
+
+CreateCollectionRequest(;database::String, collection::String, document::Document,
+    options::Document = Document(), metadata::Document = Document(),
+    correlationId::String = "", skipVersion::Bool = false, skipMetric::Bool = false ) =
+    Request(database, collection, document, Actions.createCollection, options, metadata, correlationId, skipVersion, skipMetric)
 
 RenameCollectionRequest(;database::String, collection::String, document::Document,
     options::Document = Document(), metadata::Document = Document(),

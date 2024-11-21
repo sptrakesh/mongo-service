@@ -18,6 +18,8 @@ class Action(Enum):
     pipeline = auto()
     transaction = auto()
     renameCollection = auto()
+    createCollection = auto()
+    createTimeseries = auto()
 
 
 class Request:
@@ -136,6 +138,20 @@ def transaction_request(database: str, collection: str, document: Dict, options:
                         skip_version: bool = False, skip_metric: bool = False) -> Request:
     return Request(database=database, collection=collection, document=document, action=Action.transaction,
                    options=options, metadata=metadata, correlation_id=correlation_id, skip_version=skip_version,
+                   skip_metric=skip_metric)
+
+
+def create_timeseries_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
+                              correlation_id: str = "", skip_metric: bool = False) -> Request:
+    return Request(database=database, collection=collection, document=document, action=Action.createTimeseries,
+                   options=options, metadata=None, correlation_id=correlation_id, skip_version=False,
+                   skip_metric=skip_metric)
+
+
+def create_collection_request(database: str, collection: str, document: Dict, options: Optional[Dict] = None,
+                              correlation_id: str = "", skip_metric: bool = False) -> Request:
+    return Request(database=database, collection=collection, document=document, action=Action.createCollection,
+                   options=options, metadata=None, correlation_id=correlation_id, skip_version=False,
                    skip_metric=skip_metric)
 
 

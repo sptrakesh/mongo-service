@@ -15,65 +15,70 @@
 
 using std::operator""sv;
 
-namespace spt::db::internal::prename
+namespace
 {
-  void update( std::string database, std::string collection, std::string target )
+  namespace prename
   {
-    using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::open_document;
-    using bsoncxx::builder::stream::close_document;
-    using bsoncxx::builder::stream::finalize;
+    using namespace spt;
+    using namespace spt::db;
 
-    LOG_INFO << "Updating version history documents associated with " <<
-      database << ':' << collection << " to " <<
-      database << ':' << target;
-
-    try
+    void update( std::string database, std::string collection, std::string target )
     {
-      auto cliento = Pool::instance().acquire();
-      if ( !cliento )
-      {
-        LOG_WARN << "Connection pool exhausted";
-        return;
-      }
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::open_document;
+      using bsoncxx::builder::stream::close_document;
+      using bsoncxx::builder::stream::finalize;
 
-      const auto& client = *cliento;
-      const auto& conf = model::Configuration::instance();
-      const auto res = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].update_many(
-          document{} << "database"sv << database << "collection"sv << collection << finalize,
-          document{} <<
-            "$set" << open_document << "collection"sv << target << close_document <<
-            finalize
-      );
+      LOG_INFO << "Updating version history documents associated with " <<
+        database << ':' << collection << " to " <<
+        database << ':' << target;
 
-      if ( res )
+      try
       {
-        LOG_INFO << "Update query matched " << res->matched_count() <<
-          " and updated " << res->modified_count() << " documents from " <<
-          database << ':' << collection << " to " <<
-          database << ':' << target;
+        auto cliento = Pool::instance().acquire();
+        if ( !cliento )
+        {
+          LOG_WARN << "Connection pool exhausted";
+          return;
+        }
+
+        const auto& client = *cliento;
+        const auto& conf = model::Configuration::instance();
+        const auto res = ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].update_many(
+            document{} << "database"sv << database << "collection"sv << collection << finalize,
+            document{} <<
+              "$set" << open_document << "collection"sv << target << close_document <<
+              finalize
+        );
+
+        if ( res )
+        {
+          LOG_INFO << "Update query matched " << res->matched_count() <<
+            " and updated " << res->modified_count() << " documents from " <<
+            database << ':' << collection << " to " <<
+            database << ':' << target;
+        }
       }
-    }
-    catch ( const mongocxx::logic_error& ex )
-    {
-      LOG_WARN << "Error renaming version history documents collection from " <<
+      catch ( const mongocxx::logic_error& ex )
+      {
+        LOG_WARN << "Error renaming version history documents collection from " <<
+            database << ':' << collection << " to " <<
+            database << ':' << target << ". " << ex.what();
+      }
+      catch ( const std::exception& ex )
+      {
+        LOG_WARN << "Error renaming version history documents collection from " <<
           database << ':' << collection << " to " <<
           database << ':' << target << ". " << ex.what();
-    }
-    catch ( const std::exception& ex )
-    {
-      LOG_WARN << "Error renaming version history documents collection from " <<
-        database << ':' << collection << " to " <<
-        database << ':' << target << ". " << ex.what();
+      }
     }
   }
 }
 
-boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::renameCollection(
-    const spt::model::Document& model )
+boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::renameCollection( const model::Document& model )
 {
-  using spt::util::bsonValue;
-  using spt::util::bsonValueIfExists;
+  using util::bsonValue;
+  using util::bsonValueIfExists;
 
   using bsoncxx::builder::stream::document;
   using bsoncxx::builder::stream::finalize;
@@ -101,7 +106,7 @@ boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::rena
   const auto& client = *cliento;
   if ( ( *client )[model.database()].has_collection( *target ) )
   {
-    LOG_WARN << "Target database " << *target << " exists in database " << model.database();
+    LOG_WARN << "Target collection " << *target << " exists in database " << model.database();
     co_return model::withMessage( "Target exists in database"sv );
   }
 

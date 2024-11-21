@@ -176,7 +176,7 @@ SCENARIO( "Raw BSON/JSON fields test suite", "[raw]" )
 
       auto aiter = arr->begin();
       REQUIRE( aiter != arr->end() );
-      REQUIRE( aiter->type() == bsoncxx::type::k_utf8 );
+      REQUIRE( aiter->type() == bsoncxx::type::k_string );
       CHECK( aiter->get_string().value == "string value"sv );
 
       ++aiter;

@@ -105,7 +105,7 @@ bool spt::util::json::impl::validate( const char* name, bsoncxx::array::view fie
       }
       break;
     }
-    case bsoncxx::type::k_utf8:
+    case bsoncxx::type::k_string:
     {
       auto view = e.get_string().value;
       if ( !validate( name, view ) )
@@ -152,7 +152,7 @@ bool spt::util::json::impl::validate( const char* name, bsoncxx::document::view 
       }
       break;
     }
-    case bsoncxx::type::k_utf8:
+    case bsoncxx::type::k_string:
     {
       auto view = e.get_string().value;
       if ( !validate( key.c_str(), view ) )

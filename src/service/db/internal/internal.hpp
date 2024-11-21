@@ -14,5 +14,6 @@ namespace spt::db::internal
   mongocxx::write_concern writeConcern( bsoncxx::document::view view );
   boost::asio::awaitable<bsoncxx::document::view_or_value> dropCollection( const model::Document& model );
   boost::asio::awaitable<bsoncxx::document::view_or_value> transaction( const spt::model::Document& document );
+  boost::asio::awaitable<bsoncxx::document::view_or_value> createCollection( const spt::model::Document& document );
   boost::asio::awaitable<bsoncxx::document::view_or_value> renameCollection( const spt::model::Document& document );
 }

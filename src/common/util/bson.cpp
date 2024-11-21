@@ -129,7 +129,7 @@ namespace spt::util
   std::string bsonValue( std::string_view key, const bsoncxx::document::view& view )
   {
     const auto type = view[key].type();
-    if ( bsoncxx::type::k_utf8 == type )
+    if ( bsoncxx::type::k_string == type )
     {
       const auto value = view[key].get_string().value;
       return { value.data(), value.size() };
@@ -154,7 +154,7 @@ namespace spt::util
   std::string_view bsonValue( std::string_view key, const bsoncxx::document::view& view )
   {
     const auto type = view[key].type();
-    if ( bsoncxx::type::k_utf8 == type )
+    if ( bsoncxx::type::k_string == type )
     {
       return view[key].get_string().value;
     }
@@ -395,7 +395,7 @@ namespace spt::util
       return std::to_string( bsonValue<std::chrono::milliseconds>( key, view ).count() );
     case bsoncxx::type::k_oid:
       return it->get_oid().value.to_string();
-    case bsoncxx::type::k_utf8:
+    case bsoncxx::type::k_string:
       return bsonValue<std::string>( key, view );
     default:
       return "Unknown type"s;
@@ -474,7 +474,7 @@ boost::json::array spt::util::toJson( const bsoncxx::array::view& view )
     case bsoncxx::type::k_oid:
       arr.emplace_back( e.get_oid().value.to_string() );
       break;
-    case bsoncxx::type::k_utf8:
+    case bsoncxx::type::k_string:
     {
       auto v = e.get_string().value;
       arr.emplace_back( std::string_view{ v.data(), v.size() } );
@@ -529,7 +529,7 @@ boost::json::object spt::util::toJson( const bsoncxx::document::view& view )
     case bsoncxx::type::k_oid:
       root.emplace( key, e.get_oid().value.to_string() );
       break;
-    case bsoncxx::type::k_utf8:
+    case bsoncxx::type::k_string:
     {
       auto v = e.get_string().value;
       root.emplace( key, std::string_view{ v.data(), v.size() } );
@@ -671,7 +671,7 @@ boost::json::array spt::util::fromBson( bsoncxx::array::view array )
     case type::k_date:
       arr.emplace_back( isoDateMillis( item.get_date().value ) );
       break;
-    case type::k_utf8:
+    case type::k_string:
       arr.emplace_back( item.get_string().value );
       break;
     case type::k_array:
@@ -715,7 +715,7 @@ boost::json::object spt::util::fromBson( bsoncxx::document::view document )
     case type::k_date:
       obj.emplace( std::string_view{ item.key() }, isoDateMillis( item.get_date().value ) );
       break;
-    case type::k_utf8:
+    case type::k_string:
       obj.emplace( std::string_view{ item.key() }, item.get_string().value );
       break;
     case type::k_array:

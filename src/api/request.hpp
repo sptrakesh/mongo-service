@@ -15,7 +15,8 @@ namespace spt::mongoservice::api
     enum class Action : std::uint_fast8_t {
       create, retrieve, update, _delete, count,
       index, dropCollection, dropIndex,
-      bulk, pipeline, transaction, renameCollection
+      bulk, pipeline, transaction,
+      createCollection, renameCollection, createTimeseries
     };
 
     Request( std::string db, std::string coll,
@@ -31,6 +32,11 @@ namespace spt::mongoservice::api
     static Request create( std::string db, std::string coll, bsoncxx::document::value doc )
     {
       return { std::move( db ), std::move( coll ), std::move( doc ), Action::create };
+    }
+
+    static Request createTimeseries( std::string db, std::string coll, bsoncxx::document::value doc )
+    {
+      return { std::move( db ), std::move( coll ), std::move( doc ), Action::createTimeseries };
     }
 
     static Request retrieve( std::string db, std::string coll, bsoncxx::document::value doc )
@@ -81,6 +87,11 @@ namespace spt::mongoservice::api
     static Request transaction( std::string db, std::string coll, bsoncxx::document::value doc )
     {
       return { std::move( db ), std::move( coll ), std::move( doc ), Action::transaction };
+    }
+
+    static Request createCollection( std::string db, std::string coll, bsoncxx::document::value doc )
+    {
+      return { std::move( db ), std::move( coll ), std::move( doc ), Action::createCollection };
     }
 
     static Request renameCollection( std::string db, std::string coll, bsoncxx::document::value doc )
