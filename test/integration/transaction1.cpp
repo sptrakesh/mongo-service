@@ -11,12 +11,15 @@
 #include <bsoncxx/builder/basic/array.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
-namespace spt::itest::trans1
+namespace bsoncxx
 {
-  const auto oid1 = bsoncxx::oid{};
-  const auto oid2 = bsoncxx::oid{};
-  std::string vhdb;
-  std::string vhc;
+  namespace ptrans1
+  {
+    const auto oid1 = bsoncxx::oid{};
+    const auto oid2 = bsoncxx::oid{};
+    std::string vhdb;
+    std::string vhc;
+  }
 }
 
 SCENARIO( "Transaction test suite1", "[transaction1]" )
@@ -39,26 +42,26 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
                       kvp( "database", "itest" ),
                       kvp( "collection", "test" ),
                       kvp( "document", basic::make_document(
-                          kvp( "key", "value1" ), kvp( "_id", spt::itest::trans1::oid1 ) ) )
+                          kvp( "key", "value1" ), kvp( "_id", ptrans1::oid1 ) ) )
                   ),
                   basic::make_document(
                       kvp( "action", "create" ),
                       kvp( "database", "itest" ),
                       kvp( "collection", "test" ),
                       kvp( "document", basic::make_document(
-                          kvp( "key", "value2" ), kvp( "_id", spt::itest::trans1::oid2 ) ) )
+                          kvp( "key", "value2" ), kvp( "_id", ptrans1::oid2 ) ) )
                   ),
                   basic::make_document(
                       kvp( "action", "delete" ),
                       kvp( "database", "itest" ),
                       kvp( "collection", "test" ),
-                      kvp( "document", basic::make_document( kvp( "_id", spt::itest::trans1::oid1 ) ) )
+                      kvp( "document", basic::make_document( kvp( "_id", ptrans1::oid1 ) ) )
                   ),
                   basic::make_document(
                       kvp( "action", "delete" ),
                       kvp( "database", "itest" ),
                       kvp( "collection", "test" ),
-                      kvp( "document", basic::make_document( kvp( "_id", spt::itest::trans1::oid2 ) ) )
+                      kvp( "document", basic::make_document( kvp( "_id", ptrans1::oid2 ) ) )
                   )
                 )
              )
@@ -83,11 +86,11 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
 
       const auto vd = spt::util::bsonValueIfExists<std::string>( "database", *h );
       REQUIRE( vd );
-      spt::itest::trans1::vhdb = *vd;
+      ptrans1::vhdb = *vd;
 
       const auto vc = spt::util::bsonValueIfExists<std::string>( "collection", *h );
       REQUIRE( vc );
-      spt::itest::trans1::vhc = *vc;
+      ptrans1::vhc = *vc;
 
       const auto c = spt::util::bsonValueIfExists<bsoncxx::array::view>( "created", *h );
       const auto d = spt::util::bsonValueIfExists<bsoncxx::array::view>( "deleted", *h );
@@ -116,9 +119,9 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::trans1::vhdb ),
-          kvp( "collection", spt::itest::trans1::vhc ),
-          kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::trans1::oid1 ) ) ) );
+          kvp( "database", ptrans1::vhdb ),
+          kvp( "collection", ptrans1::vhc ),
+          kvp( "document", basic::make_document( kvp( "entity._id", ptrans1::oid1 ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -148,9 +151,9 @@ SCENARIO( "Transaction test suite1", "[transaction1]" )
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::trans1::vhdb ),
-          kvp( "collection", spt::itest::trans1::vhc ),
-          kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::trans1::oid2 ) ) ) );
+          kvp( "database", ptrans1::vhdb ),
+          kvp( "collection", ptrans1::vhc ),
+          kvp( "document", basic::make_document( kvp( "entity._id", ptrans1::oid2 ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );

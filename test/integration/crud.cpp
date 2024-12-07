@@ -9,13 +9,16 @@
 #include <bsoncxx/validate.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 
-namespace spt::itest::crud
+namespace
 {
-  const auto oid = bsoncxx::oid{};
-  std::string vhdb;
-  std::string vhc;
-  auto vhoid = bsoncxx::oid{};
-  int64_t count = 0;
+  namespace pcrud
+  {
+    const auto oid = bsoncxx::oid{};
+    std::string vhdb;
+    std::string vhc;
+    auto vhoid = bsoncxx::oid{};
+    int64_t count = 0;
+  }
 }
 
 SCENARIO( "Simple CRUD test suite", "[crud]" )
@@ -30,7 +33,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       const auto request  = spt::mongoservice::api::Request::create(
           "itest", "test",
           basic::make_document(
-              kvp( "key", "value" ), kvp( "_id", spt::itest::crud::oid ) )
+              kvp( "key", "value" ), kvp( "_id", pcrud::oid ) )
           );
 
       const auto [type, option] = spt::mongoservice::api::execute( request );
@@ -43,11 +46,11 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "collection" ) != opt.end() );
       REQUIRE( opt.find( "entity" ) != opt.end() );
       REQUIRE( opt.find( "_id" ) != opt.end() );
-      REQUIRE( opt["entity"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( opt["entity"].get_oid().value == pcrud::oid );
 
-      spt::itest::crud::vhdb = spt::util::bsonValue<std::string>( "database", opt );
-      spt::itest::crud::vhc = spt::util::bsonValue<std::string>( "collection", opt );
-      spt::itest::crud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", opt );
+      pcrud::vhdb = spt::util::bsonValue<std::string>( "database", opt );
+      pcrud::vhc = spt::util::bsonValue<std::string>( "collection", opt );
+      pcrud::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", opt );
     }
 
     AND_THEN( "Retrieving count of documents" )
@@ -70,7 +73,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
-      spt::itest::crud::count = *count;
+      pcrud::count = *count;
     }
 
     THEN( "Retrieving the document by id" )
@@ -82,7 +85,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "action", "retrieve" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
+          kvp( "document", basic::make_document( kvp( "_id", pcrud::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -94,7 +97,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "results" ) == opt.end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( dv["_id"].get_oid().value == pcrud::oid );
       const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
       REQUIRE( key );
       REQUIRE( key == "value" );
@@ -126,7 +129,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       for ( auto e : arr )
       {
         const auto dv = e.get_document().view();
-        if ( dv["_id"].get_oid().value == spt::itest::crud::oid ) found = true;
+        if ( dv["_id"].get_oid().value == pcrud::oid ) found = true;
         const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
         REQUIRE( key );
         REQUIRE( key == "value" );
@@ -141,9 +144,9 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::crud::vhdb ),
-          kvp( "collection", spt::itest::crud::vhc ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::vhoid ) ) ) );
+          kvp( "database", pcrud::vhdb ),
+          kvp( "collection", pcrud::vhc ),
+          kvp( "document", basic::make_document( kvp( "_id", pcrud::vhoid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -155,11 +158,11 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "results" ) == opt.end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
+      REQUIRE( dv["_id"].get_oid().value == pcrud::vhoid );
 
       const auto entity = spt::util::bsonValueIfExists<bsoncxx::document::view>( "entity", dv );
       REQUIRE( entity );
-      REQUIRE( (*entity)["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( (*entity)["_id"].get_oid().value == pcrud::oid );
     }
 
     AND_THEN( "Retrieve the version history document by entity id" )
@@ -169,9 +172,9 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::crud::vhdb ),
-          kvp( "collection", spt::itest::crud::vhc ),
-          kvp( "document", basic::make_document( kvp( "entity._id", spt::itest::crud::oid ) ) ) );
+          kvp( "database", pcrud::vhdb ),
+          kvp( "collection", pcrud::vhc ),
+          kvp( "document", basic::make_document( kvp( "entity._id", pcrud::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -189,10 +192,10 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       for ( auto e : arr )
       {
         const auto dv = e.get_document().view();
-        REQUIRE( dv["_id"].get_oid().value == spt::itest::crud::vhoid );
+        REQUIRE( dv["_id"].get_oid().value == pcrud::vhoid );
 
         const auto ev = spt::util::bsonValue<bsoncxx::document::view>( "entity", dv );
-        REQUIRE( ev["_id"].get_oid().value == spt::itest::crud::oid );
+        REQUIRE( ev["_id"].get_oid().value == pcrud::oid );
         const auto key = spt::util::bsonValueIfExists<std::string>( "key", ev );
         REQUIRE( key );
         REQUIRE( key == "value" );
@@ -213,7 +216,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document(
               kvp( "key1", "value1" ),
               kvp( "date", bsoncxx::types::b_date{ std::chrono::system_clock::now() } ),
-              kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "_id", pcrud::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -225,7 +228,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", opt );
       REQUIRE( doc );
       REQUIRE( doc->find( "_id" ) != doc->end() );
-      REQUIRE( (*doc)["_id"].get_oid().value == spt::itest::crud::oid );
+      REQUIRE( (*doc)["_id"].get_oid().value == pcrud::oid );
 
       auto key = spt::util::bsonValueIfExists<std::string>( "key", *doc );
       REQUIRE( key );
@@ -247,7 +250,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "collection", "test" ),
           kvp( "skipVersion", true ),
           kvp( "document", basic::make_document(
-              kvp( "key1", "value1" ), kvp( "_id", spt::itest::crud::oid ) ) ) );
+              kvp( "key1", "value1" ), kvp( "_id", pcrud::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -273,7 +276,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "action", "delete" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::crud::oid ) ) ) );
+          kvp( "document", basic::make_document( kvp( "_id", pcrud::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -305,7 +308,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", opt );
       REQUIRE( count );
-      REQUIRE( spt::itest::crud::count > *count );
+      REQUIRE( pcrud::count > *count );
     }
   }
 }

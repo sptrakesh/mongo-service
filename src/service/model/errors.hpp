@@ -13,6 +13,7 @@ namespace spt::model
   bsoncxx::document::view missingField();
   bsoncxx::document::view invalidAction();
   bsoncxx::document::view missingId();
+  bsoncxx::document::view missingName();
   bsoncxx::document::view insertError();
   bsoncxx::document::view invalidAUpdate();
   bsoncxx::document::view updateError();

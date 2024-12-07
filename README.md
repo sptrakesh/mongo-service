@@ -7,6 +7,7 @@
     * [Create](#create)
     * [Retrieve](#retrieve)
     * [Count](#count)
+    * [Distinct](#distinct)
     * [Update](#update)
     * [Delete](#delete)
     * [Index](#index)
@@ -92,7 +93,7 @@ it has been *deleted* or not).
 All interactions are via *BSON* documents sent to the service.  Each request must
 conform to the following document model:
 * `action (string)` - The type of database action being performed.  One of 
-  `create|retrieve|update|delete|count|index|dropCollection|dropIndex|bulk|pipeline|transaction|createTimeseries|createCollection|renameCollection`.
+  `create|retrieve|update|delete|count|distinct|index|dropCollection|dropIndex|bulk|pipeline|transaction|createTimeseries|createCollection|renameCollection`.
 * `database (string)` - The Mongo database the action is to be performed against.
     - Not needed for `transaction` action.
 * `collection (string)` - The Mongo collection the action is to be performed against.
@@ -238,6 +239,41 @@ Sample response:
 ```json
 { "count" : 11350 }
 ```
+
+#### Distinct
+Retrieve distinct values for the specified field in documents in a collection.  The payload document *must* contain
+the `field` for which distinct values are to be retrieved.  An optional `filter` field can be used to specify the 
+filter query to use when retrieving distinct values.
+
+Sample distinct payload:
+```json
+{
+  "action": "distinct",
+  "database": "itest",
+  "collection": "test",
+  "document": {
+    "field": "myProp",
+    "filter": {
+      "deleted": {"$ne": true}
+    }
+  }
+}
+```
+
+Sample response:
+```json
+{ "results" : [ { "values" : [ "value", "value1", "value2" ], "ok" : 1.0 } ] }
+```
+
+**Note:**
+An array of `results` is returned since the mongo C++ API implementation for the `distinct`
+command returns a *cursor*.  The documentation indicates only a single document is returned,
+which implies we could return a `result` with just the document.  We chose not to make that
+assumption in case the interface changes down the road (again because of the cursor returned by
+the driver).
+
+An empty `values` array is returned if the specified `field` does not exist in the documents
+in the specified collection.
 
 #### Update
 Update is the most complex scenario.  The service supports the two main update

@@ -13,11 +13,13 @@
 #include "../common/util/bson.hpp"
 
 #include <bsoncxx/json.hpp>
+#include <bsoncxx/builder/stream/array.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 #include <mongocxx/exception/bulk_write_exception.hpp>
 #include <mongocxx/exception/logic_error.hpp>
 
 #include <chrono>
+#include <format>
 #include <vector>
 
 namespace
@@ -218,6 +220,13 @@ namespace
         if ( const auto limit = bsonValueIfExists<int64_t>( "limit", *opts ); limit ) options.limit( *limit );
         if ( const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts ); time ) options.max_time( *time );
         if ( const auto skip = bsonValueIfExists<int64_t>( "skip", *opts ); skip ) options.skip( *skip );
+
+        if ( const auto rp = bsonValueIfExists<int32_t>( "readPreference", *opts ); rp )
+        {
+          auto p = mongocxx::read_preference{};
+          p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
+          options.read_preference( p );
+        }
       }
 
       auto cliento = Pool::instance().acquire();
@@ -230,6 +239,53 @@ namespace
       auto& client = *cliento;
       const auto count = ( *client )[dbname][collname].count_documents( model.document(), options );
       co_return document{} << "count" << count << finalize;
+    }
+
+    awaitable<bsoncxx::document::view_or_value> distinct( const model::Document& model )
+    {
+      using util::bsonValue;
+      using util::bsonValueIfExists;
+      using bsoncxx::builder::stream::array;
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::finalize;
+
+      const auto dbname = model.database();
+      const auto collname = model.collection();
+      const auto opts = model.options();
+      const auto doc = model.document();
+
+      if ( !bsonValueIfExists<std::string>( "field", doc ) ) co_return model::missingName();
+
+      auto options = mongocxx::options::distinct{};
+      if ( opts )
+      {
+        if ( const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts ); col ) options.collation( *col );
+        if ( const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts ); time ) options.max_time( *time );
+
+        if ( const auto rp = bsonValueIfExists<int32_t>( "readPreference", *opts ); rp )
+        {
+          auto p = mongocxx::read_preference{};
+          p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
+          options.read_preference( p );
+        }
+      }
+
+      auto cliento = Pool::instance().acquire();
+      if ( !cliento )
+      {
+        LOG_WARN << "Connection pool exhausted";
+        co_return model::poolExhausted();
+      }
+
+      auto filter = bsonValueIfExists<bsoncxx::document::view>( "filter", doc );
+
+      auto& client = *cliento;
+      auto cursor = ( *client )[dbname][collname].distinct( bsonValue<std::string>( "field", doc ),
+        filter ? *filter : document{} << finalize, options );
+
+      auto arr = array{};
+      for ( auto&& d : cursor ) arr << d;
+      co_return document{} << "results" << ( arr << finalize ) << finalize;
     }
 
     mongocxx::options::find findOpts( const model::Document& model )
@@ -302,7 +358,9 @@ namespace
       using util::bsonValue;
       using util::bsonValueIfExists;
 
-      using bsoncxx::builder::basic::kvp;
+      using bsoncxx::builder::stream::array;
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::finalize;
 
       const auto doc = model.document();
       if ( doc.find( "_id" ) != doc.end() && bsoncxx::v_noabi::type::k_oid == doc["_id"].type() )
@@ -322,9 +380,9 @@ namespace
       auto& client = *cliento;
       auto cursor = ( *client )[model.database()][model.collection()].find( doc, opts );
 
-      auto array = bsoncxx::builder::basic::array{};
-      for ( auto&& d : cursor ) array.append( d );
-      co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
+      auto arr = array{};
+      for ( auto&& d : cursor ) arr << d;
+      co_return document{} << "results" << ( arr << finalize ) << finalize;
     }
 
     mongocxx::options::insert insertOpts( const model::Document& document )
@@ -439,17 +497,21 @@ namespace
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
       const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
-      if ( result )
+      if ( opts.write_concern()->is_acknowledged() )
       {
-        auto resp = bsoncxx::builder::stream::document{};
-        resp <<
+        if ( !result ) co_return model::insertError();
+
+        co_return bsoncxx::builder::stream::document{} <<
           "database" << dbname <<
-          "collection" << collname;
-        if ( opts.write_concern()->is_acknowledged() ) resp << "_id" << result->inserted_id();
-        co_return resp << bsoncxx::builder::stream::finalize;
+          "collection" << collname <<
+          "_id" << result->inserted_id() <<
+          bsoncxx::builder::stream::finalize;
       }
 
-      co_return model::insertError();
+      co_return bsoncxx::builder::stream::document{} <<
+        "database" << dbname <<
+        "collection" << collname <<
+        bsoncxx::builder::stream::finalize;
     }
 
     bsoncxx::document::value updateDoc( bsoncxx::document::view doc )
@@ -1126,6 +1188,9 @@ namespace
     awaitable<bsoncxx::document::view_or_value> pipeline( const model::Document& model )
     {
       using util::bsonValueIfExists;
+      using bsoncxx::builder::stream::array;
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::finalize;
 
       LOG_DEBUG << "Executing aggregation pipeline query";
       const auto doc = model.document();
@@ -1153,9 +1218,9 @@ namespace
       const auto& client = *cliento;
       auto aggregate = ( *client )[dbname][collname].aggregate( pipeline );
 
-      auto array = bsoncxx::builder::basic::array{};
-      for ( auto&& d : aggregate ) array.append( d );
-      co_return bsoncxx::builder::basic::make_document( kvp( "results", array ) );
+      auto arr = array{};
+      for ( auto&& d : aggregate ) arr << d;
+      co_return document{} << "results" << ( arr << finalize ) << finalize;
     }
 
     boost::asio::awaitable<bsoncxx::document::view_or_value> processCollection( std::string_view action, const model::Document& document )
@@ -1177,6 +1242,7 @@ namespace
       if ( action == "bulk"sv ) co_return co_await bulk( document );
       if ( action == "pipeline"sv ) co_return co_await pipeline( document );
       if ( action == "transaction"sv ) co_return co_await internal::transaction( document );
+      if ( action == "distinct"sv ) co_return co_await distinct( document );
       co_return co_await processCollection( action, document ); // hack to get around GCC issue with number of ifs
     }
 
@@ -1201,10 +1267,7 @@ namespace
          " code: " << be.code().message() << ", message: " << be.what();
         LOG_INFO << document.json();
 
-        std::string s;
-        s.reserve( 48 );
-        s.append( "Error processing database action " ).append( document.action() );
-        co_return model::withMessage( s );
+        co_return model::withMessage( std::format( "Error processing database action {}", document.action() ) );
       }
       catch ( const mongocxx::logic_error& le )
       {
@@ -1212,10 +1275,7 @@ namespace
          " code: " << le.code().message() << ", message: " << le.what();
         LOG_INFO << document.json();
 
-        std::string s;
-        s.reserve( 48 );
-        s.append( "Error processing database action " ).append( document.action() );
-        co_return model::withMessage( s );
+        co_return model::withMessage( std::format( "Error processing database action {}", document.action() ) );
       }
       catch ( const mongocxx::operation_exception& oe )
       {
@@ -1223,10 +1283,7 @@ namespace
           " code: " << oe.code().message() << ", message: " << oe.what();
         LOG_INFO << document.json();
 
-        std::string s;
-        s.reserve( 48 );
-        s.append( "Error processing database action " ).append( document.action() );
-        co_return model::withMessage( s );
+        co_return model::withMessage( std::format( "Error processing database action {}", document.action() ) );
       }
       catch ( const std::exception& ex )
       {

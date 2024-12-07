@@ -37,7 +37,8 @@ bsoncxx::document::view spt::model::invalidAction()
   using basic::make_array;
   static value document = make_document(
       kvp("error", "Invalid action."),
-      kvp( "valid", make_array( "create", "retrieve", "update", "delete", "count", "index", "dropCollection", "dropIndex", "bulk", "pipeline", "transaction" ) ) );
+      kvp( "valid", make_array( "create", "createCollection", "createTimeseries", "retrieve", "update", "delete",
+        "count", "distinct", "index", "dropCollection", "dropIndex", "bulk", "pipeline", "transaction" ) ) );
   return document.view();
 }
 
@@ -46,6 +47,14 @@ bsoncxx::document::view spt::model::missingId()
   using bsoncxx::document::value;
   using bsoncxx::builder::basic::kvp;
   static value document = bsoncxx::builder::basic::make_document( kvp("error", "Document id not specified") );
+  return document.view();
+}
+
+bsoncxx::document::view spt::model::missingName()
+{
+  using bsoncxx::document::value;
+  using bsoncxx::builder::basic::kvp;
+  static value document = bsoncxx::builder::basic::make_document( kvp("error", "Name for distinct field not specified") );
   return document.view();
 }
 

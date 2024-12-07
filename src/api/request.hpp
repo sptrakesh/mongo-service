@@ -16,7 +16,7 @@ namespace spt::mongoservice::api
       create, retrieve, update, _delete, count,
       index, dropCollection, dropIndex,
       bulk, pipeline, transaction,
-      createCollection, renameCollection, createTimeseries
+      createCollection, renameCollection, createTimeseries, distinct
     };
 
     Request( std::string db, std::string coll,
@@ -57,6 +57,11 @@ namespace spt::mongoservice::api
     static Request count( std::string db, std::string coll, bsoncxx::document::value doc )
     {
       return { std::move( db ), std::move( coll ), std::move( doc ), Action::count };
+    }
+
+    static Request distinct( std::string db, std::string coll, bsoncxx::document::value doc )
+    {
+      return { std::move( db ), std::move( coll ), std::move( doc ), Action::distinct };
     }
 
     static Request index( std::string db, std::string coll, bsoncxx::document::value doc )

@@ -11,21 +11,24 @@
 
 #include <vector>
 
-namespace spt::itest::pool
+namespace
 {
-  void count( spt::mongoservice::pool::Pool<spt::mongoservice::api::impl::Connection>& pool )
+  namespace ppool
   {
-    namespace basic = bsoncxx::builder::basic;
-    using basic::kvp;
+    void count( spt::mongoservice::pool::Pool<spt::mongoservice::api::impl::Connection>& pool )
+    {
+      namespace basic = bsoncxx::builder::basic;
+      using basic::kvp;
 
-    bsoncxx::document::value document = basic::make_document(
-        kvp( "action", "count" ),
-        kvp( "database", "itest" ),
-        kvp( "collection", "test" ),
-        kvp( "document", basic::make_document() ) );
-    auto copt = pool.acquire();
-    const auto option = (*copt)->execute( document.view() );
-    LOG_INFO << "[pool] " << bsoncxx::to_json( *option );
+      bsoncxx::document::value document = basic::make_document(
+          kvp( "action", "count" ),
+          kvp( "database", "itest" ),
+          kvp( "collection", "test" ),
+          kvp( "document", basic::make_document() ) );
+      auto copt = pool.acquire();
+      const auto option = (*copt)->execute( document.view() );
+      LOG_INFO << "[pool] " << bsoncxx::to_json( *option );
+    }
   }
 }
 
@@ -184,7 +187,7 @@ SCENARIO( "Simple connection pool test suite", "[pool]" )
       v.reserve( 5 );
       for ( int i = 0; i < 5; ++i )
       {
-        v.emplace_back( spt::itest::pool::count, std::ref( pool ) );
+        v.emplace_back( ppool::count, std::ref( pool ) );
       }
 
       for ( int i = 0; i < 5; ++i ) v[i].join();

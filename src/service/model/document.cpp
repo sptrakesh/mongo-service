@@ -24,7 +24,7 @@ std::optional<bsoncxx::document::view> Document::bson() const
 
 bool Document::valid() const
 {
-  enum class Action : uint8_t { create, retrieve, update, count,
+  enum class Action : uint8_t { create, retrieve, update, count, distinct,
     index, dropIndex,
     bulk, pipeline, transaction,
     createCollection, renameCollection, dropCollection,

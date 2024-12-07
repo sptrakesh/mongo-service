@@ -15,12 +15,15 @@
 #include <chrono>
 #include <vector>
 
-namespace spt::itest::bulk
+namespace
 {
-  const auto oid1 = bsoncxx::oid{};
-  const auto oid2 = bsoncxx::oid{};
-  std::vector<bsoncxx::oid> oids;
-  int64_t count = 0;
+  namespace pbulk
+  {
+    const auto oid1 = bsoncxx::oid{};
+    const auto oid2 = bsoncxx::oid{};
+    std::vector<bsoncxx::oid> oids;
+    int64_t count = 0;
+  }
 }
 
 SCENARIO( "Bulk operation test suite", "[bulk]" )
@@ -45,11 +48,11 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
               "insert" <<
                 open_array <<
                   open_document <<
-                    "_id" << spt::itest::bulk::oid1 <<
+                    "_id" << pbulk::oid1 <<
                     "key" << "value1" <<
                   close_document <<
                   open_document <<
-                    "_id" << spt::itest::bulk::oid2 <<
+                    "_id" << pbulk::oid2 <<
                     "key" << "value2" <<
                   close_document <<
                 close_array <<
@@ -87,7 +90,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
-      spt::itest::bulk::count = *count;
+      pbulk::count = *count;
     }
 
     AND_THEN( "Deleting documents in bulk" )
@@ -107,8 +110,8 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           open_document <<
             "delete" <<
               open_array <<
-                open_document << "_id" << spt::itest::bulk::oid1 << close_document <<
-                open_document << "_id" << spt::itest::bulk::oid2 << close_document <<
+                open_document << "_id" << pbulk::oid1 << close_document <<
+                open_document << "_id" << pbulk::oid2 << close_document <<
               close_array <<
           close_document <<
         finalize;
@@ -143,7 +146,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
-      REQUIRE( spt::itest::bulk::count > *count );
+      REQUIRE( pbulk::count > *count );
     }
 
     AND_THEN( "Creating a large batch of documents" )
@@ -158,14 +161,14 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       using basic::kvp;
 
       const auto size = 10000;
-      spt::itest::bulk::oids.reserve( size );
+      pbulk::oids.reserve( size );
       auto arr = basic::array{};
       for ( auto i = 0; i < size; ++i )
       {
-        spt::itest::bulk::oids.emplace_back( bsoncxx::oid{} );
+        pbulk::oids.emplace_back( bsoncxx::oid{} );
         arr.append(
             document{} <<
-              "_id" << spt::itest::bulk::oids.back() <<
+              "_id" << pbulk::oids.back() <<
               "iter" << i <<
               "key1" << "value1" <<
               "key2" << "value2" <<
@@ -223,7 +226,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       using basic::kvp;
 
       auto arr = basic::array{};
-      for ( auto& id : spt::itest::bulk::oids )
+      for ( auto& id : pbulk::oids )
       {
         arr.append( basic::make_document( kvp( "_id", id ) ) );
       }

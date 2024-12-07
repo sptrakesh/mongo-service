@@ -13,12 +13,15 @@
 
 using std::operator""s;
 
-namespace spt::itest::rename
+namespace
 {
-  const auto oid = bsoncxx::oid{};
-  std::string vhdb;
-  std::string vhc;
-  auto vhoid = bsoncxx::oid{};
+  namespace prename
+  {
+    const auto oid = bsoncxx::oid{};
+    std::string vhdb;
+    std::string vhc;
+    auto vhoid = bsoncxx::oid{};
+  }
 }
 
 SCENARIO( "Rename collection test suite", "[rename]" )
@@ -37,7 +40,7 @@ SCENARIO( "Rename collection test suite", "[rename]" )
       const auto request  = spt::mongoservice::api::Request::create(
           database, collection,
           basic::make_document(
-              kvp( "key", "value" ), kvp( "_id", spt::itest::rename::oid ) )
+              kvp( "key", "value" ), kvp( "_id", prename::oid ) )
       );
 
       const auto [type, option] = spt::mongoservice::api::execute( request );
@@ -50,11 +53,11 @@ SCENARIO( "Rename collection test suite", "[rename]" )
       REQUIRE( opt.find( "collection" ) != opt.end() );
       REQUIRE( opt.find( "entity" ) != opt.end() );
       REQUIRE( opt.find( "_id" ) != opt.end() );
-      REQUIRE( opt["entity"].get_oid().value == spt::itest::rename::oid );
+      REQUIRE( opt["entity"].get_oid().value == prename::oid );
 
-      spt::itest::rename::vhdb = spt::util::bsonValue<std::string>( "database", opt );
-      spt::itest::rename::vhc = spt::util::bsonValue<std::string>( "collection", opt );
-      spt::itest::rename::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", opt );
+      prename::vhdb = spt::util::bsonValue<std::string>( "database", opt );
+      prename::vhc = spt::util::bsonValue<std::string>( "collection", opt );
+      prename::vhoid = spt::util::bsonValue<bsoncxx::oid>( "_id", opt );
     }
 
     THEN( "Cannot rename to existing collection" )
@@ -106,7 +109,7 @@ SCENARIO( "Rename collection test suite", "[rename]" )
           kvp( "action", "retrieve" ),
           kvp( "database", database ),
           kvp( "collection", renamed ),
-          kvp( "document", basic::make_document( kvp( "_id", spt::itest::rename::oid ) ) ) );
+          kvp( "document", basic::make_document( kvp( "_id", prename::oid ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -118,7 +121,7 @@ SCENARIO( "Rename collection test suite", "[rename]" )
       REQUIRE( opt.find( "results" ) == opt.end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::rename::oid );
+      REQUIRE( dv["_id"].get_oid().value == prename::oid );
       const auto key = spt::util::bsonValueIfExists<std::string>( "key", dv );
       REQUIRE( key );
       REQUIRE( key == "value" );
@@ -131,10 +134,10 @@ SCENARIO( "Rename collection test suite", "[rename]" )
 
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::rename::vhdb ),
-          kvp( "collection", spt::itest::rename::vhc ),
+          kvp( "database", prename::vhdb ),
+          kvp( "collection", prename::vhc ),
           kvp( "document", basic::make_document(
-              kvp( "_id", spt::itest::rename::vhoid ),
+              kvp( "_id", prename::vhoid ),
               kvp( "database", database ),
               kvp( "collection", renamed )
               ) ) );
@@ -149,11 +152,11 @@ SCENARIO( "Rename collection test suite", "[rename]" )
       REQUIRE( opt.find( "results" ) == opt.end() );
 
       const auto dv = spt::util::bsonValue<bsoncxx::document::view>( "result", opt );
-      REQUIRE( dv["_id"].get_oid().value == spt::itest::rename::vhoid );
+      REQUIRE( dv["_id"].get_oid().value == prename::vhoid );
 
       const auto entity = spt::util::bsonValueIfExists<bsoncxx::document::view>( "entity", dv );
       REQUIRE( entity );
-      REQUIRE( (*entity)["_id"].get_oid().value == spt::itest::rename::oid );
+      REQUIRE( (*entity)["_id"].get_oid().value == prename::oid );
     }
 
     AND_THEN( "Drop renamed collection" )
@@ -182,10 +185,10 @@ SCENARIO( "Rename collection test suite", "[rename]" )
       std::this_thread::sleep_for( std::chrono::milliseconds{ 250 } );
       bsoncxx::document::value document = basic::make_document(
           kvp( "action", "retrieve" ),
-          kvp( "database", spt::itest::rename::vhdb ),
-          kvp( "collection", spt::itest::rename::vhc ),
+          kvp( "database", prename::vhdb ),
+          kvp( "collection", prename::vhc ),
           kvp( "document", basic::make_document(
-              kvp( "_id", spt::itest::rename::vhoid ),
+              kvp( "_id", prename::vhoid ),
               kvp( "database", database ),
               kvp( "collection", renamed )
           ) ) );

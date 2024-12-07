@@ -13,60 +13,63 @@
 
 using std::operator""sv;
 
-namespace spt::itest::ilp
+namespace
 {
-  struct Docker
+  namespace pilp
   {
-    static const Docker& instance()
+    struct Docker
     {
-      static Docker docker;
-      return docker;
-    }
+      static const Docker& instance()
+      {
+        static Docker docker;
+        return docker;
+      }
 
-    ~Docker()
+      ~Docker()
+      {
+        LOG_INFO << "Stopping QuestDB docker container";
+        std::system( "docker stop questdb" );
+      }
+
+    private:
+      Docker()
+      {
+        LOG_INFO << "Starting QuestDB docker container";
+        std::system( "docker run -d --rm -p 9000:9000 -p 8812:8812 -p 9009:9009 --name questdb questdb/questdb" );
+        std::this_thread::sleep_for( std::chrono::seconds{ 2 } );
+      }
+    };
+
+    struct Client
     {
-      LOG_INFO << "Stopping QuestDB docker container";
-      std::system( "docker stop questdb" );
-    }
+      Client() : client{ spt::mongoservice::api::ContextHolder::instance().ioc, "127.0.0.1"sv, "9009"sv } {}
 
-  private:
-    Docker()
-    {
-      LOG_INFO << "Starting QuestDB docker container";
-      std::system( "docker run -d --rm -p 9000:9000 -p 8812:8812 -p 9009:9009 --name questdb questdb/questdb" );
-      std::this_thread::sleep_for( std::chrono::seconds{ 2 } );
-    }
-  };
+      ~Client()
+      {
+        spt::mongoservice::api::ContextHolder::instance().ioc.stop();
+        if ( thread.joinable() ) thread.join();
+      }
 
-  struct Client
-  {
-    Client() : client{ spt::mongoservice::api::ContextHolder::instance().ioc, "127.0.0.1"sv, "9009"sv } {}
+      void write( std::string&& data )
+      {
+        client.write( std::move( data ) );
+      }
 
-    ~Client()
-    {
-      spt::mongoservice::api::ContextHolder::instance().ioc.stop();
-      if ( thread.joinable() ) thread.join();
-    }
-
-    void write( std::string&& data )
-    {
-      client.write( std::move( data ) );
-    }
-
-  private:
-    std::thread thread{ [](){ spt::mongoservice::api::ContextHolder::instance().ioc.run(); } };
-    spt::ilp::ILPClient client;
-  };
+    private:
+      std::thread thread{ [](){ spt::mongoservice::api::ContextHolder::instance().ioc.run(); } };
+      spt::ilp::ILPClient client;
+    };
+  }
 }
 
 SCENARIO( "QuestDB TCP client test suite" )
 {
-  [[maybe_unused]] auto& docker = spt::itest::ilp::Docker::instance();
+  [[maybe_unused]] auto& docker = pilp::Docker::instance();
 
 #if !(defined(_WIN32) || defined(WIN32))
   GIVEN( "A TCP client connected to QuestDB TCP service" )
   {
-    auto client = spt::itest::ilp::Client{};
+    auto client = pilp::Client{};
 
     WHEN( "Adding a test series to QuestDB" )
     {
