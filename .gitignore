@@ -7,4 +7,5 @@ build
 test/go/.idea
 test/go/go.sum
 client/julia/MongoService/Manifest.toml
-
+client/go/go.sum
+client/go/.idea

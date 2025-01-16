@@ -68,7 +68,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
-      REQUIRE( opt.find( "delete" ) != opt.end() );
+      REQUIRE( opt.find( "remove" ) != opt.end() );
     }
 
     AND_THEN( "Retriving count of documents" )
@@ -108,7 +108,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
         "collection" << "test" <<
         "document" <<
           open_document <<
-            "delete" <<
+            "remove" <<
               open_array <<
                 open_document << "_id" << pbulk::oid1 << close_document <<
                 open_document << "_id" << pbulk::oid2 << close_document <<
@@ -124,7 +124,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
-      REQUIRE( opt.find( "delete" ) != opt.end() );
+      REQUIRE( opt.find( "remove" ) != opt.end() );
     }
 
     AND_THEN( "Retriving count of documents after delete" )
@@ -217,7 +217,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
-      REQUIRE( opt.find( "delete" ) != opt.end() );
+      REQUIRE( opt.find( "remove" ) != opt.end() );
     }
 
     AND_THEN( "Deleting a large batch of documents" )
@@ -235,7 +235,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           kvp( "action", "bulk" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document( kvp( "delete", arr.view() ) ) ) );
+          kvp( "document", basic::make_document( kvp( "remove", arr.view() ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
@@ -245,7 +245,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
-      REQUIRE( opt.find( "delete" ) != opt.end() );
+      REQUIRE( opt.find( "remove" ) != opt.end() );
     }
   }
 }

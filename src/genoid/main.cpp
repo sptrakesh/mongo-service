@@ -56,6 +56,8 @@ int main( int argc, char const * const * argv )
     exit( 1 );
   }
 
-  std::cout << spt::util::generateId( dt.value(), bsoncxx::oid{} ).to_string() << '\n';
+  auto id = spt::util::generateId( dt.value(), bsoncxx::oid{} );
+  LOG_INFO << "ObjectId at " << at << ": " << id;
+  std::cout << id.to_string() << '\n';
   exit( 0 );
 }

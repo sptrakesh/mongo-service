@@ -15,80 +15,58 @@
 
 #include <chrono>
 
-namespace spt::db::internal::ptransaction
+namespace
 {
-  struct Result
+  namespace ptransaction
   {
-    bsoncxx::builder::basic::array vhidc{};
-    bsoncxx::builder::basic::array vhidd{};
-    std::chrono::time_point<std::chrono::system_clock> now{ std::chrono::system_clock::now() };
-    int created{ 0 };
-    int deleted{ 0 };
-    int updated{ 0 };
-  };
+    using namespace spt;
 
-  bool process( mongocxx::client_session* session, const mongocxx::pool::entry& client,
-      const model::Document& doc, Result& result )
-  {
-    using spt::util::bsonValue;
-    using spt::util::bsonValueIfExists;
-
-    using bsoncxx::builder::stream::document;
-    using bsoncxx::builder::stream::open_document;
-    using bsoncxx::builder::stream::close_document;
-    using bsoncxx::builder::stream::finalize;
-
-    const auto& conf = model::Configuration::instance();
-    const auto dv = doc.document();
-    const auto action = doc.action();
-    const auto dbname = doc.database();
-    const auto collname = doc.collection();
-    const auto skip = doc.skipVersion();
-
-    const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", dv );
-    if ( !idopt )
+    struct Result
     {
-      LOG_WARN << "Document id not specified " << doc.json();
-      session->abort_transaction();
-      return false;
-    }
+      bsoncxx::builder::basic::array vhidc{};
+      bsoncxx::builder::basic::array vhidd{};
+      std::chrono::time_point<std::chrono::system_clock> now{ std::chrono::system_clock::now() };
+      int created{ 0 };
+      int deleted{ 0 };
+      int updated{ 0 };
+    };
 
-    if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
+    bool process( mongocxx::client_session* session, const mongocxx::pool::entry& client, const model::Document& doc, Result& result )
     {
-      LOG_WARN << "Attempting to create in version history " << doc.json();
-      session->abort_transaction();
-      return false;
-    }
+      using util::bsonValue;
+      using util::bsonValueIfExists;
 
-    if ( action == "create" )
-    {
-      ( *client )[dbname][collname].insert_one( *session, dv );
-      ++result.created;
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::open_document;
+      using bsoncxx::builder::stream::close_document;
+      using bsoncxx::builder::stream::finalize;
 
-      if ( !skip || !*skip )
+      const auto& conf = model::Configuration::instance();
+      const auto dv = doc.document();
+      const auto action = doc.action();
+      const auto dbname = doc.database();
+      const auto collname = doc.collection();
+      const auto skip = doc.skipVersion();
+
+      const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+      if ( !idopt )
       {
-        auto oid = bsoncxx::oid{};
-        ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
-            *session,
-            document{} <<
-              "_id" << oid <<
-              "database" << dbname <<
-              "collection" << collname <<
-              "action" << action <<
-              "entity" << dv <<
-              "created" << bsoncxx::types::b_date{ result.now } <<
-              finalize );
-        result.vhidc.append( oid );
+        LOG_WARN << "Document id not specified " << doc.json();
+        session->abort_transaction();
+        return false;
       }
-    }
-    else if ( doc.action() == "update" )
-    {
-      auto id = util::bsonValueIfExists<bsoncxx::oid>( "_id", dv );
-      if ( id )
+
+      if ( dbname == conf.versionHistoryDatabase && collname == conf.versionHistoryCollection )
       {
-        auto filter = document{} << "_id" << *id << finalize;
-        ( *client )[dbname][collname].replace_one( *session, filter.view(), dv );
-        ++result.updated;
+        LOG_WARN << "Attempting to create in version history " << doc.json();
+        session->abort_transaction();
+        return false;
+      }
+
+      if ( action == "create" )
+      {
+        ( *client )[dbname][collname].insert_one( *session, dv );
+        ++result.created;
 
         if ( !skip || !*skip )
         {
@@ -106,44 +84,66 @@ namespace spt::db::internal::ptransaction
           result.vhidc.append( oid );
         }
       }
-    }
-    else if ( doc.action() == "delete" )
-    {
-      if ( !skip || !*skip )
+      else if ( doc.action() == "update" )
       {
-        auto results = ( *client )[dbname][collname].find( *session, dv );
-        for ( auto&& e : results )
+        auto id = util::bsonValueIfExists<bsoncxx::oid>( "_id", dv );
+        if ( id )
         {
-          auto oid = bsoncxx::oid{};
-          ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
-              *session,
-              document{} <<
-                "_id" << oid <<
-                "database" << dbname <<
-                "collection" << collname <<
-                "action" << action <<
-                "entity" << e <<
-                "created" << bsoncxx::types::b_date{ result.now } <<
-                finalize );
-          result.vhidd.append( oid );
+          auto filter = document{} << "_id" << *id << finalize;
+          ( *client )[dbname][collname].replace_one( *session, filter.view(), dv );
+          ++result.updated;
+
+          if ( !skip || !*skip )
+          {
+            auto oid = bsoncxx::oid{};
+            ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+                *session,
+                document{} <<
+                  "_id" << oid <<
+                  "database" << dbname <<
+                  "collection" << collname <<
+                  "action" << action <<
+                  "entity" << dv <<
+                  "created" << bsoncxx::types::b_date{ result.now } <<
+                  finalize );
+            result.vhidc.append( oid );
+          }
         }
       }
+      else if ( doc.action() == "delete" )
+      {
+        if ( !skip || !*skip )
+        {
+          auto results = ( *client )[dbname][collname].find( *session, dv );
+          for ( auto&& e : results )
+          {
+            auto oid = bsoncxx::oid{};
+            ( *client )[conf.versionHistoryDatabase][conf.versionHistoryCollection].insert_one(
+                *session,
+                document{} <<
+                  "_id" << oid <<
+                  "database" << dbname <<
+                  "collection" << collname <<
+                  "action" << action <<
+                  "entity" << e <<
+                  "created" << bsoncxx::types::b_date{ result.now } <<
+                  finalize );
+            result.vhidd.append( oid );
+          }
+        }
 
-      auto dr = ( *client )[dbname][collname].delete_many( *session, dv );
-      if ( dr ) result.deleted += dr->deleted_count();
-      else ++result.deleted;
+        auto dr = ( *client )[dbname][collname].delete_many( *session, dv );
+        if ( dr ) result.deleted += dr->deleted_count();
+        else ++result.deleted;
+      }
+
+      return true;
     }
-
-    return true;
   }
 }
 
-boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::transaction(
-    const model::Document& model )
+boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::transaction( const model::Document& model )
 {
-  using spt::util::bsonValue;
-  using spt::util::bsonValueIfExists;
-
   using bsoncxx::builder::stream::document;
   using bsoncxx::builder::stream::open_document;
   using bsoncxx::builder::stream::close_document;
@@ -169,7 +169,7 @@ boost::asio::awaitable<bsoncxx::document::view_or_value> spt::db::internal::tran
 
   const auto cb = [&]( mongocxx::client_session* session )
   {
-    for ( auto&& d : *array )
+    for ( const auto& d : *array )
     {
       const auto doc = model::Document{ d.get_document().view() };
       if ( !doc.valid() )

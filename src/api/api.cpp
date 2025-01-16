@@ -7,56 +7,62 @@
 #include "impl/connection.hpp"
 #include "impl/settings.hpp"
 #include "pool/pool.hpp"
+
 #if defined __has_include
-  #if __has_include("../common/magic_enum/magic_enum_all.hpp")
-    #include "../common/magic_enum/magic_enum_all.hpp"
+  #if __has_include("../common/magic_enum/magic_enum.hpp")
+    #include "../common/magic_enum/magic_enum.hpp"
   #else
-    #include <magic_enum/magic_enum_all.hpp>
+    #include <magic_enum/magic_enum.hpp>
   #endif
 #endif
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 
-namespace spt::mongoservice::api::papi
+namespace
 {
-  struct PoolHolder
+  namespace papi
   {
-    static PoolHolder& instance()
+    using namespace spt::mongoservice;
+
+    struct PoolHolder
     {
-      static PoolHolder p;
-      return p;
-    }
+      static PoolHolder& instance()
+      {
+        static PoolHolder p;
+        return p;
+      }
 
-    ~PoolHolder() = default;
-    PoolHolder(const PoolHolder&) = delete;
-    PoolHolder& operator=(const PoolHolder&) = delete;
+      ~PoolHolder() = default;
+      PoolHolder(const PoolHolder&) = delete;
+      PoolHolder& operator=(const PoolHolder&) = delete;
 
-    auto acquire() { return pool.acquire(); }
+      auto acquire() { return pool.acquire(); }
 
-  private:
-    PoolHolder() = default;
-    pool::Pool<impl::Connection> pool{ spt::mongoservice::api::impl::create, impl::ApiSettings::instance().configuration };
-  };
+    private:
+      PoolHolder() = default;
+      pool::Pool<api::impl::Connection> pool{ api::impl::create, api::impl::ApiSettings::instance().configuration };
+    };
 
-  struct AsyncPoolHolder
-  {
-    static AsyncPoolHolder& instance()
+    struct AsyncPoolHolder
     {
-      static AsyncPoolHolder p;
-      return p;
-    }
+      static AsyncPoolHolder& instance()
+      {
+        static AsyncPoolHolder p;
+        return p;
+      }
 
-    ~AsyncPoolHolder() = default;
-    AsyncPoolHolder(const AsyncPoolHolder&) = delete;
-    AsyncPoolHolder& operator=(const AsyncPoolHolder&) = delete;
+      ~AsyncPoolHolder() = default;
+      AsyncPoolHolder(const AsyncPoolHolder&) = delete;
+      AsyncPoolHolder& operator=(const AsyncPoolHolder&) = delete;
 
-    auto acquire() { return pool.acquire(); }
+      auto acquire() { return pool.acquire(); }
 
-  private:
-    AsyncPoolHolder() = default;
-    pool::Pool<impl::AsyncConnection> pool{ spt::mongoservice::api::impl::createAsyncConnection, impl::ApiSettings::instance().configuration };
-  };
+    private:
+      AsyncPoolHolder() = default;
+      pool::Pool<api::impl::AsyncConnection> pool{ spt::mongoservice::api::impl::createAsyncConnection, api::impl::ApiSettings::instance().configuration };
+    };
+  }
 }
 
 void spt::mongoservice::api::init( std::string_view server, std::string_view port,
@@ -64,7 +70,7 @@ void spt::mongoservice::api::init( std::string_view server, std::string_view por
     boost::asio::io_context& ioc )
 {
   auto& s = const_cast<impl::ApiSettings&>( impl::ApiSettings::instance() );
-  auto lock = std::unique_lock<std::mutex>( s.mutex );
+  auto lock = std::unique_lock( s.mutex );
   if ( s.ioc == nullptr )
   {
     s.server.append( server.data(), server.size() );
@@ -106,9 +112,9 @@ auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) 
   using bsoncxx::builder::stream::open_document;
   using bsoncxx::builder::stream::close_document;
   using bsoncxx::builder::stream::finalize;
-  using namespace std::string_view_literals;
+  using std::operator ""sv;
 
-  auto action = ( Request::Action::_delete == req.action ) ? "delete"sv : magic_enum::enum_name( req.action );
+  auto action = ( model::request::Action::_delete == req.action ) ? "delete"sv : magic_enum::enum_name( req.action );
   auto query = document{};
   query <<
     "action" << action <<
@@ -154,9 +160,9 @@ auto spt::mongoservice::api::executeAsync( Request req ) -> AsyncResponse
   using bsoncxx::builder::stream::open_document;
   using bsoncxx::builder::stream::close_document;
   using bsoncxx::builder::stream::finalize;
+  using std::operator ""sv;
 
-  auto action = magic_enum::enum_name( req.action );
-  if ( Request::Action::_delete == req.action ) action = std::string{ "delete" };
+  auto action = ( model::request::Action::_delete == req.action ) ? "delete"sv : magic_enum::enum_name( req.action );
   auto query = document{};
   query <<
     "action" << action <<

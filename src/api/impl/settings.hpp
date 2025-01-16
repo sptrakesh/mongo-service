@@ -8,7 +8,7 @@
 #include <string>
 #include <boost/asio/io_context.hpp>
 
-#include "pool/pool.hpp"
+#include "../pool/pool.hpp"
 
 namespace spt::mongoservice::api::impl
 {

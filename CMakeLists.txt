@@ -165,11 +165,10 @@ if (BUILD_TESTING)
   endif(UNIX)
 endif()
 
-
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-    "ConfigdbConfigVersion.cmake"
-    VERSION ${configdb_VERSION}
-    COMPATIBILITY AnyNewerVersion)
+  "MongoServiceConfigVersion.cmake"
+  VERSION ${mongoservice_VERSION}
+  COMPATIBILITY AnyNewerVersion)
 
-install(FILES "MongoServiceConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ConfigdbConfigVersion.cmake" DESTINATION lib/cmake/MongoService)
+install(FILES "MongoServiceConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/MongoServiceConfigVersion.cmake" DESTINATION lib/cmake/MongoService)

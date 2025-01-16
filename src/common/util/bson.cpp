@@ -20,6 +20,7 @@
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/exception/exception.hpp>
 
+#include <format>
 #include <iomanip>
 
 namespace spt::util
@@ -31,11 +32,7 @@ namespace spt::util
     if ( bsoncxx::type::k_bool == type ) return view[key].get_bool().value;
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to bool";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -53,11 +50,7 @@ namespace spt::util
     if ( bsoncxx::type::k_int64 == type ) return static_cast<int32_t>( view[key].get_int64().value );
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to int32";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -82,10 +75,7 @@ namespace spt::util
     default:
       LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to int64";
 
-      std::string ss;
-      ss.reserve( 64 );
-      ss.append( "Invalid type for " ).append( key );
-      throw std::runtime_error( ss );
+      throw std::runtime_error( std::format( "Invalid type for {}", key ) );
     }
   }
 
@@ -111,10 +101,7 @@ namespace spt::util
     default:
       LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to double";
 
-      std::string ss;
-      ss.reserve( 64 );
-      ss.append( "Invalid type for " ).append( key );
-      throw std::runtime_error( ss );
+      throw std::runtime_error( std::format( "Invalid type for {}", key ) );
     }
   }
 
@@ -137,10 +124,7 @@ namespace spt::util
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string";
 
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -160,11 +144,7 @@ namespace spt::util
     }
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string_view";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -181,11 +161,7 @@ namespace spt::util
     if ( bsoncxx::type::k_oid == type ) return view[key].get_oid().value;
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to string";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -205,11 +181,7 @@ namespace spt::util
     if ( k_int64 == type ) return DateTime{ std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::microseconds{ view[key].get_int64().value } ) };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
-
-    std::string ss;
-    ss.reserve( 18 + key.size() );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -229,11 +201,7 @@ namespace spt::util
     if ( k_int64 == type ) return DateTimeMs{ std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::microseconds{ view[key].get_int64().value } ) };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
-
-    std::string ss;
-    ss.reserve( 18 + key.size() );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -253,11 +221,7 @@ namespace spt::util
     if ( k_int64 == type ) return DateTimeNs{ std::chrono::microseconds{ view[key].get_int64().value } };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to date";
-
-    std::string ss;
-    ss.reserve( 18 + key.size() );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -268,17 +232,34 @@ namespace spt::util
   }
 
   template<>
+  std::chrono::seconds bsonValue( std::string_view key, const bsoncxx::document::view& view )
+  {
+    const auto type = view[key].type();
+    if ( bsoncxx::type::k_date == type ) return std::chrono::duration_cast<std::chrono::seconds>( view[key].get_date().value );
+    if ( bsoncxx::type::k_int32 == type ) return std::chrono::seconds{ view[key].get_int32().value };
+    if ( bsoncxx::type::k_int64 == type ) return std::chrono::seconds{ view[key].get_int64().value };
+
+    LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to milliseconds";
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
+  }
+
+  template<>
+  std::optional<std::chrono::seconds> bsonValueIfExists( std::string_view key, const bsoncxx::document::view& view )
+  {
+    if ( auto it = view.find( key ); it == view.end() || it->type() == bsoncxx::type::k_null ) return std::nullopt;
+    return bsonValue<std::chrono::seconds>( key, view );
+  }
+
+  template<>
   std::chrono::milliseconds bsonValue( std::string_view key, const bsoncxx::document::view& view )
   {
     const auto type = view[key].type();
     if ( bsoncxx::type::k_date == type ) return view[key].get_date().value;
+    if ( bsoncxx::type::k_int32 == type ) return std::chrono::milliseconds{ view[key].get_int32().value };
+    if ( bsoncxx::type::k_int64 == type ) return std::chrono::milliseconds{ view[key].get_int64().value };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to milliseconds";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -295,11 +276,7 @@ namespace spt::util
     if ( bsoncxx::type::k_document == type ) return view[key].get_document().view();
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to document";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -316,11 +293,7 @@ namespace spt::util
     if ( bsoncxx::type::k_array == type ) return view[key].get_array().value;
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to array";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -335,14 +308,11 @@ namespace spt::util
   {
     const auto type = view[key].type();
     if ( bsoncxx::type::k_date == type ) return std::chrono::duration_cast<std::chrono::microseconds>( view[key].get_date().value );
-    else if ( bsoncxx::type::k_int32 == type ) return std::chrono::microseconds{ view[key].get_int32() };
-    else if ( bsoncxx::type::k_int64 == type ) return std::chrono::microseconds{ view[key].get_int64() };
+    if ( bsoncxx::type::k_int32 == type ) return std::chrono::microseconds{ view[key].get_int32() };
+    if ( bsoncxx::type::k_int64 == type ) return std::chrono::microseconds{ view[key].get_int64() };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to microseconds";
-
-    std::string ss;
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>
@@ -357,15 +327,11 @@ namespace spt::util
   {
     const auto type = view[key].type();
     if ( bsoncxx::type::k_date == type ) return std::chrono::duration_cast<std::chrono::nanoseconds>( view[key].get_date().value );
-    else if ( bsoncxx::type::k_int32 == type ) return std::chrono::nanoseconds{ view[key].get_int32() };
-    else if ( bsoncxx::type::k_int64 == type ) return std::chrono::nanoseconds{ view[key].get_int64() };
+    if ( bsoncxx::type::k_int32 == type ) return std::chrono::nanoseconds{ view[key].get_int32() };
+    if ( bsoncxx::type::k_int64 == type ) return std::chrono::nanoseconds{ view[key].get_int64() };
 
     LOG_WARN << "Key: " << key << " type: " << bsoncxx::to_string( type ) << " not convertible to nanoseconds";
-
-    std::string ss;
-    ss.reserve( 64 );
-    ss.append( "Invalid type for " ).append( key );
-    throw std::runtime_error( ss );
+    throw std::runtime_error( std::format( "Invalid type for {}", key ) );
   }
 
   template<>

@@ -94,7 +94,7 @@ namespace spt::util::json
   boost::json::value json( const M& model );
 
   /**
-   *
+   * General implementation for converting a `enum` into a JSON value.
    * @tparam E The scoped enum type to be converted to a JSON value.
    * @param model The scoped enum instance to be converted to a JSON value.  Outputs the name of the enumerated value.
    * @return The JSON representation of the enum.
@@ -102,6 +102,26 @@ namespace spt::util::json
   template <typename E>
     requires std::is_enum_v<E>
   boost::json::value json( const E& model );
+
+  /**
+   * General implementation for converting a reference wrapper model field.
+   * @tparam M The visitable type wrapped in a reference wrapper.
+   * @param model The reference wrapper instance.
+   * @return The JSON representation of the wrapped model.
+   */
+  template <Visitable M>
+    requires NotEnumeration<M>
+  boost::json::value json( const std::reference_wrapper<M>& model );
+
+  /**
+   * General implementation for converting a reference wrapper `const` model field.
+   * @tparam M The visitable type wrapped in a reference wrapper.
+   * @param model The reference wrapper instance.
+   * @return The JSON representation of the wrapped model.
+   */
+  template <Visitable M>
+    requires NotEnumeration<M>
+  boost::json::value json( const std::reference_wrapper<const M>& model );
 
   /**
    * General implementation for converting a set into a JSON array.  For each item in the set delegates
@@ -486,24 +506,51 @@ inline boost::json::value spt::util::json::json( const std::string& model )
 }
 
 template <>
+inline boost::json::value spt::util::json::json( const std::string_view& model )
+{
+  return model.empty() ? boost::json::value{} : boost::json::value( model );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const std::chrono::seconds& model )
+{
+  return boost::json::value( model.count() );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const std::chrono::milliseconds& model )
+{
+  return boost::json::value( model.count() );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const std::chrono::microseconds& model )
+{
+  return boost::json::value( model.count() );
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const std::chrono::nanoseconds& model )
+{
+  return boost::json::value( model.count() );
+}
+
+template <>
 inline boost::json::value spt::util::json::json( const DateTime& model )
 {
-  const auto c = std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() );
-  return boost::json::value( spt::util::isoDateMillis( c ) );
+  return boost::json::value( isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() ) ) );
 }
 
 template <>
 inline boost::json::value spt::util::json::json( const DateTimeMs& model )
 {
-  const auto c = std::chrono::duration_cast<std::chrono::milliseconds>( model.time_since_epoch() );
-  return boost::json::value( spt::util::isoDateMillis( c ) );
+  return boost::json::value( isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() ) ) );
 }
 
 template <>
 inline boost::json::value spt::util::json::json( const DateTimeNs& model )
 {
-  const auto c = std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() );
-  return boost::json::value( spt::util::isoDateMillis( c ) );
+  return boost::json::value( isoDateMillis( std::chrono::duration_cast<std::chrono::microseconds>( model.time_since_epoch() ) ) );
 }
 
 template <>
@@ -532,7 +579,7 @@ inline boost::json::value spt::util::json::json( const bsoncxx::document::value&
 
 template <spt::util::Visitable M>
     requires spt::util::NotEnumeration<M>
-inline boost::json::value spt::util::json::json( const M& model )
+boost::json::value spt::util::json::json( const M& model )
 {
   auto root = boost::json::object{};
   visit_struct::for_each( model,
@@ -548,15 +595,29 @@ inline boost::json::value spt::util::json::json( const M& model )
 
 template <typename E>
   requires std::is_enum_v<E>
-inline boost::json::value spt::util::json::json( const E& model )
+boost::json::value spt::util::json::json( const E& model )
 {
   auto name = magic_enum::enum_name( model );
   return name.empty() ? boost::json::value{} : boost::json::value( name );
 }
 
+template <spt::util::Visitable M>
+    requires spt::util::NotEnumeration<M>
+boost::json::value spt::util::json::json( const std::reference_wrapper<M>& model )
+{
+  return json( model.get() );
+}
+
+template <spt::util::Visitable M>
+    requires spt::util::NotEnumeration<M>
+boost::json::value spt::util::json::json( const std::reference_wrapper<const M>& model )
+{
+  return json( model.get() );
+}
+
 template <typename Model>
     requires spt::util::NotEnumeration<Model>
-inline boost::json::value spt::util::json::json( const std::set<Model>& items )
+boost::json::value spt::util::json::json( const std::set<Model>& items )
 {
   if ( items.empty() ) return boost::json::value{};
   auto arr = boost::json::array{};
@@ -571,7 +632,7 @@ inline boost::json::value spt::util::json::json( const std::set<Model>& items )
 
 template <typename E>
   requires std::is_enum_v<E>
-inline boost::json::value spt::util::json::json( const std::set<E>& items )
+boost::json::value spt::util::json::json( const std::set<E>& items )
 {
   auto array = boost::json::array();
   array.reserve( items.size() );
@@ -874,7 +935,7 @@ inline void spt::util::json::set( const char* name, DateTime& field, simdjson::o
   }
   std::string_view v;
   value.get( v );
-  auto date = util::parseISO8601( v );
+  auto date = parseISO8601( v );
   if ( date.has_value() )
   {
     auto dt = DateTime{ date->time_since_epoch() };
@@ -882,6 +943,58 @@ inline void spt::util::json::set( const char* name, DateTime& field, simdjson::o
     field = dt;
   }
   else LOG_WARN << "Error parsing ISO datetime from " << v << " for field " << name;
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::chrono::seconds& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type number, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+
+  int64_t iv{ 0 };
+  value.get( iv );
+  field = std::chrono::seconds{ iv };
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::chrono::milliseconds& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type number, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+
+  int64_t iv{ 0 };
+  value.get( iv );
+  field = std::chrono::milliseconds{ iv };
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::chrono::microseconds& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type number, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+
+  int64_t iv{ 0 };
+  value.get( iv );
+  field = std::chrono::microseconds{ iv };
+}
+
+template <>
+inline void spt::util::json::set( const char* name, std::chrono::nanoseconds& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::number )
+  {
+    LOG_WARN << "Expected field " << name << " of type number, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+
+  int64_t iv{ 0 };
+  value.get( iv );
+  field = std::chrono::nanoseconds{ iv };
 }
 
 template <>
@@ -893,7 +1006,7 @@ inline void spt::util::json::set( const char* name, DateTimeMs& field, simdjson:
   }
   std::string_view v;
   value.get( v );
-  auto date = util::parseISO8601( v );
+  auto date = parseISO8601( v );
   if ( date.has_value() )
   {
     auto dt = DateTime{ date->time_since_epoch() };
@@ -912,7 +1025,7 @@ inline void spt::util::json::set( const char* name, DateTimeNs& field, simdjson:
   }
   std::string_view v;
   value.get( v );
-  auto date = util::parseISO8601( v );
+  auto date = parseISO8601( v );
   if ( date.has_value() )
   {
     auto dt = DateTime{ date->time_since_epoch() };
@@ -1202,7 +1315,7 @@ inline void spt::util::json::set( const char* name, std::set<DateTime>& field, s
   auto arr = value.get_array();
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace( date->time_since_epoch() );
@@ -1221,7 +1334,7 @@ inline void spt::util::json::set( const char* name, std::set<DateTimeMs>& field,
   auto arr = value.get_array();
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace( std::chrono::duration_cast<std::chrono::milliseconds>( date->time_since_epoch() ) );
@@ -1240,7 +1353,7 @@ inline void spt::util::json::set( const char* name, std::set<DateTimeNs>& field,
   auto arr = value.get_array();
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date.value() ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace( date->time_since_epoch() );
@@ -1260,7 +1373,7 @@ inline void spt::util::json::set( const char* name, std::vector<DateTime>& field
   field.reserve( 8 );
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace_back( date->time_since_epoch() );
@@ -1280,7 +1393,7 @@ inline void spt::util::json::set( const char* name, std::vector<DateTimeMs>& fie
   field.reserve( 8 );
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace_back( std::chrono::duration_cast<std::chrono::milliseconds>( date->time_since_epoch() ) );
@@ -1300,7 +1413,7 @@ inline void spt::util::json::set( const char* name, std::vector<DateTimeNs>& fie
   field.reserve( 8 );
   for ( std::string_view x: arr )
   {
-    if ( const auto date = util::parseISO8601( x ); date.has_value() )
+    if ( const auto date = parseISO8601( x ); date.has_value() )
     {
       if ( !validate( name, date ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field.emplace_back( date->time_since_epoch() );

@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <format>
+#include <ranges>
 #include <vector>
 
 namespace
@@ -88,8 +89,10 @@ namespace
       co_return model::createVersionFailed();
     }
 
-    mongocxx::options::index indexOpts( const model::Document& model )
+    bsoncxx::document::value indexOpts( const model::Document& model )
     {
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::finalize;
       using util::bsonValueIfExists;
 
       const auto options = model.options();
@@ -103,29 +106,32 @@ namespace
         if ( const auto hidden = bsonValueIfExists<bool>( "hidden", *options ); hidden ) opts.hidden( *hidden );
         if ( const auto name = bsonValueIfExists<std::string>( "name", *options ); name ) opts.name( *name );
         if ( const auto sparse = bsonValueIfExists<bool>( "sparse", *options ); sparse ) opts.sparse( *sparse );
-        if ( const auto expireAfterSeconds = bsonValueIfExists<int32_t>( "expireAfterSeconds", *options );
-          expireAfterSeconds ) opts.expire_after( std::chrono::seconds{ *expireAfterSeconds } );
+        if ( const auto exp = bsonValueIfExists<std::chrono::seconds>( "expireAfterSeconds", *options ); exp ) opts.expire_after( *exp );
         if ( const auto version = bsonValueIfExists<int32_t>( "version", *options ); version ) opts.version( *version );
         if ( const auto weights = bsonValueIfExists<bsoncxx::document::view>( "weights", *options ); weights ) opts.weights( *weights );
-        if ( const auto language_override = bsonValueIfExists<std::string>( "languageOverride", *options );
-          language_override ) opts.language_override( *language_override );
-        if ( const auto partial_filter_expression = bsonValueIfExists<bsoncxx::document::view>( "partialFilterExpression", *options );
-          partial_filter_expression ) opts.partial_filter_expression( *partial_filter_expression );
-        if ( const auto twod_sphere_version = bsonValueIfExists<int32_t>( "twodSphereVersion", *options );
-          twod_sphere_version ) opts.twod_sphere_version( static_cast<uint8_t>( *twod_sphere_version ) );
-        if ( const auto twod_bits_precision = bsonValueIfExists<int32_t>( "twodBitsPrecision", *options );
-          twod_bits_precision ) opts.twod_bits_precision( static_cast<uint8_t>( *twod_bits_precision ) );
-        if ( const auto twod_location_min = bsonValueIfExists<double>( "twodLocationMin", *options );
-          twod_location_min ) opts.twod_location_min( *twod_location_min );
-        if ( const auto twod_location_max = bsonValueIfExists<double>( "twodLocationMax", *options );
-          twod_location_max ) opts.twod_location_max( *twod_location_max );
+        if ( const auto lang = bsonValueIfExists<std::string>( "defaultLanguage", *options ); lang ) opts.default_language( *lang );
+        if ( const auto lo = bsonValueIfExists<std::string>( "languageOverride", *options ); lo ) opts.language_override( *lo );
+        if ( const auto pfe = bsonValueIfExists<bsoncxx::document::view>( "partialFilterExpression", *options ); pfe ) opts.partial_filter_expression( *pfe );
+        if ( const auto td = bsonValueIfExists<int32_t>( "twodSphereVersion", *options ); td ) opts.twod_sphere_version( static_cast<uint8_t>( *td ) );
+        if ( const auto tbp = bsonValueIfExists<int32_t>( "twodBitsPrecision", *options ); tbp ) opts.twod_bits_precision( static_cast<uint8_t>( *tbp ) );
+        if ( const auto tlm = bsonValueIfExists<double>( "twodLocationMin", *options ); tlm ) opts.twod_location_min( *tlm );
+        if ( const auto tlm = bsonValueIfExists<double>( "twodLocationMax", *options ); tlm ) opts.twod_location_max( *tlm );
       }
 
-      return opts;
+      bsoncxx::document::view_or_value idv = opts;
+      auto builder = document{};
+      for ( const auto& e : idv.view() ) builder << e.key() << e.get_value();
+
+      if ( const auto v = bsonValueIfExists<int32_t>( "textIndexVersion", *options ); v ) builder << "textIndexVersion" << *v;
+      if ( const auto v = bsonValueIfExists<bsoncxx::document::view>( "wildcardProjection", *options ); v ) builder << "wildcardProjection" << *v;
+
+      return builder << finalize;
     }
 
     awaitable<bsoncxx::document::view_or_value> index( const model::Document& model )
     {
+      using util::bsonValueIfExists;
+
       const auto doc = model.document();
       const auto dbname = model.database();
       const auto collname = model.collection();
@@ -140,9 +146,10 @@ namespace
       }
 
       auto& client = *cliento;
+
       co_return options ?
-          ( *client )[dbname][collname].create_index( doc, indexOpts( model ) ) :
-          ( *client )[dbname][collname].create_index( doc );
+        ( *client )[dbname][collname].create_index( doc, indexOpts( model ) ):
+        ( *client )[dbname][collname].create_index( doc );
     }
 
     awaitable<bsoncxx::document::view_or_value> dropIndex( const model::Document& model )
@@ -165,8 +172,7 @@ namespace
 
       auto& client = *cliento;
 
-      const auto name = bsonValueIfExists<std::string>( "name", doc );
-      if ( name )
+      if ( const auto name = bsonValueIfExists<std::string>( "name", doc ); name )
       {
         try
         {
@@ -180,8 +186,7 @@ namespace
         }
       }
 
-      const auto spec = bsonValueIfExists<bsoncxx::document::view>( "specification", doc );
-      if ( spec )
+      if ( const auto spec = bsonValueIfExists<bsoncxx::document::view>( "specification", doc ); spec )
       {
         try
         {
@@ -193,13 +198,25 @@ namespace
         }
         catch ( const mongocxx::exception& ex )
         {
-          LOG_WARN << "Error dropping index " << *name << ". " << ex.what() << ". " << bsoncxx::to_json( *spec );
-          std::string m{ ex.what() };
-          co_return model::withMessage( m );
+          LOG_WARN << "Error dropping index. " << ex.what() << ". " << bsoncxx::to_json( *spec );
+          co_return model::withMessage( ex.what() );
         }
       }
 
       co_return document{} << "dropIndex" << true << finalize;
+    }
+
+    mongocxx::read_preference readPreference( bsoncxx::document::view opts )
+    {
+      using util::bsonValueIfExists;
+
+      auto p = mongocxx::read_preference{};
+
+      if ( const auto v = bsonValueIfExists<bsoncxx::document::view>( "tags", opts ); v ) p.tags( *v );
+      if ( const auto v = bsonValueIfExists<bsoncxx::document::view>( "hedge", opts ); v ) p.hedge( *v );
+      if ( const auto v = bsonValueIfExists<int64_t>( "maxStaleness", opts ); v ) p.max_staleness( std::chrono::seconds{ *v } );
+      if ( const auto v = bsonValueIfExists<int32_t>( "mode", opts ); v ) p.mode( static_cast<mongocxx::read_preference::read_mode>( *v ) );
+      return p;
     }
 
     awaitable<bsoncxx::document::view_or_value> count( const model::Document& model )
@@ -220,13 +237,7 @@ namespace
         if ( const auto limit = bsonValueIfExists<int64_t>( "limit", *opts ); limit ) options.limit( *limit );
         if ( const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts ); time ) options.max_time( *time );
         if ( const auto skip = bsonValueIfExists<int64_t>( "skip", *opts ); skip ) options.skip( *skip );
-
-        if ( const auto rp = bsonValueIfExists<int32_t>( "readPreference", *opts ); rp )
-        {
-          auto p = mongocxx::read_preference{};
-          p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
-          options.read_preference( p );
-        }
+        if ( const auto rp = bsonValueIfExists<bsoncxx::document::view>( "readPreference", *opts ); rp ) options.read_preference( readPreference(  *rp ) );
       }
 
       auto cliento = Pool::instance().acquire();
@@ -261,13 +272,7 @@ namespace
       {
         if ( const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts ); col ) options.collation( *col );
         if ( const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts ); time ) options.max_time( *time );
-
-        if ( const auto rp = bsonValueIfExists<int32_t>( "readPreference", *opts ); rp )
-        {
-          auto p = mongocxx::read_preference{};
-          p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
-          options.read_preference( p );
-        }
+        if ( const auto rp = bsonValueIfExists<bsoncxx::document::view>( "readPreference", *opts ); rp ) options.read_preference( readPreference(  *rp ) );
       }
 
       auto cliento = Pool::instance().acquire();
@@ -301,20 +306,15 @@ namespace
         if ( const auto size = bsonValueIfExists<int32_t>( "batchSize", *options ); size ) opts.batch_size( *size );
         if ( const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
         if ( const auto com = bsonValueIfExists<std::string>( "comment", *options ); com ) opts.comment( *com );
+        if ( const auto com = bsonValueIfExists<bsoncxx::document::view>( "commentOption", *options ); com ) opts.comment_option( { *com } );
         if ( const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *options ); hint ) opts.hint( { *hint } );
+        if ( const auto let = bsonValueIfExists<bsoncxx::document::view>( "let", *options ); let ) opts.let( *let );
         if ( const auto limit = bsonValueIfExists<int64_t>( "limit", *options ); limit ) opts.limit( *limit );
         if ( const auto max = bsonValueIfExists<bsoncxx::document::view>( "max", *options ); max ) opts.max( *max );
         if ( const auto maxTime = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *options ); maxTime ) opts.max_time( *maxTime );
         if ( const auto min = bsonValueIfExists<bsoncxx::document::view>( "min", *options ); min ) opts.min( *min );
         if ( const auto projection = bsonValueIfExists<bsoncxx::document::view>( "projection", *options ); projection ) opts.projection( *projection );
-
-        if ( const auto rp = bsonValueIfExists<int32_t>( "readPreference", *options ); rp )
-        {
-          auto p = mongocxx::read_preference{};
-          p.mode( static_cast<mongocxx::read_preference::read_mode>( *rp ) );
-          opts.read_preference( p );
-        }
-
+        if ( const auto rp = bsonValueIfExists<bsoncxx::document::view>( "readPreference", *options ); rp ) opts.read_preference( readPreference(  *rp ) );
         if ( const auto rk = bsonValueIfExists<bool>( "returnKey", *options ); rk ) opts.return_key( *rk );
         if ( const auto ri = bsonValueIfExists<bool>( "showRecordId", *options ); ri ) opts.show_record_id( *ri );
         if ( const auto skip = bsonValueIfExists<int64_t>( "skip", *options ); skip ) opts.skip( *skip );
@@ -381,7 +381,7 @@ namespace
       auto cursor = ( *client )[model.database()][model.collection()].find( doc, opts );
 
       auto arr = array{};
-      for ( auto&& d : cursor ) arr << d;
+      for ( auto&& d : cursor ) if ( std::ranges::distance( d ) > 0 ) arr << d;
       co_return document{} << "results" << ( arr << finalize ) << finalize;
     }
 
@@ -484,6 +484,8 @@ namespace
         co_return model::notModifyable();
       }
 
+      const auto idopt = bsonValueIfExists<bsoncxx::oid>( "_id", doc );
+
       auto cliento = Pool::instance().acquire();
       if ( !cliento )
       {
@@ -497,21 +499,21 @@ namespace
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
       const auto result = ( *client )[dbname][collname].insert_one( doc, opts );
+      auto resp = bsoncxx::builder::stream::document{};
+      resp <<
+        "database" << dbname <<
+        "collection" << collname;
+
       if ( opts.write_concern()->is_acknowledged() )
       {
         if ( !result ) co_return model::insertError();
 
-        co_return bsoncxx::builder::stream::document{} <<
-          "database" << dbname <<
-          "collection" << collname <<
-          "_id" << result->inserted_id() <<
-          bsoncxx::builder::stream::finalize;
+        if ( idopt ) resp << "_id" << *idopt;
+        else resp << "_id" << result->inserted_id();
+        co_return resp << bsoncxx::builder::stream::finalize;
       }
 
-      co_return bsoncxx::builder::stream::document{} <<
-        "database" << dbname <<
-        "collection" << collname <<
-        bsoncxx::builder::stream::finalize;
+      co_return result ? resp << bsoncxx::builder::stream::finalize : model::insertError();
     }
 
     bsoncxx::document::value updateDoc( bsoncxx::document::view doc )
@@ -617,9 +619,9 @@ namespace
       auto& client = *cliento;
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
-      const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
+      const auto vhd = [&]( std::string_view action = "update" ) -> awaitable<bsoncxx::document::view_or_value>
       {
-        if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        if ( skip && *skip ) co_return document{} << "skipVersion" << true << finalize;
 
         const auto updated = ( *client )[dbname][collname].find_one( document{} << "_id" << oid << finalize );
         if ( !updated ) co_return model::notFound();
@@ -628,16 +630,15 @@ namespace
           co_return bsoncxx::document::value{ updated.value() };
         }
 
-        auto vhd = co_await history( document{} << "action" << "update" <<
+        auto d = co_await history( document{} <<
+          "action" << action <<
           "database" << dbname <<
           "collection" << collname <<
-          "document" << updated->view()
-          << finalize, client, metadata );
-        if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
+          "document" << updated->view() <<
+          finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", d ) ) co_return d;
 
-        co_return bsoncxx::document::view_or_value{
-          document{} << "document" << updated->view() << "history" << vhd
-          << finalize };
+        co_return bsoncxx::document::view_or_value{ document{} << "document" << updated->view() << "history" << d << finalize };
       };
 
       const auto result = ( *client )[dbname][collname].update_one(
@@ -646,13 +647,15 @@ namespace
       {
         if ( result )
         {
+          if ( result->upserted_count() > 0 )
+          {
+            LOG_INFO << "Upserted document " << dbname << ':' << collname << ':' << oid.to_string();
+            co_return co_await vhd( "create" );
+          }
           LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
           co_return co_await vhd();
         }
-        else
-        {
-          LOG_WARN << "Unable to update document " << dbname << ':' << collname << ':' << oid.to_string();
-        }
+        LOG_WARN << "Unable to update document " << dbname << ':' << collname << ':' << oid.to_string();
       }
       else
       {
@@ -663,7 +666,7 @@ namespace
       co_return model::updateError();
     }
 
-    awaitable<bsoncxx::document::view_or_value> updateOneByFilter( const model::Document& model, const bsoncxx::oid& oid )
+    awaitable<bsoncxx::document::view_or_value> updateOneByFilter( const model::Document& model, bsoncxx::oid oid )
     {
       using util::bsonValue;
       using util::bsonValueIfExists;
@@ -689,9 +692,9 @@ namespace
       auto& client = *cliento;
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
-      const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
+      const auto vhd = [&]( std::string_view action = "update" ) -> awaitable<bsoncxx::document::view_or_value>
       {
-        if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        if ( skip && *skip ) co_return document{} << "skipVersion" << true << finalize;
 
         const auto updated = ( *client )[dbname][collname].find_one( filter );
         if ( !updated ) co_return model::notFound();
@@ -700,11 +703,12 @@ namespace
           co_return bsoncxx::document::value{ updated.value() };
         }
 
-        auto vhd = co_await history( document{} << "action" << "update" <<
+        auto vhd = co_await history( document{} <<
+          "action" << action <<
           "database" << dbname <<
           "collection" << collname <<
-          "document" << updated->view()
-          << finalize, client, metadata );
+          "document" << updated->view() <<
+          finalize, client, metadata );
         if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
 
         co_return bsoncxx::document::view_or_value{
@@ -717,14 +721,16 @@ namespace
       {
         if ( result )
         {
+          if ( result->upserted_count() > 0 )
+          {
+            LOG_INFO << "Upserted document " << dbname << ':' << collname << ':' << oid.to_string();
+            co_return co_await vhd( "create" );
+          }
           LOG_INFO << "Updated document " << dbname << ':' << collname << ':' << oid.to_string();
           co_return co_await vhd();
         }
-        else
-        {
-          LOG_WARN << "Unable to update document " << dbname << ':' << collname
-            << ':' << oid.to_string();
-        }
+        LOG_WARN << "Unable to update document " << dbname << ':' << collname
+          << ':' << oid.to_string();
       }
       else
       {
@@ -771,17 +777,17 @@ namespace
         if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
       }
 
-      const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
+      const auto vhd = [&]( std::string_view action = "replace" ) -> awaitable<bsoncxx::document::view_or_value>
       {
         if ( skip && *skip )
         {
-          co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+          co_return document{} << "skipVersion" << true << finalize;
         }
 
         if ( oid )
         {
           auto vhd = co_await history( document{} <<
-            "action" << "replace" <<
+            "action" << action <<
             "database" << dbname <<
             "collection" << collname <<
             "document" << replace <<
@@ -790,26 +796,24 @@ namespace
 
           co_return document{} << "document" << replace << "history" << vhd << finalize;
         }
-        else
+
+        const auto updated = ( *client )[dbname][collname].find_one( filter );
+        if ( !updated )
         {
-          const auto updated = ( *client )[dbname][collname].find_one( filter );
-          if ( !updated )
-          {
-            LOG_WARN << "Updated document not found in " <<
-              dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
-            co_return model::notFound();
-          }
-
-          auto vhd = co_await history( document{} <<
-            "action" << "replace" <<
-            "database" << dbname <<
-            "collection" << collname <<
-            "document" << updated->view() <<
-            finalize, client, metadata );
-          if ( bsonValueIfExists<std::string>( "error", vhd ) ) co_return vhd;
-
-          co_return document{} << "document" << updated->view() << "history" << vhd << finalize;
+          LOG_WARN << "Updated document not found in " <<
+            dbname << ':' << collname << " by filter " << bsoncxx::to_json( filter );
+          co_return model::notFound();
         }
+
+        auto d = co_await history( document{} <<
+          "action" << "replace" <<
+          "database" << dbname <<
+          "collection" << collname <<
+          "document" << updated->view() <<
+          finalize, client, metadata );
+        if ( bsonValueIfExists<std::string>( "error", d ) ) co_return d;
+
+        co_return document{} << "document" << updated->view() << "history" << d << finalize;
       };
 
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
@@ -818,15 +822,11 @@ namespace
       {
         if ( result )
         {
-          LOG_INFO << "Updated document in " << dbname << ':' << collname <<
-            " with filter " << bsoncxx::to_json( filter );
+          LOG_INFO << "Updated document in " << dbname << ':' << collname << " with filter " << bsoncxx::to_json( filter );
           co_return co_await vhd();
         }
-        else
-        {
-          LOG_INFO << "Unable to update document in " << dbname << ':' << collname <<
-            " with filter " << bsoncxx::to_json( filter );
-        }
+        LOG_INFO << "Unable to update document in " << dbname << ':' << collname <<
+          " with filter " << bsoncxx::to_json( filter );
       }
       else
       {
@@ -891,30 +891,36 @@ namespace
       auto opts = updateOptions( model );
       if ( !opts.write_concern() ) opts.write_concern( client->write_concern() );
 
+      auto ids = std::vector< bsoncxx::oid >{};
+      if ( !( skip && *skip ) )
+      {
+        ids.reserve( 64 );
+        auto results = ( *client )[dbname][collname].find( *filter );
+        for ( const auto& d : results ) ids.push_back( bsonValue<bsoncxx::oid>( "_id", d ) );
+      }
+
       const auto result = ( *client )[dbname][collname].update_many( *filter, updateDoc( *update ), opts );
 
       const auto vhd = [&]() -> awaitable<bsoncxx::document::view_or_value>
       {
-        if ( skip && *skip ) co_return document{} << "skipVersion" << true << bsoncxx::builder::stream::finalize;
+        if ( skip && *skip ) co_return document{} << "skipVersion" << true << finalize;
 
         auto success = bsoncxx::builder::basic::array{};
         auto fail = bsoncxx::builder::basic::array{};
         auto vh = bsoncxx::builder::basic::array{};
-        auto results = ( *client )[dbname][collname].find( *filter );
 
-        auto docs = bsoncxx::builder::basic::array{};
-        for ( auto&& d : results ) docs.append( d );
-
-        for ( const auto& d : docs.view() )
+        for ( const auto id : ids )
         {
+          const auto res = ( *client )[dbname][collname].find_one( document{} << "_id" << id << finalize );
+          if ( !res ) continue;
           auto vhd = co_await history( document{} << "action" << "update" <<
             "database" << dbname << "collection" << collname <<
-            "document" << d.get_document().view()
-            << finalize, client, metadata );
-          if ( bsonValueIfExists<std::string>( "error", vhd ) ) fail.append( d["_id"].get_oid() );
+            "document" << res->view() << finalize,
+            client, metadata );
+          if ( bsonValueIfExists<std::string>( "error", vhd ) ) fail.append( id );
           else
           {
-            success.append( d["_id"].get_oid() );
+            success.append( id );
             vh.append( vhd );
           }
         }
@@ -927,17 +933,14 @@ namespace
       {
         if ( result )
         {
-          LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+          LOG_INFO << "Updated " << result->modified_count() << " documents in " << dbname << ':' << collname;
           co_return co_await vhd();
         }
-        else
-        {
-          LOG_WARN << "Unable to create document " << dbname << ':' << collname << ':' << idopt->to_string();
-        }
+        LOG_WARN << "Unable to update documents in " << dbname << ':' << collname;
       }
       else
       {
-        LOG_INFO << "Created document " << dbname << ':' << collname << ':' << idopt->to_string();
+        LOG_INFO << "Updated documents in " << dbname << ':' << collname;
         co_return co_await vhd();
       }
 
@@ -973,6 +976,8 @@ namespace
       {
         if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
         if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
+        if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "hint", *options ); co ) opts.hint( { *co } );
+        if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "let", *options ); co ) opts.let( *co );
       }
 
       auto cliento = Pool::instance().acquire();
@@ -999,12 +1004,17 @@ namespace
         {
           if ( skip && *skip ) co_return true;
 
-          auto vhd = co_await history( document{} << "action" << "delete" <<
+          auto vdoc = document{};
+          vdoc <<
+            "action" << "delete" <<
             "database" << dbname <<
             "collection" << collname <<
-            "document" << d << finalize,
-            client, metadata );
-          vh.append( vhd );
+            "document" << d;
+
+          if ( metadata ) vdoc << "metadata" << *metadata;
+
+          auto vhdr = co_await history( vdoc << finalize, client, metadata );
+          vh.append( vhdr );
           co_return true;
         };
 
@@ -1060,7 +1070,7 @@ namespace
       const auto insert = bsonValueIfExists<bsoncxx::array::view>( "insert", doc );
       auto icount = 0;
       auto ihcount = 0;
-      const auto rem = bsonValueIfExists<bsoncxx::array::view>( "delete", doc );
+      const auto rem = bsonValueIfExists<bsoncxx::array::view>( "remove", doc );
       auto rcount = 0;
 
       if ( !insert && !rem ) co_return model::withMessage( "Bulk insert missing arrays." );
@@ -1175,13 +1185,13 @@ namespace
         co_return document{} <<
           "create" << r->inserted_count() <<
           "history" << ihc <<
-          "delete" << r->deleted_count() << finalize;
+          "remove" << r->deleted_count() << finalize;
       }
 
       co_return document{} <<
         "create" << icount <<
         "history" << ihcount <<
-        "delete" << rcount <<
+        "remove" << rcount <<
         finalize;
     }
 

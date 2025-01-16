@@ -19,7 +19,6 @@
     * [Create Collection](#create-collection)
     * [Rename Collection](#rename-collection)
   * [Document Response](#document-response)
-  * [Options](#options)
   * [Limitation](#limitation)
 * [Metrics](#metrics)
   * [MongoDB](#mongodb) 
@@ -135,7 +134,7 @@ with the *create* action.  If using *unacknowledged* writes, the auto-generated
 with the `_id` set within the service.  This involves a wasteful copy of data,
 and hence we enforce the requirement on client specified `_id` value.
 
-Sample request payload:
+Sample request payload (see [create.hpp](src/api/model/request/create.hpp)):
 ```json
 {
   "action": "create",
@@ -154,7 +153,8 @@ Sample request payload:
 }
 ```
 
-Sample response payload when version history document is created (default option):
+Sample response payload when version history document is created (default option) (see `Create` struct in
+[create.hpp](src/api/model/response/create.hpp)):
 ```json
 {
   "_id": {
@@ -168,8 +168,7 @@ Sample response payload when version history document is created (default option
 }
 ```
 
-**Note:** The `_id` in the response is the object id of the version history
-document that was created.
+**Note:** The `_id` in the response is the object id of the version history document that was created.
 
 Sample response payload when version history document is not created:
 ```json
@@ -181,8 +180,30 @@ Sample response payload when version history document is not created:
 }
 ```
 
-**Note:** The `_id` in the response is the object id for the document as specified
-in the input payload.
+**Note:** The `_id` in the response is the object id for the document as specified in the input payload.
+
+##### Options
+The following options are supported for the `create` action (see `Create` struct in [insert.hpp](src/api/options/insert.hpp)):
+* `bypassValidation` - *boolean*.  Whether or not to bypass document validation
+* `ordered` - *boolean*.  Whether or not the `insert_many` will be ordered
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly. 
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it 
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of 
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
 
 #### Retrieve
 Retrieve obviously does not have any interaction with the version history system
@@ -190,7 +211,7 @@ Retrieve obviously does not have any interaction with the version history system
 purposes behind this service is to route/proxy all datastore interactions via
 this service.
 
-Sample retrieve payload:
+Sample retrieve payload (see [retrieve.hpp](src/api/model/request/retrieve.hpp)):
 ```json
 {
   "action": "retrieve",
@@ -204,7 +225,7 @@ Sample retrieve payload:
 }
 ```
 
-Sample response:
+Sample response (see `Retrieve` struct in [retrieve.hpp](src/api/model/response/retrieve.hpp)):
 ```json
 {
   "result": {
@@ -220,12 +241,42 @@ Sample response:
 }
 ```
 
+##### Options
+The following options are supported for the `retrieve` action (See `Find` struct in [find.hpp](src/api/options/find.hpp)):
+
+* `partialResults` - *boolean*.  Whether to allow partial results from database if some shards are down (instead of throwing an error).
+* `batchSize` - *integer*.  The number of documents to return per batch.
+* `collation` - *document*.  Sets the collation for this operation.
+* `comment` - *string*.  Attaches a comment to the query.
+* `commentOption` - *document*.  Set the value of the comment option.
+* `hint` - *document*.  Sets the index to use for this operation.
+* `let` - *document*.  Set the value of the let option.
+* `limit` - *integer*.  The maximum number of documents to return.
+* `max` - *document*.  Gets the current exclusive upper bound for a specific index.
+* `maxTime` - *integer*.  The maximum amount of time for this operation to run (server-side) in milliseconds.
+* `min` - *document*.  Gets the current exclusive lower bound for a specific index.
+* `projection` - *document*.  Sets a projection which limits the returned fields for all matching documents.
+* `readPreference` - *document*.  The read preference for the operation.
+  * `tags` - *document*.  Sets the tag set list.
+  * `hedge` - *document*.  Sets the hedge document to be used for the read preference. Sharded clusters running MongoDB 4.4 or later can dispatch read operations in parallel, returning the result from the fastest host and cancelling the unfinished operations.
+  * `maxStaleness` - *integer*.  Sets the max staleness (seconds) setting. Secondary servers with an estimated lag greater than this value will be excluded from selection under modes that allow secondaries.
+  * `mode` - *integer*.  Sets the read preference mode.  Valid values are:
+    * `0` - Only read from a primary node.
+    * `1` - Prefer to read from a primary node.
+    * `2` - Only read from secondary nodes.
+    * `3` - Prefer to read from secondary nodes.
+    * `4` - Read from the node with the lowest latency irrespective of state.
+* `returnKey` - *boolean*.  Whether to return the index keys associated with the query results, instead of the actual query results themselves.
+* `showRecordId` - *boolean*.  Whether to include the record identifier for each document in the query results.
+* `skip` - *integer*.  The number of documents to skip before returning results.
+* `sort` - *document*.  The order in which to return matching documents.
+
 #### Count
 Count the number of documents matching the specified query document.
 The query document can be empty to get the count of all documents in the specified
 collection.
 
-Sample count payload:
+Sample count payload (see `Count` struct in [count.hpp](src/api/model/request/count.hpp)):
 ```json
 {
   "action": "count",
@@ -235,17 +286,36 @@ Sample count payload:
 }
 ```
 
-Sample response:
+Sample response (see `Count` struct in [count.hpp](src/api/model/response/count.hpp)):
 ```json
 { "count" : 11350 }
 ```
+
+##### Options
+The following options are supported for the `count` action (see `Count` struct in [count.hpp](src/api/options/count.hpp)):
+
+* `collation` - *document*.  Sets the collation for this operation.
+* `hint` - *document*.  Sets the index to use for this operation.
+* `limit` - *integer*.  The maximum number of documents to count.
+* `maxTime` - *integer*.  The maximum amount of time for this operation to run (server-side) in milliseconds.
+* `skip` - *integer*.  The number of documents to skip before counting documents.
+* `readPreference` - *document*.  The read preference for the operation.
+  * `tags` - *document*.  Sets the tag set list.
+  * `hedge` - *document*.  Sets the hedge document to be used for the read preference. Sharded clusters running MongoDB 4.4 or later can dispatch read operations in parallel, returning the result from the fastest host and cancelling the unfinished operations.
+  * `maxStaleness` - *integer*.  Sets the max staleness (seconds) setting. Secondary servers with an estimated lag greater than this value will be excluded from selection under modes that allow secondaries.
+  * `mode` - *integer*.  Sets the read preference mode.  Valid values are:
+    * `0` - Only read from a primary node.
+    * `1` - Prefer to read from a primary node.
+    * `2` - Only read from secondary nodes.
+    * `3` - Prefer to read from secondary nodes.
+    * `4` - Read from the node with the lowest latency irrespective of state.
 
 #### Distinct
 Retrieve distinct values for the specified field in documents in a collection.  The payload document *must* contain
 the `field` for which distinct values are to be retrieved.  An optional `filter` field can be used to specify the 
 filter query to use when retrieving distinct values.
 
-Sample distinct payload:
+Sample distinct payload (see `Distinct` struct in [distinct.hpp](src/api/model/request/distinct.hpp)):
 ```json
 {
   "action": "distinct",
@@ -260,7 +330,7 @@ Sample distinct payload:
 }
 ```
 
-Sample response:
+Sample response (see `Distinct` struct in [distinct.hpp](src/api/model/response/distinct.hpp)):
 ```json
 { "results" : [ { "values" : [ "value", "value1", "value2" ], "ok" : 1.0 } ] }
 ```
@@ -274,6 +344,22 @@ the driver).
 
 An empty `values` array is returned if the specified `field` does not exist in the documents
 in the specified collection.
+
+##### Options
+The following options are supported for the `distinct` action (see `Distinct` struct in [distinct.hpp](src/api/options/distinct.hpp)):
+
+* `collation` - *document*.  Sets the collation for this operation.
+* `maxTime` - *integer*.  The maximum amount of time for this operation to run (server-side) in milliseconds.
+* `readPreference` - *document*.  The read preference for the operation.
+  * `tags` - *document*.  Sets the tag set list.
+  * `hedge` - *document*.  Sets the hedge document to be used for the read preference. Sharded clusters running MongoDB 4.4 or later can dispatch read operations in parallel, returning the result from the fastest host and cancelling the unfinished operations.
+  * `maxStaleness` - *integer*.  Sets the max staleness (seconds) setting. Secondary servers with an estimated lag greater than this value will be excluded from selection under modes that allow secondaries.
+  * `mode` - *integer*.  Sets the read preference mode.  Valid values are:
+    * `0` - Only read from a primary node.
+    * `1` - Prefer to read from a primary node.
+    * `2` - Only read from secondary nodes.
+    * `3` - Prefer to read from secondary nodes.
+    * `4` - Read from the node with the lowest latency irrespective of state.
 
 #### Update
 Update is the most complex scenario.  The service supports the two main update
@@ -303,7 +389,7 @@ The simple and direct update use case.  If the `document` has an `_id` property,
 the remaining properties are merged into the stored document.  A version history
 document with the resulting stored document is also created.
 
-Sample update request by `_id`:
+Sample update request by `_id` (see `MergeForId` struct in [update.hpp](src/api/model/request/update.hpp)):
 ```json
 {
   "action": "update",
@@ -318,7 +404,7 @@ Sample update request by `_id`:
 }
 ```
 
-Sample response:
+Sample response (see `Update` struct in [update.hpp](src/api/model/response/update.hpp)):
 ```json
 {
   "document": {
@@ -366,11 +452,11 @@ In this case, only a placeholder response is returned as follows:
 ##### Replace Document
 If the `document` has a `replace` sub-document, then the existing document as
 specified by the `filter` query will be replaced.  MongoDB will return as error
-if an attempt is made to replace multiple documents (the query filter must return
+if an attempt is made to replace multiple documents (the query filter **must** return
 a single document).  A version history document is created with the replaced
 document.
 
-The following sample shows an example of performing a `replace` action.
+The following sample shows an example of performing a `replace` action (see struct `Replace` in [update.hpp](src/api/model/request/update.hpp)).
 ```json
 {
   "action": "update",
@@ -394,6 +480,8 @@ The following sample shows an example of performing a `replace` action.
 }
 ```
 
+Response data is identical to [Update by Id](#update-by-id)
+
 ##### Update Document
 If the `document` has a `update` sub-document, then existing document(s) are
 updated with the information contained in it.  This is a *merge* operation where
@@ -401,14 +489,14 @@ only the fields specified in the `update` are set on the candidate document(s).
 A version history document is created for each updated document.
 
 If the input `filter` sub-document has an `_id` property, and is of type BSON
-Object Id, then a single document update is made.
+*ObjectId*, then a single document update is made.
 
 ###### Update with unset
 As a simplification, it is possible to omit the `$set` operator, if used in conjunction with a `$unset` operator.  All
 top level properties other than `_id` and `$unset` are implicitly added to a `$set` document in the actual update document
 sent to MongoDB.
 
-Sample request payload with explicit `$set`:
+Sample request payload with explicit `$set` (see `Update` struct in [update.hpp](src/api/model/request/update.hpp)):
 ```json
 {
   "action": "update",
@@ -449,6 +537,49 @@ Sample request payload without `$set`:
   }
 }
 ```
+
+Response data has the following structure (see `UpdateMany` struct in [update.hpp](src/api/model/response/update.hpp))
+```json
+{
+  "success": [{"$oid":  "6435a62316d2310e800e4bf2"}],
+  "failure": [{"$oid":  "6435a62316d2310e800e4bf2"}],
+  "history": [
+    {
+      "_id": {"$oid": "5f35e887e799c5218603915b"},
+      "database": "itest",
+      "collection": "test",
+      "entity": {"$oid": "6435a62316d2310e800e4bf2"}
+    }
+  ]
+}
+```
+
+##### Options
+The following options are supported for the `update` action (see `Update` struct in [update.hpp](src/api/options/update.hpp)):
+* `bypassValidation` - *boolean*.  Whether or not to bypass document validation
+* `collation` - *document*.  Sets the collation for this operation.
+* `upsert` - *boolean*.  By default, if no document matches the filter, the update operation does nothing. However, by 
+  specifying upsert as `true`, this operation either updates matching documents or *inserts* a new document using the
+  update specification if no matching document exists.
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
+* `arrayFilters` - *array*.  Array representing filters determining which array elements to modify.
  
 #### Delete
 The `document` represents the *query* to execute to find the candidate documents
@@ -457,7 +588,7 @@ the candidate documents, and the documents removed from the specified
 `database:collection`.  The retrieved documents are then written to the version
 history database.
 
-Sample delete request:
+Sample delete request (see `Delete` struct in [delete.hpp](src/api/model/request/delete.hpp)):
 ```json
 {
   "action": "delete",
@@ -469,7 +600,7 @@ Sample delete request:
 }
 ```
 
-Sample delete response:
+Sample delete response (see `Delete` struct in [delete.hpp](src/api/model/response/delete.hpp)):
 ```json
 {
   "success": [{
@@ -489,6 +620,30 @@ Sample delete response:
 }
 ```
 
+##### Options
+The following options are supported for the `delete` action (see `Delete` struct in [delete.hpp](src/api/options/delete.hpp)):
+* `collation` - *document*.  Sets the collation for this operation.
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
+* `hint` - *document*.  Sets the index to use for this operation.
+* `let` - *document*.  Set the value of the let option.
+
 #### Drop Collection
 Drop the specified collection and all its containing documents.  Specify an
 empty `document` in the payload to satisfy payload requirements.  If you wish
@@ -497,7 +652,8 @@ to also remove all version history documents for the dropped collection, specify
 will be removed *asynchronously*). Specify the *write concern* settings in the
 optional `options` sub-document.
 
-Sample drop payload specifying removal of all associated revision history documents:
+Sample drop payload specifying removal of all associated revision history documents (see `DropCollection` struct 
+in [dropcollection.hpp](src/api/model/request/dropcollection.hpp)):
 ```json
 {
   "action": "dropCollection",
@@ -507,15 +663,66 @@ Sample drop payload specifying removal of all associated revision history docume
 }
 ```
 
-Sample response:
+Sample response (see `DropCollection` struct in [collection.hpp](src/api/model/response/collection.hpp)):
 ```json
 { "dropCollection" : true }
 ```
+
+##### Options
+The following options are supported for the `dropCollection` action (see `DropCollection` struct in [dropcollection.hpp](src/api/options/dropcollection.hpp)):
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
 
 #### Index
 The `document` represents the specification for the *index* to be created.
 Additional options for the index (such as *unique*) can be specified via the
 optional `options` sub-document.
+
+See `Index` struct in [index.hpp](src/api/model/request/index.hpp)
+
+Sample response (see `Index` struct in [index.hpp](src/api/model/response/index.hpp)):
+```json
+{"name": "unused_1"}
+```
+
+##### Options
+The following options are supported for the `index` action (see `Index` struct in [index.hpp](src/api/options/index.hpp)):
+* `collation` - *document*.  Sets the collation for this operation.
+* `background` - *boolean*.  Whether or not to build the index in the *background* so that building the index does not
+  block other database activities. The default is to build indexes in the *foreground*.
+* `unique` - *boolean*.  Whether or not to create a *unique index* so that the collection will not accept insertion 
+  of documents where the index key or keys match an existing value in the index.
+* `hidden` - *boolean*.  Whether or not the index is hidden from the query planner. A hidden index is not evaluated
+  as part of query plan selection.
+* `name` - *string*.  The name of the index.
+* `sparse` - *boolean*.  Whether or not to create a *sparse index*. Sparse indexes only reference documents with the indexed fields.
+* `expireAfterSeconds` - *integer*.  Set a value, in seconds, as a TTL to control how long MongoDB retains documents in the collection.
+* `version` - *integer*.  Sets the index version.
+* `weights` - *document*.  For text indexes, sets the weight document. The weight document contains field and weight pairs.
+* `defaultLanguage` - *string*.  For text indexes, the language that determines the list of stop words and the rules for the stemmer and tokenizer.
+* `languageOverride` - *string*.  For text indexes, the name of the field, in the collection’s documents, that contains
+  the override language for the document.
+* `partialFilterExpression` - *document*.  Sets the document for the partial filter expression for partial indexes.
+* `twodSphereVersion` - *integer*.  For 2dsphere indexes, the 2dsphere index version number. Version can be either 1 or 2.
+* `twodBitsPrecision` - *integer* (0-255).  For 2d indexes, the precision of the stored geohash value of the location data.
+* `twodLocationMin` - *double*.  For 2d indexes, the lower inclusive boundary for the longitude and latitude values.
+* `twodLocationMax` - *double*.  For 2d indexes, the upper inclusive boundary for the longitude and latitude values.
 
 #### Drop Index
 The `document` represents the *index* specification for the 
@@ -527,6 +734,16 @@ One of the following properties **must** be specified in the `document`:
 * `name` - The `name` of the *index* to drop.  Should be a `string` value.
 * `specification` - The full document specification of the index that was created.
 
+See `DropIndex` struct in [dropindex.hpp](src/api/model/request/dropindex.hpp)
+
+Sample response (see `DropIndex` struct in [index.hpp](src/api/model/response/index.hpp)):
+```json
+{"dropIndex": true}
+```
+
+##### Options
+Same as [index](#index)
+
 #### Bulk Write
 Bulk insert/delete documents.  Corresponding version history documents for
 inserted and/or deleted documents are created unless `skipVersion` is specified.
@@ -537,13 +754,13 @@ may be specified as appropriate.
 
 * `insert` - Array of documents which are to be inserted.  All documents **must**
   have a BSON ObjectId `_id` property.
-* `delete` - Array of document specifications which represent the deletes.  Deletes
+* `remove` - Array of document specifications which represent the deletes.  Deletes
   are slow since the query specifications are used to retrieve the documents being
   deleted and create the corresponding version history documents.  Retrieving the
   documents in a loop adds significant processing time.  For example the bulk
   delete test (deleting 10000 documents) takes about 15 seconds to run.
 
-Sample bulk create payload:
+Sample bulk create payload (see `Bulk` struct in [bulk.hpp](src/api/model/request/bulk.hpp)):
 ```json
 {
   "action": "bulk",
@@ -562,7 +779,7 @@ Sample bulk create payload:
       },
       "key": "value2"
     }],
-    "delete": [{
+    "remove": [{
       "_id": {
         "$oid": "5f6ba5f9de326c57bd64efb1"
       }
@@ -571,21 +788,19 @@ Sample bulk create payload:
 }
 ```
 
-Sample response for the above payload:
+Sample response for the above payload (see `Bulk` struct in [bulk.hpp](src/api/model/response/bulk.hpp)):
 ```json
-{ "create" : 2, "history": 3, "delete" : 1 }
+{ "create" : 2, "history": 3, "remove" : 1 }
 ```
 
 #### Aggregation Pipeline
-Basic support for using *aggregation pipeline* features.  This feature will be
-expanded as use cases expand over a period of time.
+Basic support for using *aggregation pipeline* features.  This feature will be expanded as use cases expand over a period of time.
 
-The `document` in the payload **must** include a `specification` *array* of
-documents which correspond to the `match`, `lookup` ...
-specifications for the aggregation pipeline operation (*stage*).  The matching documents 
+The `document` in the payload **must** include a `specification` *array* of documents which correspond to the `match`,
+`lookup` ... specifications for the aggregation pipeline operation (*stage*).  The matching documents 
 will be returned in a `results` array in the response.
 
-The following operators are supported:
+The following operators have been tested:
 * `$match`
 * `$lookup`
 * `$unwind`
@@ -598,7 +813,7 @@ The following operators are supported:
 * `$search` - Note requirement for `search` to be the first stage in a pipeline.
 * `$unionWith`
 
-Sample request payload:
+Sample request payload (see `Pipeline` struct in [pipeline.hpp](src/api/model/request/pipeline.hpp)):
 ```json
 {
   "action": "pipeline",
@@ -626,6 +841,8 @@ Sample request payload:
 }
 ```
 
+Response structure is the same as for the `retrieve` [command](#retrieve).
+
 #### Transaction
 Execute a sequence of actions in a **transaction**.  Nest the individual actions
 that are to be performed in the **transaction** within the `document` sub-document.
@@ -635,14 +852,16 @@ Each document in the array represents the full specification for the *action* in
 the *transaction*.  The *document* specification is the same as the
 *document* specification for using the service.
 
-The specification for the *action* document in the `items` array is:
+The specification for the *action* document in the `items` array is (see `TransactionBuilder` struct
+in [transaction.hpp](src/api/model/request/transaction.hpp)):
 * `action (string)` - The type of action to perform.  Should be one of `create|update|delete`.
 * `database (string)` - The database in which the *step* is to be performed.
 * `collection (string)` - The collection in which the *step* is to be performed.
 * `document (document)` - The BSON specification for executing the `action`.
 * `skipVersion (bool)` - Do not create version history document for this action.
 
-The response to a **transaction** request has the following structure:
+The response to a **transaction** request has the following structure (see `Transaction` 
+struct in [transaction.hpp](src/api/model/response/transaction.hpp)):
 * `created (int)` - The number of documents that were *created* in this transaction.
 * `updated (int)` - The number of documents that were *updated* in this transaction.
 * `deleted (int)` - The number of documents that were *deleted* in this transaction.
@@ -668,7 +887,7 @@ timeseries `collection`.  The **BSON ObjectId** property/field (`_id`) may be om
 in the document.  The response will include the server generated `_id` for the inserted document
 if using *acknowledged* writes.  No version history is created for timeseries data.
 
-Sample request payload:
+Sample request payload (see `CreateTimeseries` struct in [createtimeseries.hpp](src/api/model/request/createtimeseries.hpp)):
 ```json
 {
   "action": "createTimeseries",
@@ -685,7 +904,7 @@ Sample request payload:
 }
 ```
 
-Sample response payload when document is created:
+Sample response payload when document is created (see `Create` struct in [create.hpp](src/api/model/request/create.hpp)):
 ```json
 {
   "_id": {
@@ -696,12 +915,33 @@ Sample response payload when document is created:
 }
 ```
 
+##### Options
+The following options are supported for the `createTimeseries` action (subset of `Insert` struct in [insert.hpp](src/api/options/insert.hpp)):
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
+
 #### Create Collection
 Create a `collection` in the specified `database`.  If a `collection` already exists in the
 `database` with the same *name*, an error is returned.  This is primarily useful when clients
 wish to specify additional options when creating a collection (eg. create a timeseries collection).
 
-Sample create collection payload:
+Sample create collection payload (see `CreateCollection` struct in [createcollection.hpp](src/api/model/request/createcollection.hpp)):
 ```json
 {
   "action": "createCollection",
@@ -717,13 +957,18 @@ Sample create collection payload:
 }
 ```
 
-Sample response payload:
+Sample response payload (see `CreateCollection` struct in [collection.hpp](src/api/model/response/collection.hpp)):
 ```json
 {
   "database": "itest",
   "collection": "timeseries"
 }
 ```
+
+##### Options
+Options are not needed for the `createCollection` action.  Instead, the normal `document` payload 
+is used as the options when creating the collection.  Refer the [mongodb](https://www.mongodb.com/docs/manual/reference/method/db.createCollection/)
+documentation for the supported options.
 
 #### Rename Collection
 Rename a `collection` in the specified `database`.  If a `collection` already exists with the
@@ -738,13 +983,13 @@ This is a potentially heavy-weight operation.  All *version history* documents f
 returns.  This can lead to queries against version history returning stale information for a short
 period of time.
 
-**Note**: Renaming the collection in all associated *version history* documents may be the wrong choice.
+**Note**: Renaming the collection in all associated *version history* documents may be the *wrong* choice.
 In chronological terms, those documents were associated with the previous `collection`.  Only future revisions
 are associated with the renamed `target`.  However, this can create issues in terms of retrieval, or if
 iterating over records for some other purpose, or if a new collection with the *previous* name is created
 in future.
 
-Sample rename payload:
+Sample rename payload (see `RenameCollection` struct in [renamecollection.hpp](src/api/model/request/renamecollection.hpp)):
 ```json
 {
   "action": "renameCollection",
@@ -754,13 +999,16 @@ Sample rename payload:
 }
 ```
 
-Sample response payload:
+Sample response payload (see `CreateCollection` struct in [collection.hpp](src/api/model/response/collection.hpp)):
 ```json
 {
   "database": "itest",
   "collection": "test-renamed"
 }
 ```
+
+##### Options
+Same write options as for the `dropCollection` [action](#drop-collection).
 
 ### Document Response
 Create, update and delete actions only return some meta information about the
@@ -779,15 +1027,11 @@ following document model is returned as the response:
 * `results` - A *BSON array* with *document(s)* that were retrieved from the
   database for the *query*.
   
-See [transaction](transaction.md) for sample request/response payloads for
-transaction requests.
+See [transaction](transaction.md) for sample request/response payloads for transaction requests.
   
-### Options
-Options specified in the request payload are parsed into the appropriate
-`option` document for the specified `action`.
-
 ### Limitation
-At present only documents with **BSON ObjectId** `_id` is supported.
+At present only documents with **BSON ObjectId** `_id` is supported.  Streaming responses
+(`cursor` interface) is not supported.
 
 ## Metrics
 Metrics are collected for all requests to the service (unless client specifies `skipMetric`).  Metrics may be
@@ -801,14 +1045,14 @@ requirements).  A `date` property is stored to create a TTL index as required.
 The schema for a metric is as follows:
 ```json
 {
-  "_id": ObjectId("5fd4b7e55f1ba96a695d1446"),
+  "_id": {"$oid": "5fd4b7e55f1ba96a695d1446"},
   "action": "retrieve",
   "database": "wpreading2",
   "collection": "databaseVersion",
   "size": 88,
   "time": 414306,
   "timestamp": 437909021088978,
-  "date": Date(437909021),
+  "date": {"$date": 437909021},
   "application": "bootstrap"
 }
 ```
@@ -817,12 +1061,9 @@ The schema for a metric is as follows:
 * **database** - The database against which the action was performed.
 * **collection** - The collection against which the action was performed.
 * **size** - The total size of the response document.
-* **time** - The time in `nanoseconds` for the action (includes any interaction
-  with version history).
-* **timestamp** - The time since UNIX epoch in `nanoseconds` for use when exporting
-  to other timeseries databases.
-* **date** - The BSON date at which the metric was created.  Use to define a TTL
-  index as appropriate.
+* **time** - The time in `nanoseconds` for the action (includes any interaction with version history).
+* **timestamp** - The time since UNIX epoch in `nanoseconds` for use when exporting to other timeseries databases.
+* **date** - The BSON date at which the metric was created.  Use to define a TTL index as appropriate.
 * **application** - The application that invoked the service if specified in the
   request payload.
 
@@ -1284,8 +1525,11 @@ Sample clients in other languages that use the service.
 * **Python** - Sample client package for [Python](https://python.org) is available under the [python](client/python) directory.
 
 ### API Usage
-The [API](src/api/api.h) can be used to communicate with the TCP service.  Client code bases
-can use cmake to use the library.
+The [API](src/api/api.hpp) can be used to communicate with the TCP service.  Initialise the library
+(`init` function) before using the other api functions.  A higher level abstraction is also provided
+via the [repository.hpp](src/api/repository/repository.hpp) interface.
+
+Client code bases can use [cmake](https://cmake.org/) to link against the library.
 
 ```shell
 # In your CMakeLists.txt file

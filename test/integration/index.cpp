@@ -23,8 +23,8 @@ SCENARIO( "Index test suite", "[index]" )
           kvp( "action", "index" ),
           kvp( "database", "itest" ),
           kvp( "collection", "test" ),
-          kvp( "document", basic::make_document(
-              kvp( "unused", 1 ) ) ) );
+          kvp( "document", basic::make_document( kvp( "unused", 1 ) ) ),
+          kvp( "options", basic::make_document( kvp( "version", 2 ) ) ) );
 
       const auto [type, option] = spt::mongoservice::api::execute( document.view() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );

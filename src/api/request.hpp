@@ -4,104 +4,107 @@
 
 #pragma once
 
+#include "model/request/action.hpp"
+
+#if defined __has_include
+  #if __has_include("../common/util/serialise.hpp")
+    #include "../common/util/serialise.hpp"
+  #else
+    #include <mongo-service/common/util/serialise.hpp>
+  #endif
+#endif
+
 #include <optional>
 #include <string>
+#include <string_view>
 #include <bsoncxx/document/value.hpp>
 
 namespace spt::mongoservice::api
 {
   struct Request
   {
-    enum class Action : std::uint_fast8_t {
-      create, retrieve, update, _delete, count,
-      index, dropCollection, dropIndex,
-      bulk, pipeline, transaction,
-      createCollection, renameCollection, createTimeseries, distinct
-    };
-
-    Request( std::string db, std::string coll,
-        bsoncxx::document::value doc, Action act ) :
-        database{ std::move( db ) }, collection{ std::move( coll ) },
-        document{ std::move( doc ) }, action{ act } {}
+    Request( std::string_view db, std::string_view coll, bsoncxx::document::value doc, model::request::Action act ) :
+        database{ db }, collection{ coll }, document{ std::move( doc ) }, action{ act } {}
     ~Request() = default;
     Request(Request&&) = default;
     Request& operator=(Request&&) = default;
+
     Request(const Request&) = delete;
     Request& operator=(const Request&) = delete;
 
-    static Request create( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request create( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::create };
+      return { db, coll, std::move( doc ), model::request::Action::create };
     }
 
-    static Request createTimeseries( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request createTimeseries( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::createTimeseries };
+      return { db, coll, std::move( doc ), model::request::Action::createTimeseries };
     }
 
-    static Request retrieve( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request retrieve( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::retrieve };
+      return { db, coll, std::move( doc ), model::request::Action::retrieve };
     }
 
-    static Request update( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request update( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::update };
+      return { db, coll, std::move( doc ), model::request::Action::update };
     }
 
-    static Request _delete( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request _delete( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::_delete };
+      return { db, coll, std::move( doc ), model::request::Action::_delete };
     }
 
-    static Request count( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request count( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::count };
+      return { db, coll, std::move( doc ), model::request::Action::count };
     }
 
-    static Request distinct( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request distinct( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::distinct };
+      return { db, coll, std::move( doc ), model::request::Action::distinct };
     }
 
-    static Request index( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request index( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::index };
+      return { db, coll, std::move( doc ), model::request::Action::index };
     }
 
-    static Request dropCollection( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request dropCollection( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::dropCollection };
+      return { db, coll, std::move( doc ), model::request::Action::dropCollection };
     }
 
-    static Request dropIndex( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request dropIndex( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::dropIndex };
+      return { db, coll, std::move( doc ), model::request::Action::dropIndex };
     }
 
-    static Request bulk( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request bulk( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::bulk };
+      return { db, coll, std::move( doc ), model::request::Action::bulk };
     }
 
-    static Request pipeline( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request pipeline( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::pipeline };
+      return { db, coll, std::move( doc ), model::request::Action::pipeline };
     }
 
-    static Request transaction( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request transaction( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::transaction };
+      return { db, coll, std::move( doc ), model::request::Action::transaction };
     }
 
-    static Request createCollection( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request createCollection( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::createCollection };
+      return { db, coll, std::move( doc ), model::request::Action::createCollection };
     }
 
-    static Request renameCollection( std::string db, std::string coll, bsoncxx::document::value doc )
+    static Request renameCollection( std::string_view db, std::string_view coll, bsoncxx::document::value doc )
     {
-      return { std::move( db ), std::move( coll ), std::move( doc ), Action::renameCollection };
+      return { db, coll, std::move( doc ), model::request::Action::renameCollection };
     }
 
     std::string database;
@@ -110,7 +113,7 @@ namespace spt::mongoservice::api
     std::optional<bsoncxx::document::value> options{ std::nullopt };
     std::optional<bsoncxx::document::value> metadata{ std::nullopt };
     std::optional<std::string> correlationId{ std::nullopt };
-    Action action{ Action::retrieve };
+    model::request::Action action{ model::request::Action::retrieve };
     bool skipVersion{ false };
     bool skipMetric{ false };
   };

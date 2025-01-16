@@ -21,12 +21,16 @@
 #endif
 #endif
 
+#include <functional>
+#include <iterator>
 #include <memory>
+#include <ranges>
 #include <set>
 #include <string_view>
 #include <vector>
 #include <boost/cast.hpp>
 #include <boost/json/object.hpp>
+#include <bsoncxx/json.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
 #include <bsoncxx/builder/stream/array.hpp>
@@ -86,11 +90,31 @@ namespace spt::util
    */
   template <typename E>
     requires std::is_enum_v<E>
-  inline bsoncxx::types::bson_value::value bson( const E& model )
+  bsoncxx::types::bson_value::value bson( const E& model )
   {
     auto name = magic_enum::enum_name( model );
     return name.empty() ? bsoncxx::types::b_null{} : bsoncxx::types::bson_value::value{ name };
   }
+
+  /**
+   * General implementation for converting a reference wrapped model into a BSON object.
+   * @tparam M The visitable model wrapped in a reference wrapper.
+   * @param model The reference wrapper instance to serialise.
+   * @return The JSON representation of the wrapped model.
+   */
+  template <Visitable M>
+    requires NotEnumeration<M>
+  bsoncxx::types::bson_value::value bson( const std::reference_wrapper<M>& model );
+
+  /**
+   * General implementation for converting a reference wrapped `const` model into a BSON object.
+   * @tparam M The visitable model wrapped in a reference wrapper.
+   * @param model The reference wrapper instance to serialise.
+   * @return The JSON representation of the wrapped model.
+   */
+  template <Visitable M>
+    requires NotEnumeration<M>
+  bsoncxx::types::bson_value::value bson( const std::reference_wrapper<const M>& model );
 
   /**
    * General implementation for converting a set into a BSON array.  For each item in the set delegates
@@ -301,7 +325,7 @@ namespace spt::util
    * @param view The BSON document to unmarshall struct fields from.
    */
   template <Model M>
-  inline void unmarshall( M& model, bsoncxx::document::view view )
+  void unmarshall( M& model, bsoncxx::document::view view )
   {
     auto value = bsoncxx::types::bson_value::value{ view };
     set( model, value.view() );
@@ -314,7 +338,7 @@ namespace spt::util
    * @return The unmarshalled model instance.
    */
   template <Model M>
-  inline M unmarshall( bsoncxx::document::view view )
+  M unmarshall( bsoncxx::document::view view )
   {
     M model{};
     unmarshall( model, view );
@@ -378,6 +402,30 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const DateTime& model 
 }
 
 template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::chrono::seconds& model )
+{
+  return { model.count() };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::chrono::milliseconds& model )
+{
+  return { model.count() };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::chrono::microseconds& model )
+{
+  return { model.count() };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const std::chrono::nanoseconds& model )
+{
+  return { model.count() };
+}
+
+template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const DateTimeMs& model )
 {
   return { bsoncxx::types::b_date{ model } };
@@ -415,7 +463,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::documen
 
 template <spt::util::Visitable M>
   requires spt::util::NotEnumeration<M>
-inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
+bsoncxx::types::bson_value::value spt::util::bson( const M& model )
 {
   using std::operator ""sv;
   auto root = bsoncxx::builder::stream::document{};
@@ -434,9 +482,23 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const M& model )
   return { root << bsoncxx::builder::stream::finalize };
 }
 
+template<spt::util::Visitable Model>
+  requires spt::util::NotEnumeration<Model>
+bsoncxx::types::bson_value::value spt::util::bson( const std::reference_wrapper<Model>& model )
+{
+  return bson( model.get() );
+}
+
+template<spt::util::Visitable Model>
+  requires spt::util::NotEnumeration<Model>
+bsoncxx::types::bson_value::value spt::util::bson( const std::reference_wrapper<const Model>& model )
+{
+  return bson( model.get() );
+}
+
 template<typename Model>
   requires spt::util::NotEnumeration<Model>
-inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items )
+bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items )
 {
   if ( items.empty()) return bsoncxx::types::b_null{};
 
@@ -694,6 +756,14 @@ inline void spt::util::set( DateTimeNs& field, bsoncxx::types::bson_value::view 
 }
 
 template <>
+inline void spt::util::set( std::chrono::seconds& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
+  else if ( bsoncxx::type::k_int64 == value.type() ) field = std::chrono::seconds{ value.get_int64() };
+  else field = std::chrono::duration_cast<std::chrono::seconds>( value.get_date().value );
+}
+
+template <>
 inline void spt::util::set( std::chrono::milliseconds& field, bsoncxx::types::bson_value::view value )
 {
   if ( bsoncxx::type::k_int32 == value.type() ) field = std::chrono::seconds{ value.get_int32() };
@@ -736,7 +806,19 @@ inline void spt::util::set( bsoncxx::array::value& field, bsoncxx::types::bson_v
 }
 
 template <>
+inline void spt::util::set( std::optional<bsoncxx::array::value>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_array == value.type() ) field = bsoncxx::array::value{ value.get_array().value };
+}
+
+template <>
 inline void spt::util::set( bsoncxx::document::value& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_document == value.type() ) field = bsoncxx::document::value{ value.get_document().value };
+}
+
+template <>
+inline void spt::util::set( std::optional<bsoncxx::document::value>& field, bsoncxx::types::bson_value::view value )
 {
   if ( bsoncxx::type::k_document == value.type() ) field = bsoncxx::document::value{ value.get_document().value };
 }
@@ -750,7 +832,7 @@ inline void spt::util::set( std::set<bool>& field, bsoncxx::types::bson_value::v
 template <>
 inline void spt::util::set( std::vector<bool>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_bool().value );
 }
 
@@ -763,7 +845,7 @@ inline void spt::util::set( std::set<int32_t>& field, bsoncxx::types::bson_value
 template <>
 inline void spt::util::set( std::vector<int32_t>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_int32().value );
 }
 
@@ -776,7 +858,7 @@ inline void spt::util::set( std::set<int64_t>& field, bsoncxx::types::bson_value
 template <>
 inline void spt::util::set( std::vector<int64_t>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_int64().value );
 }
 
@@ -789,7 +871,7 @@ inline void spt::util::set( std::set<double>& field, bsoncxx::types::bson_value:
 template <>
 inline void spt::util::set( std::vector<double>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_double().value );
 }
 
@@ -802,7 +884,7 @@ inline void spt::util::set( std::set<std::string>& field, bsoncxx::types::bson_v
 template <>
 inline void spt::util::set( std::vector<std::string>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_string().value );
 }
 
@@ -815,7 +897,7 @@ inline void spt::util::set( std::set<bsoncxx::oid>& field, bsoncxx::types::bson_
 template <>
 inline void spt::util::set( std::vector<bsoncxx::oid>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_oid().value );
 }
 
@@ -828,48 +910,77 @@ inline void spt::util::set( std::set<std::chrono::time_point<std::chrono::system
 template <>
 inline void spt::util::set( std::vector<std::chrono::time_point<std::chrono::system_clock>>& field, bsoncxx::types::bson_value::view value )
 {
-  field.reserve( 8 );
+  field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_date().value );
 }
 
 template <typename M>
-inline void spt::util::set( std::optional<M>& field, bsoncxx::types::bson_value::view value )
+void spt::util::set( std::optional<M>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() == bsoncxx::type::k_null ) return;
-  auto m = M{};
-  set( m, value );
-  field = std::move( m );
+  if constexpr ( std::constructible_from<M, bsoncxx::document::view> )
+  {
+    field.emplace( value.get_document().value );
+  }
+  else
+  {
+    auto m = M{};
+    set( m, value );
+    field = std::move( m );
+  }
 }
 
 template <typename M>
-inline void spt::util::set( std::shared_ptr<M>& field, bsoncxx::types::bson_value::view value )
+void spt::util::set( std::shared_ptr<M>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() == bsoncxx::type::k_null ) return;
-  auto m = std::make_shared<M>();
-  set( *m.get(), value );
-  field = m;
-}
-
-template <typename Model>
-inline void spt::util::set( std::set<Model>& field, bsoncxx::types::bson_value::view value )
-{
-  if ( value.type() != bsoncxx::type::k_array ) return;
-  for ( const auto& item : value.get_array().value )
+  if constexpr ( std::constructible_from<M, bsoncxx::document::view> )
   {
-    auto m = Model{};
-    set( m, bsoncxx::types::bson_value::value{ item.get_document().value } );
-    field.insert( std::move( m ) );
+    field = std::make_shared<M>( value.get_document().value );
+  }
+  else
+  {
+    auto m = std::make_shared<M>();
+    set( *m.get(), value );
+    field = m;
   }
 }
 
 template <typename Model>
-inline void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_value::view value )
+void spt::util::set( std::set<Model>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() != bsoncxx::type::k_array ) return;
-  field.reserve( 8 );
   for ( const auto& item : value.get_array().value )
   {
-    field.emplace_back();
-    set( field.back(), bsoncxx::types::bson_value::value{ item.get_document().value } );
+    if constexpr ( std::constructible_from<Model, bsoncxx::document::view> )
+    {
+      field.emplace( item.get_document().value );
+    }
+    else
+    {
+      auto m = Model{};
+      set( m, bsoncxx::types::bson_value::value{ item.get_document().value } );
+      field.insert( std::move( m ) );
+    }
+  }
+}
+
+template <typename Model>
+void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() != bsoncxx::type::k_array ) return;
+  field.reserve( std::ranges::distance( value.get_array().value ) );
+  for ( const auto& item : value.get_array().value )
+  {
+    if ( std::ranges::distance( item.get_document().value ) == 0 ) continue;
+    if constexpr ( std::constructible_from<Model, bsoncxx::document::view> )
+    {
+      field.emplace_back( item.get_document().value );
+    }
+    else
+    {
+      field.emplace_back();
+      set( field.back(), bsoncxx::types::bson_value::value{ item.get_document().value } );
+    }
   }
 }
