@@ -55,9 +55,9 @@ namespace spt::db::pmetricscollector
             timestamp( std::chrono::duration_cast<std::chrono::nanoseconds>( metric.timestamp.time_since_epoch() ) );
 
         if ( metric.application ) builder.addTag( "application"sv, *metric.application );
-        if ( metric.correlationId ) builder.addTag( "correlationId"sv, *metric.correlationId );
-        if ( metric.message ) builder.addTag( "message"sv, *metric.message );
-        if ( metric.id ) builder.addTag( "entityId"sv, metric.id->to_string() );
+        if ( metric.correlationId ) builder.addValue( "correlationId"sv, *metric.correlationId );
+        if ( metric.message ) builder.addValue( "message"sv, *metric.message );
+        if ( metric.id ) builder.addValue( "id"sv, metric.id->to_string() );
         builder.endRecord();
       }
 
@@ -113,7 +113,7 @@ MetricsCollector& MetricsCollector::instance()
 
 void MetricsCollector::add( model::Metric&& metric )
 {
-  auto lock = std::scoped_lock<std::mutex>{ mutex };
+  auto lock = std::scoped_lock{ mutex };
   vector.emplace_back( std::move( metric ) );
   const auto& conf = model::Configuration::instance();
   if ( static_cast<int>( vector.size() ) == conf.metrics.batchSize )

@@ -556,7 +556,7 @@ Response data has the following structure (see `UpdateMany` struct in [update.hp
 
 ##### Options
 The following options are supported for the `update` action (see `Update` struct in [update.hpp](src/api/options/update.hpp)):
-* `bypassValidation` - *boolean*.  Whether or not to bypass document validation
+* `bypassValidation` - *boolean*.  Whether to bypass document validation
 * `collation` - *document*.  Sets the collation for this operation.
 * `upsert` - *boolean*.  By default, if no document matches the filter, the update operation does nothing. However, by 
   specifying upsert as `true`, this operation either updates matching documents or *inserts* a new document using the

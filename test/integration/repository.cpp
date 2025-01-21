@@ -122,10 +122,10 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       insert.database = database;
       insert.collection = collection;
       insert.document.str = "value";
-      insert.metadata = pmodel::Metadata{};
+      insert.metadata.emplace();
       insert.metadata->project = "serialisation";
       insert.metadata->product = "mongo-service";
-      insert.options = options::Insert{};
+      insert.options.emplace();
       insert.options->bypassValidation = true;
       insert.options->ordered = true;
 
@@ -566,12 +566,6 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
 
       WHEN( "Creating a collection" )
       {
-        using bsoncxx::builder::stream::array;
-        using bsoncxx::builder::stream::open_array;
-        using bsoncxx::builder::stream::close_array;
-        using bsoncxx::builder::stream::open_document;
-        using bsoncxx::builder::stream::close_document;
-
         auto create = model::request::CreateCollection{ options::CreateCollection{} };
         create.database = database;
         create.collection = coll;

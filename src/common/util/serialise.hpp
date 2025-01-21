@@ -558,7 +558,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<E> &
 
 template <spt::util::Visitable M>
     requires spt::util::NotEnumeration<M>
-inline void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
+void spt::util::set( M& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() != bsoncxx::type::k_document ) LOG_CRIT << "Value not document type but " << bsoncxx::to_string( value.type() );
   auto view = value.get_document().value;
