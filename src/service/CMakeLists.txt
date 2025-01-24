@@ -8,16 +8,16 @@ target_compile_definitions(${Target_Name} PRIVATE _FORTIFY_SOURCE=2)
 if (UNIX)
   if (APPLE)
     target_link_libraries(${Target_Name}
-      PRIVATE common ilp mongo::mongocxx_static fmt::fmt ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY} ZLIB::ZLIB
+      PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY} ZLIB::ZLIB
     )
   else()
     target_link_libraries(${Target_Name}
-      PRIVATE common ilp mongo::mongocxx_static fmt::fmt ${OPENSSL_LIBRARIES} jemalloc ZLIB::ZLIB
+      PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} jemalloc ZLIB::ZLIB
     )
   endif(APPLE)
 else()
   target_link_libraries(${Target_Name}
-    PRIVATE common ilp mongo::mongocxx_static fmt::fmt ${OPENSSL_LIBRARIES} ZLIB::ZLIB
+    PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} ZLIB::ZLIB
   )
 endif(UNIX)
 

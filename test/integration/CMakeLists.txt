@@ -19,7 +19,7 @@ find_package(cpr REQUIRED)
 target_compile_definitions(integration PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS})
 
 target_link_libraries(integration
-  PRIVATE api ilp Catch2::Catch2 cpr::cpr fmt::fmt ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
+  PRIVATE api ilp Catch2::Catch2 cpr::cpr ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
 
 add_test(NAME integration COMMAND integration)
 install(TARGETS integration DESTINATION bin)

@@ -3,9 +3,9 @@
 //
 
 #include "builder.hpp"
-#include <fmt/format.h>
-
 #include "../common/util/date.hpp"
+
+#include <format>
 
 using spt::ilp::Builder;
 
@@ -74,14 +74,14 @@ Builder& Builder::startRecord( std::string_view name )
 Builder& Builder::addTag( std::string_view key, std::string_view v )
 {
   if ( !record->tags.empty() ) record->tags.append( "," );
-  record->tags.append( fmt::format( "{}={}", key, pbuilder::clean( v, true ) ) );
+  record->tags.append( std::format( "{}={}", key, pbuilder::clean( v, true ) ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, bool v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}", key, v ) );
+  record->value.append( std::format( "{}={}", key, v ) );
 
   return *this;
 }
@@ -89,35 +89,35 @@ Builder& Builder::addValue( std::string_view key, bool v )
 Builder& Builder::addValue( std::string_view key, int32_t v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}i", key, v ) );
+  record->value.append( std::format( "{}={}i", key, v ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, uint32_t v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}u", key, v ) );
+  record->value.append( std::format( "{}={}u", key, v ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, int64_t v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}i", key, v ) );
+  record->value.append( std::format( "{}={}i", key, v ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, uint64_t v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}u", key, v ) );
+  record->value.append( std::format( "{}={}u", key, v ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, float v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}", key, v ) );
+  record->value.append( std::format( "{}={}", key, v ) );
 
   return *this;
 }
@@ -125,7 +125,7 @@ Builder& Builder::addValue( std::string_view key, float v )
 Builder& Builder::addValue( std::string_view key, double v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}", key, v ) );
+  record->value.append( std::format( "{}={}", key, v ) );
 
   return *this;
 }
@@ -133,28 +133,28 @@ Builder& Builder::addValue( std::string_view key, double v )
 Builder& Builder::addValue( std::string_view key, std::string_view v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}=\"{}\"", key, pbuilder::clean( v, false ) ) );
+  record->value.append( std::format( "{}=\"{}\"", key, pbuilder::clean( v, false ) ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, util::DateTime v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
+  record->value.append( std::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, util::DateTimeMs v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
+  record->value.append( std::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
   return *this;
 }
 
 Builder& Builder::addValue( std::string_view key, util::DateTimeNs v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
+  record->value.append( std::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
   return *this;
 }
 
@@ -167,7 +167,7 @@ Builder& Builder::timestamp( std::chrono::nanoseconds v )
 Builder& Builder::endRecord()
 {
   value.reserve( 128 );
-  value.append( fmt::format( "{},{} {} {}\n", record->name, record->tags, record->value, record->timestamp.count() ) );
+  value.append( std::format( "{},{} {} {}\n", record->name, record->tags, record->value, record->timestamp.count() ) );
   return *this;
 }
 

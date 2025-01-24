@@ -12,4 +12,4 @@ add_compile_definitions(WITH_BSON_SUPPORT)
 file(GLOB_RECURSE test_SRCS *.cpp *.h)
 add_executable(unitTest ${test_SRCS} )
 
-target_link_libraries(unitTest PRIVATE api ilp Catch2::Catch2 fmt::fmt)
+target_link_libraries(unitTest PRIVATE api ilp Catch2::Catch2)
