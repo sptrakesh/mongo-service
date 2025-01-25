@@ -14,6 +14,11 @@ if (bsoncxx_FOUND)
   target_link_libraries(${Target_Name} INTERFACE mongo::bsoncxx_static)
 endif (bsoncxx_FOUND)
 
+if (UNIX AND NOT APPLE)
+  target_link_libraries(${Target_Name} PRIVATE stdc++exp)
+  target_link_libraries(${Target_Name} INTERFACE stdc++exp)
+endif (UNIX AND NOT APPLE)
+
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   message(STATUS "Debug build, not enabling IPO/LTO for NanoLog")
 else()
