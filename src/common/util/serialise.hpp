@@ -302,8 +302,9 @@ namespace spt::util
     requires std::is_enum_v<E>
   void set( E& field, bsoncxx::types::bson_value::view value )
   {
-    if ( auto e = magic_enum::enum_cast<E>( value.get_string() ); e ) field = *e;
-    else LOG_WARN << "Value (" << value.get_string() << ") cannot be cast to enum type " << typeid( E ).name();
+    if ( value.get_string().value.empty() ) return;
+    if ( auto e = magic_enum::enum_cast<E>( value.get_string().value ); e ) field = *e;
+    else LOG_WARN << "Value (" << value.get_string().value << ") cannot be cast to enum type " << typeid( E ).name();
   }
 
   /**

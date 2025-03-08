@@ -107,8 +107,10 @@ if (APPLE)
 
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
 endif()
+find_package(fmt REQUIRED)
 find_package(mongocxx REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(range-v3 REQUIRED)
 find_package(Threads)
 find_package(ZLIB REQUIRED)
 
@@ -128,8 +130,9 @@ include_directories(
 if (APPLE)
   set(CMAKE_MACOSX_RPATH 1)
   include_directories(
-    /usr/local/fmt/include
     /usr/local/boost/include
+    /usr/local/fmt/include
+    /usr/local/range-v3/include
   )
 else()
   include_directories(

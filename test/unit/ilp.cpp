@@ -77,8 +77,84 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
           finish();
       auto expected = R"(trade,ticker=BTCUSD description="this is a \"rare\" value",user="John" 1638202821000000000
 )";
+      CHECK( str == expected );
+    }
 
-      REQUIRE( str == expected );
+    AND_WHEN( "Testing simple APMRecord" )
+    {
+      auto record = spt::ilp::APMRecord{ "abc123" };
+      record.application = "unit test";
+      record.tags.try_emplace( "key1", "value1" );
+      record.tags.try_emplace( "key2", "value2" );
+      record.values.try_emplace( "int", int64_t{ -1 } );
+      record.values.try_emplace( "uint", uint64_t{ 1 } );
+      record.values.try_emplace( "double", double{ 1.234 } );
+      record.values.try_emplace( "string", std::string{ "string value" } );
+      record.duration = std::chrono::nanoseconds{ 123 };
+
+      auto str = builder.add( "apm", record ).finish();
+      auto expected = std::format(
+        "apm,application=unit\\ test,key1=value1,key2=value2 id=\"abc123\",duration=123i,double=1.234,int=-1i,string=\"string value\",uint=1u {}\n",
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.timestamp.time_since_epoch() ).count() );
+      CHECK( str == expected );
+    }
+
+    AND_WHEN( "Testing complex APMRecord" )
+    {
+      auto record = spt::ilp::APMRecord{ "abc123" };
+      record.application = "unit test";
+      record.tags.try_emplace( "key1", "value1" );
+      record.tags.try_emplace( "key2", "value2" );
+      record.values.try_emplace( "int", int64_t{ -1 } );
+      record.values.try_emplace( "uint", uint64_t{ 1 } );
+      record.values.try_emplace( "double", double{ 1.234 } );
+      record.values.try_emplace( "string", std::string{ "string value" } );
+      record.duration = std::chrono::nanoseconds{ 123 };
+
+      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Function );
+      auto& p1 = record.processes.back();
+      p1.duration = std::chrono::nanoseconds{ 256 };
+      p1.tags.try_emplace( "key10", "value1" );
+      p1.tags.try_emplace( "key11", "value2" );
+      p1.values.try_emplace( "int", int64_t{ -10 } );
+      p1.values.try_emplace( "uint", uint64_t{ 10 } );
+      p1.values.try_emplace( "double", double{ 10.987 } );
+      p1.values.try_emplace( "string", "first value" );
+
+      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Step );
+      auto& p2 = record.processes.back();
+      p2.duration = std::chrono::nanoseconds{ 5432 };
+      p2.tags.try_emplace( "key10", "value10" );
+      p2.tags.try_emplace( "key11", "value20" );
+      p2.values.try_emplace( "int", int64_t{ -11 } );
+      p2.values.try_emplace( "uint", uint64_t{ 11 } );
+      p2.values.try_emplace( "double", double{ 11.987 } );
+      p2.values.try_emplace( "string", "second value" );
+      p2.values.try_emplace( "bool", false );
+
+      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Other );
+      auto& p3 = record.processes.back();
+      p3.duration = std::chrono::nanoseconds{ 932 };
+      p3.tags.try_emplace( "key10", "value11" );
+      p3.tags.try_emplace( "key11", "value21" );
+      p3.values.try_emplace( "int", int64_t{ -12 } );
+      p3.values.try_emplace( "uint", uint64_t{ 12 } );
+      p3.values.try_emplace( "double", double{ 12.987 } );
+      p3.values.try_emplace( "string", "third value" );
+      p3.values.try_emplace( "bool", true );
+
+      auto str = builder.add( "apm", record ).finish();
+      auto expected = std::format( R"(apm,application=unit\ test,key1=value1,key2=value2 id="abc123",duration=123i,double=1.234,int=-1i,string="string value",uint=1u {}
+apm,application=unit\ test,type=function,key10=value1,key11=value2 id="abc123",duration=256i,double=10.987,int=-10i,string="first value",uint=10u {}
+apm,application=unit\ test,type=step,key10=value10,key11=value20 id="abc123",duration=5432i,bool=false,double=11.987,int=-11i,string="second value",uint=11u {}
+apm,application=unit\ test,type=other,key10=value11,key11=value21 id="abc123",duration=932i,bool=true,double=12.987,int=-12i,string="third value",uint=12u {}
+)",
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.timestamp.time_since_epoch() ).count(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.front().timestamp.time_since_epoch() ).count(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes[1].timestamp.time_since_epoch() ).count(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.back().timestamp.time_since_epoch() ).count()
+      );
+      CHECK( str == expected );
     }
   }
 }

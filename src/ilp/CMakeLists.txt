@@ -1,5 +1,5 @@
 set(Target_Name "ilp")
-file(GLOB_RECURSE ilp_SRCS *.cpp *.h)
+file(GLOB_RECURSE ilp_SRCS *.cpp *.hpp)
 add_library(${Target_Name} STATIC ${ilp_SRCS})
 add_library(mongo-service::ilp ALIAS ${Target_Name})
 install(TARGETS ilp DESTINATION lib)
@@ -9,7 +9,7 @@ target_include_directories(${Target_Name}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(${Target_Name} INTERFACE nanolog Boost::boost)
+target_link_libraries(${Target_Name} INTERFACE nanolog Boost::boost range-v3::range-v3)
 
 install(TARGETS ${Target_Name} EXPORT MongoServiceIlpTargets DESTINATION lib)
 install (

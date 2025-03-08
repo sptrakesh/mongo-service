@@ -690,7 +690,7 @@ void spt::util::json::set( M& field, simdjson::ondemand::object& object )
 
 template <spt::util::Visitable M>
   requires spt::util::NotEnumeration<M>
-inline void spt::util::json::set( const char*, M& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char*, M& field, simdjson::ondemand::value& value )
 {
   auto obj = value.get_object().value();
   set( field, obj );
@@ -698,7 +698,7 @@ inline void spt::util::json::set( const char*, M& field, simdjson::ondemand::val
 
 template <typename E>
   requires std::is_enum_v<E>
-inline void spt::util::json::set( const char* name, E& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, E& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::string )
   {
@@ -706,6 +706,7 @@ inline void spt::util::json::set( const char* name, E& field, simdjson::ondemand
   }
   std::string_view v;
   value.get( v );
+  if ( v.empty() ) return;
   if ( auto e = magic_enum::enum_cast<E>( v ); e ) field = *e;
   else
   {
@@ -716,7 +717,7 @@ inline void spt::util::json::set( const char* name, E& field, simdjson::ondemand
 
 template <typename E>
   requires std::is_enum_v<E>
-inline void spt::util::json::set( const char* name, std::set<E>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::set<E>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -726,6 +727,7 @@ inline void spt::util::json::set( const char* name, std::set<E>& field, simdjson
   field.reserve( arr.count_elements() );
   for ( std::string_view x: arr )
   {
+    if ( x.empty() ) continue;
     if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
     else
     {
@@ -737,7 +739,7 @@ inline void spt::util::json::set( const char* name, std::set<E>& field, simdjson
 
 template <typename E>
   requires std::is_enum_v<E>
-inline void spt::util::json::set( const char* name, std::vector<E>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::vector<E>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -747,6 +749,7 @@ inline void spt::util::json::set( const char* name, std::vector<E>& field, simdj
   field.reserve( arr.count_elements() );
   for ( std::string_view x: arr )
   {
+    if ( x.empty() ) continue;
     if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
     else
     {
