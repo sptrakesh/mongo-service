@@ -95,4 +95,18 @@ namespace spt::ilp
     /// Note: Do not include a duration value in the `values` map.
     std::chrono::nanoseconds duration{ 0 };
   };
+
+  /**
+   * Set the duration for the record based on current timestamp.  Duration is difference between the record/process
+   * `timestamp` and current timestamp.
+   * @tparam Record The APM record or process type.
+   * @param record The record or process for which the `duration` is to be set.
+   */
+  template <typename Record>
+    requires std::is_same_v<decltype(Record::timestamp), std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::nanoseconds>> &&
+      std::is_same_v<decltype(Record::duration), std::chrono::nanoseconds>
+  void setDuration( Record& record )
+  {
+    record.duration = std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now() - record.timestamp );
+  }
 }

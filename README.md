@@ -1387,7 +1387,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH=/usr/local/mongo \
   -DCMAKE_INSTALL_PREFIX=/usr/local/spt \
   -DBUILD_TESTING=OFF -S . -B build
-cmake --build build -j12
+cmake --build build --parallel
 sudo cmake --install build
 ```
 </details>
