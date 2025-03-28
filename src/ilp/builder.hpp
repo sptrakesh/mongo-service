@@ -111,6 +111,7 @@ namespace spt::ilp
 
     /**
      * Add a date-time value to the current record.  Date-times are serialised as the number of microseconds since UNIX epoch.
+     * The type of this value corresponds to the `timestamp` data type supported by QuestDB.
      * @param key The key/name of the value to send as part of the record.
      * @param value The date-time value to send.
      * @return This builder instance for method chaining.
@@ -119,6 +120,7 @@ namespace spt::ilp
 
     /**
      * Add a date-time value to the current record.  Date-times are serialised as the number of microseconds since UNIX epoch.
+     * The type of this value corresponds to the `timestamp` data type supported by QuestDB.
      * @param key The key/name of the value to send as part of the record.
      * @param value The date-time value to send.
      * @return This builder instance for method chaining.
@@ -126,7 +128,9 @@ namespace spt::ilp
     Builder& addValue( std::string_view key, DateTimeMs value );
 
     /**
-     * Add a date-time value to the current record.  Date-times are serialised as the number of nanoseconds since UNIX epoch.
+     * Add a date-time value to the current record.  Date-times are serialised as the number of microseconds since UNIX epoch.
+     * Note that there is a loss of precision in saving values with nanosecond precision.
+     * The type of this value corresponds to the `timestamp` data type supported by QuestDB.
      * @param key The key/name of the value to send as part of the record.
      * @param value The date-time value to send.
      * @return This builder instance for method chaining.

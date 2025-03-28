@@ -92,10 +92,12 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
       record.values.try_emplace( "string", std::string{ "string value" } );
       spt::ilp::setDuration( record );
 
+      auto end = spt::ilp::APMRecord::DateTime{ record.timestamp + record.duration };
       auto str = builder.add( "apm", record ).finish();
       auto expected = std::format(
-        "apm,application=unit\\ test,key1=value1,key2=value2 id=\"abc123\",duration={}i,double=1.234,int=-1i,string=\"string value\",uint=1u {}\n",
+        "apm,application=unit\\ test,key1=value1,key2=value2 id=\"abc123\",duration={}i,end_timestamp={}t,double=1.234,int=-1i,string=\"string value\",uint=1u {}\n",
         record.duration.count(),
+        std::chrono::duration_cast<std::chrono::microseconds>( end.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.timestamp.time_since_epoch() ).count() );
       CHECK( str == expected );
     }
@@ -145,19 +147,27 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
 
       spt::ilp::setDuration( record );
 
+      auto end = spt::ilp::APMRecord::DateTime{ record.timestamp + record.duration };
+      auto end1 = spt::ilp::APMRecord::DateTime{ record.processes.front().timestamp + record.processes.front().duration };
+      auto end2 = spt::ilp::APMRecord::DateTime{ record.processes[1].timestamp + record.processes[1].duration };
+      auto end3 = spt::ilp::APMRecord::DateTime{ record.processes[2].timestamp + record.processes[2].duration };
       auto str = builder.add( "apm", record ).finish();
-      auto expected = std::format( R"(apm,application=unit\ test,key1=value1,key2=value2 id="abc123",duration={}i,double=1.234,int=-1i,string="string value",uint=1u {}
-apm,application=unit\ test,type=function,key10=value1,key11=value2 id="abc123",duration={}i,double=10.987,int=-10i,string="first value",uint=10u {}
-apm,application=unit\ test,type=step,key10=value10,key11=value20 id="abc123",duration={}i,bool=false,double=11.987,int=-11i,string="second value",uint=11u {}
-apm,application=unit\ test,type=other,key10=value11,key11=value21 id="abc123",duration={}i,bool=true,double=12.987,int=-12i,string="third value",uint=12u {}
+      auto expected = std::format( R"(apm,application=unit\ test,key1=value1,key2=value2 id="abc123",duration={}i,end_timestamp={}t,double=1.234,int=-1i,string="string value",uint=1u {}
+apm,application=unit\ test,type=function,key10=value1,key11=value2 id="abc123",duration={}i,end_timestamp={}t,double=10.987,int=-10i,string="first value",uint=10u {}
+apm,application=unit\ test,type=step,key10=value10,key11=value20 id="abc123",duration={}i,end_timestamp={}t,bool=false,double=11.987,int=-11i,string="second value",uint=11u {}
+apm,application=unit\ test,type=other,key10=value11,key11=value21 id="abc123",duration={}i,end_timestamp={}t,bool=true,double=12.987,int=-12i,string="third value",uint=12u {}
 )",
         record.duration.count(),
+        std::chrono::duration_cast<std::chrono::microseconds>( end.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.timestamp.time_since_epoch() ).count(),
         record.processes.front().duration.count(),
+        std::chrono::duration_cast<std::chrono::microseconds>( end1.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.front().timestamp.time_since_epoch() ).count(),
         record.processes[1].duration.count(),
+        std::chrono::duration_cast<std::chrono::microseconds>( end2.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes[1].timestamp.time_since_epoch() ).count(),
         record.processes.back().duration.count(),
+        std::chrono::duration_cast<std::chrono::microseconds>( end3.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.back().timestamp.time_since_epoch() ).count()
       );
       CHECK( str == expected );

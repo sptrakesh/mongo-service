@@ -86,10 +86,12 @@ namespace
 
     void addAPM( Builder& builder, const spt::ilp::APMRecord& apm )
     {
+      auto end = spt::ilp::APMRecord::DateTime{ apm.timestamp + apm.duration };
       builder.
         addTag( "application"sv, apm.application ).
         addValue( "id"sv, apm.id ).
         addValue( "duration"sv, apm.duration.count() ).
+        addValue( "end_timestamp", end ).
         timestamp( std::chrono::duration_cast<std::chrono::nanoseconds>( apm.timestamp.time_since_epoch() ) );
 
       ranges::for_each( apm.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
@@ -108,9 +110,11 @@ namespace
 
     void addProcess( Builder& builder, const spt::ilp::APMRecord::Process& process )
     {
+      auto end = spt::ilp::APMRecord::DateTime{ process.timestamp + process.duration };
       builder.
         addTag( "type"sv, typeName( process.type ) ).
         addValue( "duration"sv, process.duration.count() ).
+        addValue( "end_timestamp", end ).
         timestamp( std::chrono::duration_cast<std::chrono::nanoseconds>( process.timestamp.time_since_epoch() ) );
 
       ranges::for_each( process.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
@@ -218,7 +222,7 @@ Builder& Builder::addValue( std::string_view key, util::DateTimeMs v )
 Builder& Builder::addValue( std::string_view key, util::DateTimeNs v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( std::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::nanoseconds>( v.time_since_epoch() ).count() ) );
+  record->value.append( std::format( "{}={}t", key, std::chrono::duration_cast<std::chrono::microseconds>( v.time_since_epoch() ).count() ) );
   return *this;
 }
 
