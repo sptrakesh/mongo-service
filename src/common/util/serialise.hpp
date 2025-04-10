@@ -251,7 +251,18 @@ namespace spt::util
    * @param value The BSON value variant of type array.
    */
   template<typename Model>
+    requires spt::util::NotEnumeration<Model>
   void set( std::set<Model>& field, bsoncxx::types::bson_value::view value );
+
+  /**
+   * General purpose function for populating a set of items from a BSON value variant which should be of type array.
+   * @tparam E The type of enumeration stored in the set.
+   * @param field The set to populate from BSON.
+   * @param value The BSON value variant of type array.
+   */
+  template<typename E>
+    requires std::is_enum_v<E>
+  void set( std::set<E>& field, bsoncxx::types::bson_value::view value );
 
   /**
    * General purpose function for populating a vector of items from a BSON value variant which should be of type array.
@@ -260,7 +271,18 @@ namespace spt::util
    * @param value The BSON value variant of type array.
    */
   template <typename Model>
+    requires NotEnumeration<Model>
   void set( std::vector<Model>& field, bsoncxx::types::bson_value::view value );
+
+  /**
+   * General purpose function for populating a vector of enumerations from a BSON value variant which should be of type array.
+   * @tparam E The type of enumeration stored in the vector.
+   * @param field The vector to populate from BSON.
+   * @param value The BSON value variant of type array.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  void set( std::vector<E>& field, bsoncxx::types::bson_value::view value );
 
   /**
    * Standard implementation for setting optional types.  If the BSON value is not `null` delegate to the appropriate
@@ -270,6 +292,7 @@ namespace spt::util
    * @param value The BSON value variant.
    */
   template <typename M>
+    requires NotEnumeration<M>
   void set( std::optional<M>& field, bsoncxx::types::bson_value::view value );
 
   /**
@@ -916,6 +939,7 @@ inline void spt::util::set( std::vector<std::chrono::time_point<std::chrono::sys
 }
 
 template <typename M>
+  requires spt::util::NotEnumeration<M>
 void spt::util::set( std::optional<M>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() == bsoncxx::type::k_null ) return;
@@ -948,6 +972,7 @@ void spt::util::set( std::shared_ptr<M>& field, bsoncxx::types::bson_value::view
 }
 
 template <typename Model>
+  requires spt::util::NotEnumeration<Model>
 void spt::util::set( std::set<Model>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() != bsoncxx::type::k_array ) return;
@@ -966,13 +991,40 @@ void spt::util::set( std::set<Model>& field, bsoncxx::types::bson_value::view va
   }
 }
 
+template <typename E>
+  requires std::is_enum_v<E>
+void spt::util::set( std::set<E>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() != bsoncxx::type::k_array ) return;
+  for ( const auto& item : value.get_array().value )
+  {
+    if ( item.type() == bsoncxx::type::k_null ) continue;;
+    if ( item.type() != bsoncxx::type::k_string )
+    {
+      LOG_WARN << "Invalid type " << bsoncxx::to_string( item.type() ) << " for enumeration " << typeid(E).name();
+      continue;
+    }
+
+    if ( auto v = magic_enum::enum_cast<E>( item.get_string().value ); v ) field.emplace( v.value() );
+    else LOG_WARN << "Value " << item.get_string().value << " not part of enumeration " << typeid(E).name();
+  }
+}
+
 template <typename Model>
+  requires spt::util::NotEnumeration<Model>
 void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_value::view value )
 {
   if ( value.type() != bsoncxx::type::k_array ) return;
   field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item : value.get_array().value )
   {
+    if ( item.type() == bsoncxx::type::k_null ) continue;;
+    if ( item.type() != bsoncxx::type::k_document )
+    {
+      LOG_WARN << "Invalid type " << bsoncxx::to_string( item.type() ) << " for object " << typeid(Model).name();
+      continue;
+    }
+
     if ( std::ranges::distance( item.get_document().value ) == 0 ) continue;
     if constexpr ( std::constructible_from<Model, bsoncxx::document::view> )
     {
@@ -983,5 +1035,19 @@ void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_value::view
       field.emplace_back();
       set( field.back(), bsoncxx::types::bson_value::value{ item.get_document().value } );
     }
+  }
+}
+
+template <typename E>
+  requires std::is_enum_v<E>
+void spt::util::set( std::vector<E>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() != bsoncxx::type::k_array ) return;
+  field.reserve( std::ranges::distance( value.get_array().value ) );
+  for ( const auto& item : value.get_array().value )
+  {
+    if ( item.type() == bsoncxx::type::k_string ) continue;
+    if ( auto v = magic_enum::enum_cast<E>( item.get_string().value ); v ) field.push_back( v.value() );
+    else LOG_WARN << "Invalid value " << item.get_string().value << " for enumeration " << typeid( field ).name();
   }
 }
