@@ -2,6 +2,7 @@ FROM sptrakesh/config-db:alpine as config
 FROM sptrakesh/encrypter as encrypter
 FROM sptrakesh/mongocxx-boost as base
 
+RUN apk add --no-cache readline-dev
 COPY CMakeLists.txt /opt/spt/mongo-service/
 COPY MongoServiceConfig.cmake /opt/spt/mongo-service/
 COPY src /opt/spt/mongo-service/src
@@ -24,7 +25,8 @@ COPY --from=base /opt/spt/bin /opt/spt/bin
 COPY --from=base /opt/spt/lib /opt/spt/lib
 COPY --from=base /opt/spt/include /opt/spt/include
 
-RUN addgroup spt \
+RUN apk add --no-cache readline \
+  && addgroup spt \
   && adduser -DS -g "SPT User" -G spt -s /bin/sh -h /home/spt spt \
   && mkdir -p /opt/spt/logs /opt/spt/data \
   && chown spt:spt /opt/spt/logs /opt/spt/data

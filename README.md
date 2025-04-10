@@ -1551,6 +1551,18 @@ fi
 cmake --build build -j12
 ```
 
+### Shell
+A simple *shell* application is available for submitting JSON payloads to the service.  This utility is
+installed as `bin/mongoservicesh` under the destination `bin` directory.
+
+At present the application only supports *minified* (no new lines in payload) JSON.
+
+```shell
+mongo-service> {"action":"retrieve","database":"versionHistory","collection":"metrics","document":{},"options":{"limit":10}}
+[ { "_id" : { "$oid" : "673fbf81664b1b1c79069aa3" }, "action" : "bulk", "database" : "itest", "collection" : "test", "size" : 42, "time" : 33535667, "timestamp" : 303925860999166, "date" : { "$date" : 303925860 } }, { "_id" : { "$oid" : "673fbf81664b1b1c79069aa4" }, "action" : "count", "database" : "itest", "collection" : "test", "size" : 20, "time" : 1522792, "timestamp" : 303925862736541, "date" : { "$date" : 303925862 } }, { "_id" : { "$oid" : "673fbf81664b1b1c79069aa7" }, "action" : "bulk", "database" : "itest", "collection" : "test", "size" : 42, "time" : 6589333, "timestamp" : 303925869622583, "date" : { "$date" : 303925869 } }, { "_id" : { "$oid" : "673fbf81664b1b1c79069aa8" }, "action" : "count", "database" : "itest", "collection" : "test", "size" : 20, "time" : 1286667, "timestamp" : 303925871285166, "date" : { "$date" : 303925871 } }, { "_id" : { "$oid" : "673fbf82664b1b1c7906c1b9" }, "action" : "bulk", "database" : "itest", "collection" : "test", "size" : 42, "time" : 133520667, "timestamp" : 303926138874791, "date" : { "$date" : 303926138 } }, { "_id" : { "$oid" : "673fbf83664b1b1c7906e8ca" }, "action" : "bulk", "database" : "itest", "collection" : "test", "size" : 42, "time" : 1666033000, "timestamp" : 303927827494250, "date" : { "$date" : 303927827 } }, { "_id" : { "$oid" : "673fbf83664b1b1c7906e8cb" }, "action" : "createCollection", "database" : "itest", "collection" : "timeseries", "size" : 52, "time" : 7800333, "timestamp" : 303927837042375, "date" : { "$date" : 303927837 }, "application" : "integration-test" }, { "_id" : { "$oid" : "673fbf83664b1b1c7906e8cc" }, "action" : "createCollection", "database" : "itest", "collection" : "timeseries", "size" : 46, "time" : 374084, "timestamp" : 303927837541583, "date" : { "$date" : 303927837 }, "application" : "integration-test", "message" : "Collection exists in database" }, { "_id" : { "$oid" : "673fbf83664b1b1c7906e8ce" }, "action" : "createTimeseries", "database" : "itest", "collection" : "timeseries", "size" : 52, "time" : 842500, "timestamp" : 303927838668958, "date" : { "$date" : 303927838 }, "application" : "integration-test" }, { "_id" : { "$oid" : "673fbf83664b1b1c7906e8cf" }, "action" : "dropCollection", "database" : "itest", "collection" : "timeseries", "size" : 22, "time" : 439458, "timestamp" : 303927839200875, "date" : { "$date" : 303927839 }, "application" : "integration-test" } ]
+mongo-service> 
+```
+
 ### Command Line Utility
 A simple command line utility is available for generating BSON ObjectId values.  This utility is installed as
 `bin/genoid` under the destination `bin` directory.

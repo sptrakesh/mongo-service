@@ -153,6 +153,7 @@ add_subdirectory(src/common)
 add_subdirectory(src/service)
 add_subdirectory(src/api)
 add_subdirectory(src/genoid)
+add_subdirectory(src/shell)
 
 if (BUILD_TESTING)
   if (UNIX)
