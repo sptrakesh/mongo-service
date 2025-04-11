@@ -14,6 +14,11 @@
   #else
     #include <magic_enum/magic_enum.hpp>
   #endif
+  #if __has_include("../common/util/defer.hpp")
+    #include "../common/util/defer.hpp"
+  #else
+    #include <mongo-service/common/util/defer.hpp>
+  #endif
 #endif
 
 #include <bsoncxx/json.hpp>
@@ -106,6 +111,34 @@ auto spt::mongoservice::api::execute( bsoncxx::document::view document, std::siz
   return { ResultType::success, std::move( opt ) };
 }
 
+auto spt::mongoservice::api::execute( bsoncxx::document::view document, ilp::APMRecord& apm, std::size_t bufSize ) -> Response
+{
+  auto& p = ilp::addProcess( apm, ilp::APMRecord::Process::Type::Function );
+  DEFER( ilp::setDuration( p ) );
+
+  auto proxy = papi::PoolHolder::instance().acquire();
+  if ( !proxy )
+  {
+    LOG_CRIT << "Error acquiring connection from pool. APM id: " << apm.id;
+    p.values.try_emplace( "error", "Pool exhausted" );
+    return { ResultType::poolFailure, std::nullopt };
+  }
+
+  auto& connection = proxy.value().operator*();
+  auto idx = apm.processes.size();
+  auto opt = connection.execute( document, apm, bufSize );
+  ilp::addCurrentFunction( apm.processes[idx] );
+  if ( !opt )
+  {
+    LOG_WARN << "Error executing command " << bsoncxx::to_json( document ) << ". APM id: " << apm.id;
+    p.values.try_emplace( "error", "Command failed" );
+    connection.setValid( false );
+    return { ResultType::commandFailure, std::nullopt };
+  }
+
+  return { ResultType::success, std::move( opt ) };
+}
+
 auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) -> Response
 {
   using bsoncxx::builder::stream::document;
@@ -131,6 +164,39 @@ auto spt::mongoservice::api::execute( const Request& req, std::size_t bufSize ) 
 
   const auto q = query << finalize;
   return execute( q.view(), bufSize );
+}
+
+auto spt::mongoservice::api::execute( const Request& req, ilp::APMRecord& apm, std::size_t bufSize ) -> Response
+{
+  using bsoncxx::builder::stream::document;
+  using bsoncxx::builder::stream::open_document;
+  using bsoncxx::builder::stream::close_document;
+  using bsoncxx::builder::stream::finalize;
+  using std::operator ""sv;
+
+  auto& p = ilp::addProcess( apm, ilp::APMRecord::Process::Type::Function );
+  DEFER( ilp::setDuration( p ) );
+
+  auto action = ( model::request::Action::_delete == req.action ) ? "delete"sv : magic_enum::enum_name( req.action );
+  auto query = document{};
+  query <<
+    "action" << action <<
+    "database" << req.database <<
+    "collection" << req.collection <<
+    "document" << req.document <<
+    "application" << impl::ApiSettings::instance().application;
+
+  if ( req.options ) query << "options" << *req.options;
+  if ( req.metadata ) query << "metadata" << *req.metadata;
+  if ( req.correlationId ) query << "correlationId" << *req.correlationId;
+  if ( req.skipVersion ) query << "skipVersion" << req.skipVersion;
+  if ( req.skipMetric ) query << "skipMetric" << req.skipMetric;
+
+  const auto q = query << finalize;
+  auto idx = apm.processes.size();
+  auto resp = execute( q.view(), apm, bufSize );
+  ilp::addCurrentFunction( apm.processes[idx] );
+  return resp;
 }
 
 auto spt::mongoservice::api::executeAsync( bsoncxx::document::view document ) -> AsyncResponse

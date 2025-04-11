@@ -38,7 +38,9 @@ SCENARIO( "Collection test suite", "[collection]" )
               close_document <<
           finalize );
 
-      const auto [type, option] = spt::mongoservice::api::execute( request );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( request, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[collection] " << bsoncxx::to_json( *option );
@@ -85,7 +87,9 @@ SCENARIO( "Collection test suite", "[collection]" )
             "value" << 345.668 <<
             finalize );
 
-      const auto [type, option] = spt::mongoservice::api::execute( request );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( request, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[collection] " << bsoncxx::to_json( *option );
@@ -140,7 +144,9 @@ SCENARIO( "Collection test suite", "[collection]" )
 
       const auto request  = spt::mongoservice::api::Request::dropCollection( database, collection, document{} << finalize );
 
-      const auto [type, option] = spt::mongoservice::api::execute( request );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( request, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[collection] " << bsoncxx::to_json( *option );

@@ -4,6 +4,19 @@
 
 #pragma once
 
+#if defined __has_include
+  #if __has_include("../../common/util/defer.hpp")
+    #include "../../common/util/defer.hpp"
+  #else
+    #include <mongo-service/common/util/defer.hpp>
+  #endif
+  #if __has_include("../../ilp/apmrecord.hpp")
+    #include "../../ilp/apmrecord.hpp"
+  #else
+    #include <ilp/apmrecord.hpp>
+  #endif
+#endif
+
 #include <optional>
 #include <string_view>
 
@@ -32,6 +45,9 @@ namespace spt::mongoservice::api::impl
 
     [[nodiscard]] std::optional<bsoncxx::document::value> execute(
         bsoncxx::document::view document, std::size_t bufSize = 4 * 1024 );
+
+    [[nodiscard]] std::optional<bsoncxx::document::value> execute(
+        bsoncxx::document::view document, ilp::APMRecord& apm, std::size_t bufSize = 4 * 1024 );
 
     [[nodiscard]] bool valid() const { return v; }
     void setValid( bool valid ) { this->v = valid; }

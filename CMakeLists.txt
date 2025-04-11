@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
 if (POLICY CMP0069)
   cmake_policy(SET CMP0069 NEW)
@@ -156,6 +156,7 @@ add_subdirectory(src/genoid)
 add_subdirectory(src/shell)
 
 if (BUILD_TESTING)
+  enable_testing()
   if (UNIX)
     add_subdirectory(test/unit)
     add_subdirectory(test/integration)

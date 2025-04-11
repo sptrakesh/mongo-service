@@ -8,6 +8,14 @@
 #include "request.hpp"
 #include "pool/pool.hpp"
 
+#if defined __has_include
+  #if __has_include("../ilp/apmrecord.hpp")
+    #include "../ilp/apmrecord.hpp"
+  #else
+    #include <ilp/apmrecord.hpp>
+  #endif
+#endif
+
 #include <tuple>
 #include <boost/asio/awaitable.hpp>
 #include <bsoncxx/document/value.hpp>
@@ -48,8 +56,7 @@ namespace spt::mongoservice::api
   using Response = std::tuple<ResultType, std::optional<bsoncxx::document::value>>;
 
   /**
-   * Execute the command specified in the input document view against the
-   * service.
+   * Execute the command specified in the input document view against the service.
    * @param document The document with the command to execute.
    * @param bufSize Optional initial size of buffer to use to receive data.
    * @return The result document or std::nullopt if invalid data was received.
@@ -57,6 +64,17 @@ namespace spt::mongoservice::api
    *   of the command.
    */
   Response execute( bsoncxx::document::view document, std::size_t bufSize = 4 * 1024 );
+
+  /**
+   * Execute the command specified in the input document view against the service.
+   * @param document The document with the command to execute.
+   * @param apm The APM record to add trace information to.
+   * @param bufSize Optional initial size of buffer to use to receive data.
+   * @return The result document or std::nullopt if invalid data was received.
+   *   Caller must check the document contents to ensure successful execution
+   *   of the command.
+   */
+  Response execute( bsoncxx::document::view document, ilp::APMRecord& apm, std::size_t bufSize = 4 * 1024 );
 
   /**
    * Execute the command encapsulated in the request against the service.
@@ -67,6 +85,17 @@ namespace spt::mongoservice::api
    *   of the command.
    */
   Response execute( const Request& req, std::size_t bufSize = 4 * 1024 );
+
+  /**
+   * Execute the command encapsulated in the request against the service.
+   * @param req The request model to use to build the command.
+   * @param apm The APM record to add trace information to.
+   * @param bufSize Optional initial size of buffer to use to receive data.
+   * @return The result document or std::nullopt if invalid data was received.
+   *   Caller must check the document contents to ensure successful execution
+   *   of the command.
+   */
+  Response execute( const Request& req, ilp::APMRecord& apm, std::size_t bufSize = 4 * 1024 );
 
   using AsyncResponse = boost::asio::awaitable<Response>;
   /**

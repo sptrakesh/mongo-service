@@ -65,11 +65,13 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document() ),
           kvp( "skipMetric", true ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( document.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       REQUIRE( option->view().find( "error" ) == option->view().end() );
+      CHECK_FALSE( apm.processes.empty() );
 
       const auto count = spt::util::bsonValueIfExists<int64_t>( "count", option->view() );
       REQUIRE( count );
@@ -114,7 +116,8 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "key", "value" ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( document.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
@@ -122,6 +125,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "result" ) == opt.end() );
       REQUIRE( opt.find( "results" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
 
       const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
@@ -176,7 +180,8 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "collection", pcrud::vhc ),
           kvp( "document", basic::make_document( kvp( "entity._id", pcrud::oid ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( document.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
@@ -184,6 +189,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "result" ) == opt.end() );
       REQUIRE( opt.find( "results" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
 
       const auto arr = spt::util::bsonValue<bsoncxx::array::view>( "results", opt );
       REQUIRE_FALSE( arr.empty() );
@@ -252,12 +258,14 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "document", basic::make_document(
               kvp( "key1", "value1" ), kvp( "_id", pcrud::oid ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( document.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
       const auto opt = option->view();
       REQUIRE( opt.find( "error" ) == opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
 
       const auto doc = spt::util::bsonValueIfExists<bsoncxx::document::view>( "document", opt );
       REQUIRE_FALSE( doc );
@@ -278,7 +286,8 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "_id", pcrud::oid ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( document.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( document.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[crud] " << bsoncxx::to_json( *option );
@@ -286,6 +295,7 @@ SCENARIO( "Simple CRUD test suite", "[crud]" )
       REQUIRE( opt.find( "error" ) == opt.end() );
       REQUIRE( opt.find( "success" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
     }
 
     AND_THEN( "Retriving count of documents after delete" )

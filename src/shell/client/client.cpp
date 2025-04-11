@@ -24,7 +24,6 @@ namespace
     void help()
     {
       std::cout << "\033[1mInteract with mongo-service\033[0m" << '\n';
-      std::cout << "\033[1mEnter JSON payload followed by empty line!\033[0m" << '\n';
       std::cout << "  \033[1mTo create document\033[0m {\"action\":\"create\",\"database\":\"<database name>\",\"collection\":\"<collection name>\",\"document\":{\"_id\":{\"$oid\":\"5f35e5e1e799c52186039122\"},\"intValue\":123,\"floatValue\":123.0,\"boolValue\":true,\"stringValue\":\"abc123\",\"nested\":{\"key\":\"value\"}}}\n";
       std::cout << "  \033[1mTo retrieve\033[0m {\"action\":\"retrieve\",\"database\":\"itest\",\"collection\":\"test\",\"document\":{\"_id\":{\"$oid\":\"5f35e6d8c7e3a976365b3751\"}}}\n";
       std::cout << "  \033[1mTo count\033[0m {\"action\":\"count\",\"database\":\"itest\",\"collection\":\"test\",\"document\":{}}\n";
@@ -174,7 +173,7 @@ int spt::mongoservice::client::run( std::string_view server, std::string_view po
   using namespace std::literals;
   std::cout << "Enter commands followed by <ENTER>\n";
   std::cout << "Enter \033[1mhelp\033[0m for help about commands\n";
-  std::cout << "\033[1mEnter minified JSON payload followed by empty line!\033[0m\n";
+  std::cout << "\033[1mEnter minified JSON payload followed by new line!\033[0m\n";
   std::cout << "Enter \033[1mexit\033[0m or \033[1mquit\033[0m to exit shell\n";
 
   // Disable tab completion

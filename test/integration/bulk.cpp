@@ -60,7 +60,8 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           finalize;
       LOG_INFO << "[bulk] " << bsoncxx::to_json( doc.view() );
 
-      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
@@ -69,6 +70,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
       REQUIRE( opt.find( "remove" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
     }
 
     AND_THEN( "Retriving count of documents" )
@@ -116,7 +118,8 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           close_document <<
         finalize;
 
-      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value());
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
@@ -125,6 +128,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
       REQUIRE( opt.find( "remove" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
     }
 
     AND_THEN( "Retriving count of documents after delete" )
@@ -209,7 +213,8 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
           kvp( "collection", "test" ),
           kvp( "document", basic::make_document( kvp( "insert", arr.extract() ) ) ) );
 
-      const auto [type, option] = spt::mongoservice::api::execute( doc.view() );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      const auto [type, option] = spt::mongoservice::api::execute( doc.view(), apm );
       REQUIRE( type == spt::mongoservice::api::ResultType::success );
       REQUIRE( option.has_value() );
       LOG_INFO << "[bulk] " << bsoncxx::to_json( *option );
@@ -218,6 +223,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       REQUIRE( opt.find( "create" ) != opt.end() );
       REQUIRE( opt.find( "history" ) != opt.end() );
       REQUIRE( opt.find( "remove" ) != opt.end() );
+      CHECK_FALSE( apm.processes.empty() );
     }
 
     AND_THEN( "Deleting a large batch of documents" )

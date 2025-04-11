@@ -4,7 +4,7 @@ add_library(${Target_Name} STATIC ${mongo-service_SRCS})
 add_library(mongo-service::api ALIAS ${Target_Name})
 
 target_link_libraries(${Target_Name} PRIVATE mongo::mongocxx_static)
-target_link_libraries(${Target_Name} INTERFACE nanolog common Boost::boost Boost::json mongo::bsoncxx_static)
+target_link_libraries(${Target_Name} INTERFACE nanolog common ilp Boost::boost Boost::json mongo::bsoncxx_static)
 target_compile_definitions(${Target_Name} PRIVATE _FORTIFY_SOURCE=2)
 target_compile_features(${Target_Name} INTERFACE cxx_std_23)
 
