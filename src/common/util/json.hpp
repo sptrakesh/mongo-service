@@ -645,7 +645,7 @@ boost::json::value spt::util::json::json( const std::set<E>& items )
 
 template <typename Model>
     requires spt::util::NotEnumeration<Model>
-inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
+boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 {
   if ( vec.empty() ) return boost::json::value{};
   auto arr = boost::json::array{};
@@ -660,7 +660,7 @@ inline boost::json::value spt::util::json::json( const std::vector<Model>& vec )
 
 template <typename E>
   requires std::is_enum_v<E>
-inline boost::json::value spt::util::json::json( const std::vector<E>& items )
+boost::json::value spt::util::json::json( const std::vector<E>& items )
 {
   auto array = boost::json::array();
   array.reserve( items.size() );
@@ -1427,7 +1427,7 @@ inline void spt::util::json::set( const char* name, std::vector<DateTimeNs>& fie
 
 template <typename M>
   requires spt::util::NotEnumeration<M>
-inline void spt::util::json::set( const char* name, std::set<M>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::set<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -1444,7 +1444,7 @@ inline void spt::util::json::set( const char* name, std::set<M>& field, simdjson
 
 template <typename M>
   requires spt::util::NotEnumeration<M>
-inline void spt::util::json::set( const char* name, std::vector<M>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::vector<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() != simdjson::ondemand::json_type::array )
   {
@@ -1460,7 +1460,7 @@ inline void spt::util::json::set( const char* name, std::vector<M>& field, simdj
 }
 
 template <typename M>
-inline void spt::util::json::set( const char* name, std::optional<M>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::optional<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() == simdjson::ondemand::json_type::null ) return;
   auto m = M{};
@@ -1469,7 +1469,7 @@ inline void spt::util::json::set( const char* name, std::optional<M>& field, sim
 }
 
 template <typename M>
-inline void spt::util::json::set( const char* name, std::shared_ptr<M>& field, simdjson::ondemand::value& value )
+void spt::util::json::set( const char* name, std::shared_ptr<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() == simdjson::ondemand::json_type::null ) return;
   auto m = std::make_shared<M>();

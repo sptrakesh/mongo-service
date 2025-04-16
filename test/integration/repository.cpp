@@ -2,7 +2,7 @@
 // Created by Rakesh on 20/12/2024.
 //
 
-#include "../../src/api/repository/repository.hpp"
+#include "../../src/api/repository/repositorywithapm.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -129,7 +129,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       insert.options->bypassValidation = true;
       insert.options->ordered = true;
 
-      auto result = repository::create( insert );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::create( insert, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       REQUIRE( result.value().entity );
       CHECK_FALSE( insert.application.empty() );
@@ -167,7 +169,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       update.options->bypassValidation = true;
       update.options->upsert = true;
 
-      auto result = repository::update( update );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::update( update, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       REQUIRE( result.value().document );
       CHECK_FALSE( update.application.empty() );
@@ -218,7 +222,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       update.options->collation->locale = "en";
       update.options->collation->strength = 1;
 
-      auto result = repository::update( update );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::update( update, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       REQUIRE( result.value().document );
       CHECK_FALSE( update.application.empty() );
@@ -263,7 +269,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.options->returnKey = false;
       retrieve.options->showRecordId = false;
 
-      auto result = repository::retrieve<pmodel::Document>( retrieve );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::retrieve<pmodel::Document>( retrieve, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       CHECK_FALSE( retrieve.application.empty() );
       REQUIRE( result.value().result );
@@ -307,7 +315,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
 
-      auto result = repository::retrieve<pmodel::Document>( retrieve );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::retrieve<pmodel::Document>( retrieve, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       CHECK_FALSE( retrieve.application.empty() );
       CHECK_FALSE( result.value().result );
@@ -360,7 +370,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       pipeline.options->returnKey = true;
       pipeline.options->showRecordId = true;
 
-      auto result = repository::pipeline<pmodel::Document>( pipeline );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::pipeline<pmodel::Document>( pipeline, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       CHECK_FALSE( pipeline.application.empty() );
       CHECK_FALSE( result.value().result );
@@ -394,7 +406,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       distinct.options = options::Distinct{};
       distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
 
-      auto result = repository::distinct( distinct );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::distinct( distinct, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       CHECK_FALSE( distinct.application.empty() );
       CHECK_FALSE( result.value().results.empty() );
@@ -426,7 +440,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       bulk.database = database;
       bulk.collection = collection;
 
-      auto result = repository::bulk( bulk );
+      auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+      auto result = repository::bulk( bulk, apm );
+      CHECK_FALSE( apm.processes.empty() );
       REQUIRE( result.has_value() );
       CHECK_FALSE( bulk.application.empty() );
       CHECK( result.value().create == static_cast<int32_t>( bulk.document.insert.size() ) );
@@ -480,7 +496,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
         index.options->hidden = false;
         index.options->sparse = false;
 
-        auto result = repository::dropIndex( index );
+        auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+        auto result = repository::dropIndex( index, apm );
+        CHECK_FALSE( apm.processes.empty() );
         REQUIRE( result.has_value() );
         CHECK_FALSE( index.application.empty() );
         CHECK( result.value().dropIndex );
@@ -520,7 +538,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
         insert.collection = tscollection;
         insert.document.tags.str = "value";
 
-        auto result = repository::create( insert );
+        auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+        auto result = repository::create( insert, apm );
+        CHECK_FALSE( apm.processes.empty() );
         REQUIRE( result.has_value() );
         CHECK_FALSE( insert.application.empty() );
         REQUIRE( result.value().id );
@@ -552,7 +572,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
         remove.database = database;
         remove.collection = tscollection;
 
-        auto result = repository::dropCollection( remove );
+        auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+        auto result = repository::dropCollection( remove, apm );
+        CHECK_FALSE( apm.processes.empty() );
         REQUIRE( result.has_value() );
         CHECK_FALSE( remove.application.empty() );
         CHECK( result.value().dropCollection );
@@ -583,7 +605,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
         rename.database = database;
         rename.collection = coll;
 
-        auto result = repository::collection( rename );
+        auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
+        auto result = repository::collection( rename, apm );
+        CHECK_FALSE( apm.processes.empty() );
         REQUIRE( result.has_value() );
         CHECK_FALSE( rename.application.empty() );
         CHECK( result.value().database == database );

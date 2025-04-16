@@ -537,9 +537,9 @@ bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items 
 
 template<typename E>
   requires std::is_enum_v<E>
-inline bsoncxx::types::bson_value::value spt::util::bson( const std::set<E> &items )
+bsoncxx::types::bson_value::value spt::util::bson( const std::set<E> &items )
 {
-  if ( items.empty()) return bsoncxx::types::b_null{};
+  if ( items.empty() ) return bsoncxx::types::b_null{};
 
   auto arr = bsoncxx::builder::stream::array{};
   for ( const auto &item: items )
@@ -569,7 +569,7 @@ template<typename E>
   requires std::is_enum_v<E>
 inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<E> &items )
 {
-  if ( items.empty()) return bsoncxx::types::b_null{};
+  if ( items.empty() ) return bsoncxx::types::b_null{};
 
   auto arr = bsoncxx::builder::stream::array{};
   for ( const auto &item: items )
@@ -1018,7 +1018,7 @@ void spt::util::set( std::vector<Model>& field, bsoncxx::types::bson_value::view
   field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item : value.get_array().value )
   {
-    if ( item.type() == bsoncxx::type::k_null ) continue;;
+    if ( item.type() == bsoncxx::type::k_null ) continue;
     if ( item.type() != bsoncxx::type::k_document )
     {
       LOG_WARN << "Invalid type " << bsoncxx::to_string( item.type() ) << " for object " << typeid(Model).name();
@@ -1046,7 +1046,12 @@ void spt::util::set( std::vector<E>& field, bsoncxx::types::bson_value::view val
   field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item : value.get_array().value )
   {
-    if ( item.type() == bsoncxx::type::k_string ) continue;
+    if ( item.type() == bsoncxx::type::k_null ) continue;
+    if ( item.type() != bsoncxx::type::k_string )
+    {
+      LOG_WARN << "Invalid type " << bsoncxx::to_string( item.type() ) << " for enumeration " << typeid(E).name();
+      continue;
+    }
     if ( auto v = magic_enum::enum_cast<E>( item.get_string().value ); v ) field.push_back( v.value() );
     else LOG_WARN << "Invalid value " << item.get_string().value << " for enumeration " << typeid( field ).name();
   }
