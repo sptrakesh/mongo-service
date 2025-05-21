@@ -212,7 +212,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->projection = document{} << "name" << 1 << "_id" << 0 << finalize;
       retrieve.options->sort = document{} << "name" << 1 << "_id" << -1 << finalize;
       retrieve.options->readPreference = options::ReadPreference{};
-      retrieve.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
@@ -264,7 +263,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->projection = document{} << "name" << 1 << "_id" << 0 << finalize;
       retrieve.options->sort = document{} << "name" << 1 << "_id" << -1 << finalize;
       retrieve.options->readPreference = options::ReadPreference{};
-      retrieve.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
@@ -322,7 +320,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation->strength = 1;
       count.options->hint = document{} << "name" << 1 << finalize;
       count.options->readPreference = options::ReadPreference{};
-      count.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       count.options->readPreference->tags = document{} << "region" << "east" << finalize;
       count.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       count.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
@@ -360,7 +357,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation->strength = 1;
       count.options->hint = document{} << "name" << 1 << finalize;
       count.options->readPreference = options::ReadPreference{};
-      count.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       count.options->readPreference->tags = document{} << "region" << "east" << finalize;
       count.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       count.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
@@ -405,7 +401,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
       distinct.options->readPreference = options::ReadPreference{};
-      distinct.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       distinct.options->readPreference->tags = document{} << "region" << "east" << finalize;
       distinct.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       distinct.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
@@ -440,7 +435,6 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
       distinct.options->readPreference = options::ReadPreference{};
-      distinct.options->readPreference->hedge = document{} << "enabled" << true << finalize;
       distinct.options->readPreference->tags = document{} << "region" << "east" << finalize;
       distinct.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       distinct.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;

@@ -11,9 +11,17 @@ if (UNIX)
       PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} ${JEMALLOC_LIBRARY} ${ZSTD_LIBRARY} ZLIB::ZLIB
     )
   else()
-    target_link_libraries(${Target_Name}
-      PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} jemalloc ZLIB::ZLIB
-    )
+    if (USE_MONGOCXX_CONFIG)
+      target_link_libraries(${Target_Name}
+        PRIVATE common ilp mongo::mongocxx_static ${OPENSSL_LIBRARIES} jemalloc ZLIB::ZLIB
+      )
+    else ()
+      target_link_libraries(${Target_Name}
+        PRIVATE common ilp mongoc2 mongocxx-static ${OPENSSL_LIBRARIES} jemalloc ZLIB::ZLIB resolv
+      )
+      target_include_directories(${Target_Name} PRIVATE /opt/local/include/mongocxx/v_noabi)
+      target_include_directories(${Target_Name} INTERFACE /opt/local/include/mongocxx/v_noabi)
+    endif (USE_MONGOCXX_CONFIG)
   endif(APPLE)
 else()
   target_link_libraries(${Target_Name}

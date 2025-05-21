@@ -50,7 +50,6 @@ SCENARIO( "Options API model test suite", "[options]" )
     WHEN( "Serialising read preference" )
     {
       auto rp = ReadPreference{};
-      rp.hedge = document{} << "enabled" << true << finalize;
       rp.tags = document{} << "region" << "east" << finalize;
       rp.maxStaleness = std::chrono::seconds{ 120 };
       rp.mode = ReadPreference::ReadMode::Nearest;
@@ -59,7 +58,6 @@ SCENARIO( "Options API model test suite", "[options]" )
       auto copy = spt::util::unmarshall<ReadPreference>( bson );
 
       CHECK_FALSE( visit_struct::traits::ext::is_fully_visitable<ReadPreference>() );
-      CHECK( rp.hedge == copy.hedge );
       CHECK( rp.tags == copy.tags );
       CHECK( rp.maxStaleness == copy.maxStaleness );
       CHECK( rp.mode == copy.mode );
@@ -207,7 +205,6 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.projection = document{} << "name" << 1 << "_id" << 0 << finalize;
       opt.sort = document{} << "name" << 1 << "_id" << -1 << finalize;
       opt.readPreference = ReadPreference{};
-      opt.readPreference->hedge = document{} << "enabled" << true << finalize;
       opt.readPreference->tags = document{} << "region" << "east" << finalize;
       opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
       opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
@@ -256,7 +253,6 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.limit = 10000;
       opt.skip = 1000;
       opt.readPreference = ReadPreference{};
-      opt.readPreference->hedge = document{} << "enabled" << true << finalize;
       opt.readPreference->tags = document{} << "region" << "east" << finalize;
       opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
       opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
@@ -280,7 +276,6 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation->strength = 1;
       opt.maxTime = std::chrono::milliseconds{ 1000 };
       opt.readPreference = ReadPreference{};
-      opt.readPreference->hedge = document{} << "enabled" << true << finalize;
       opt.readPreference->tags = document{} << "region" << "east" << finalize;
       opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
       opt.readPreference->mode = ReadPreference::ReadMode::Nearest;

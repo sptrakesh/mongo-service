@@ -32,7 +32,6 @@ namespace spt::mongoservice::api::options
 
     BEGIN_VISITABLES(ReadPreference);
     VISITABLE(std::optional<bsoncxx::document::value>, tags);
-    VISITABLE(std::optional<bsoncxx::document::value>, hedge);
     VISITABLE_DIRECT_INIT(std::optional<std::chrono::seconds>, maxStaleness, {std::nullopt});
     ReadMode mode{ReadMode::Primary};
     END_VISITABLES;

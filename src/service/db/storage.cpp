@@ -213,7 +213,6 @@ namespace
       auto p = mongocxx::read_preference{};
 
       if ( const auto v = bsonValueIfExists<bsoncxx::document::view>( "tags", opts ); v ) p.tags( *v );
-      if ( const auto v = bsonValueIfExists<bsoncxx::document::view>( "hedge", opts ); v ) p.hedge( *v );
       if ( const auto v = bsonValueIfExists<int64_t>( "maxStaleness", opts ); v ) p.max_staleness( std::chrono::seconds{ *v } );
       if ( const auto v = bsonValueIfExists<int32_t>( "mode", opts ); v ) p.mode( static_cast<mongocxx::read_preference::read_mode>( *v ) );
       return p;

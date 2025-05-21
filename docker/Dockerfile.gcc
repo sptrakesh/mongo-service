@@ -2,14 +2,21 @@ FROM sptrakesh/config-db as config
 FROM sptrakesh/encrypter:gcc as encrypter
 FROM sptrakesh/mongocxx-boost:gcc as base
 
-COPY CMakeLists.txt /opt/spt/mongo-service/CMakeLists.txt
-COPY src /opt/spt/mongo-service/src
+RUN apt install -y libreadline-dev
 
-WORKDIR /opt/spt/mongo-service/build
-RUN rm -rf * \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_TESTING=OFF .. \
-  && make -j8 \
-  && make install
+COPY CMakeLists.txt /opt/spt/mongo-service/CMakeLists.txt
+COPY MongoServiceConfig.cmake /opt/spt/mongo-service/
+COPY src /opt/spt/mongo-service/src
+COPY docker/env.sh /opt/spt/mongo-service/docker/
+
+WORKDIR /opt/spt/mongo-service
+RUN cmake -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=/opt/local \
+    -DUSE_MONGOCXX_CONFIG=OFF \
+    -DBUILD_TESTING=OFF \
+    -B build -S . \
+  && cmake --build build -j8 \
+  && cmake --install build
 
 FROM sptrakesh/cppruntime:gcc
 
@@ -24,7 +31,8 @@ COPY --from=base /opt/spt/include /opt/spt/include
 
 RUN useradd --shell /bin/sh --home-dir /home/spt spt \
   && mkdir -p /opt/spt/logs /opt/spt/data \
-  && chown spt:spt /opt/spt/logs /opt/spt/data
+  && chown spt:spt /opt/spt/logs /opt/spt/data \
+  && apt install -y libreadline8t64
 
 COPY docker/scripts/entrypoint.sh /opt/spt/bin
 COPY docker/scripts/gdb.sh /tmp
