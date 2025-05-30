@@ -327,7 +327,7 @@ namespace spt::util
   {
     if ( value.get_string().value.empty() ) return;
     if ( auto e = magic_enum::enum_cast<E>( value.get_string().value ); e ) field = *e;
-    else LOG_WARN << "Value (" << value.get_string().value << ") cannot be cast to enum type " << typeid( E ).name();
+    else LOG_DEBUG << "Value (" << value.get_string().value << ") cannot be cast to enum type " << typeid( E ).name();
   }
 
   /**
@@ -471,6 +471,30 @@ template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const boost::json::object& model )
 {
   return bsoncxx::types::b_document{ toBson( model ) };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const boost::json::value& model )
+{
+  switch ( model.kind() )
+  {
+    using enum boost::json::kind;
+    case null: return bsoncxx::types::b_null{};
+    case bool_: return bsoncxx::types::b_bool{ model.as_bool() };
+    case int64: return bsoncxx::types::b_int64{ model.as_int64() };
+    case uint64: return bsoncxx::types::b_int64{ static_cast<int64_t>( model.as_uint64() ) };
+    case double_: return bsoncxx::types::b_double{ model.as_double() };
+    case string:
+    {
+      auto str = model.as_string();
+      if ( str.empty() ) return bsoncxx::types::b_null{};
+      return bsoncxx::types::b_string{ str };
+    }
+    case array: return bsoncxx::types::b_array{ toBson( model.as_array() ) };
+    case object: return bsoncxx::types::b_document{ toBson( model.as_object() ) };
+  }
+
+  return bsoncxx::types::b_null{};
 }
 
 template <>
@@ -821,6 +845,27 @@ template <>
 inline void spt::util::set( boost::json::object& field, bsoncxx::types::bson_value::view value )
 {
   if ( bsoncxx::type::k_document == value.type() ) field = fromBson( value.get_document().value );
+}
+
+template <>
+inline void spt::util::set( boost::json::value& field, bsoncxx::types::bson_value::view value )
+{
+  switch ( value.type() )
+  {
+    using enum bsoncxx::type;
+  case k_double: field = value.get_double().value; break;
+  case k_string: field = value.get_string().value; break;
+  case k_document: field = fromBson( value.get_document().value ); break;
+  case k_array: field = fromBson( value.get_array().value ); break;
+  case k_oid: field = value.get_oid().value.to_string(); break;
+  case k_bool: field = value.get_bool().value; break;
+  case k_date: field = isoDateMicros( value.get_date().value ); break;
+  case k_int32: field = value.get_int32().value; break;
+  case k_int64: field = value.get_int64().value; break;
+  case k_null: field = boost::json::value{}; break;
+  default:
+    LOG_DEBUG << "Unhandled type " << bsoncxx::to_string( value.type() );
+  }
 }
 
 template <>

@@ -178,4 +178,19 @@ namespace spt::util::test::serial
   {
     model.populate( object );
   }
+
+  struct Property
+  {
+    BEGIN_VISITABLES(Property);
+    VISITABLE(std::string, name);
+    VISITABLE(boost::json::value, value);
+    END_VISITABLES;
+  };
+
+  struct Properties
+  {
+    BEGIN_VISITABLES(Properties);
+    VISITABLE(std::vector<Property>, properties);
+    END_VISITABLES;
+  };
 }

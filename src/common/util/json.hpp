@@ -566,6 +566,12 @@ inline boost::json::value spt::util::json::json( const boost::json::object& mode
 }
 
 template <>
+inline boost::json::value spt::util::json::json( const boost::json::value& model )
+{
+  return model;
+}
+
+template <>
 inline boost::json::value spt::util::json::json( const bsoncxx::array::value& model )
 {
   return toJson( model );
@@ -1076,6 +1082,53 @@ inline void spt::util::json::set( const char* name, boost::json::object& field, 
     else field = p.as_object();
   }
   else LOG_WARN << "Error converting value to string. " << simdjson::error_message( str.error() );
+}
+
+template <>
+inline void spt::util::json::set( const char* name, boost::json::value& field, simdjson::ondemand::value& value )
+{
+  switch ( value.type().value() )
+  {
+    using enum simdjson::ondemand::json_type;
+  case array:
+  {
+    auto arr = boost::json::array{};
+    set( name, arr, value );
+    field = arr;
+    break;
+  }
+  case object:
+  {
+    auto obj = boost::json::object{};
+    set( name, obj, value );
+    field = obj;
+    break;
+  }
+  case number:
+  {
+    auto num = simdjson::ondemand::number{};
+    value.get( num );
+    if ( num.is_double() ) field = boost::json::value{ num.get_double() };
+    if ( num.is_int64() ) field = boost::json::value{ num.get_int64() };
+    if ( num.is_uint64() ) field = boost::json::value{ num.get_uint64() };
+    break;
+  }
+  case string:
+  {
+    std::string_view v;
+    value.get( v );
+    field = boost::json::value{ v };
+    break;
+  }
+  case boolean:
+  {
+    bool bv{ false };
+    value.get( bv );
+    field = boost::json::value{ bv };
+    break;
+  }
+  case null: break;
+  }
 }
 
 template <>

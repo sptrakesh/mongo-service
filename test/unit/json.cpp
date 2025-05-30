@@ -8,6 +8,7 @@
 #include <thread>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 using namespace spt::util;
 
@@ -576,6 +577,95 @@ SCENARIO( "Pooled parser test suite", "[pooled-parser]" )
       threads.reserve( 100 );
       for ( auto i = 0; i < 100; ++i ) threads.emplace_back( [&data](){ json::unmarshall<test::serial::Full>( data ); } );
       for ( auto i = 0; i < 100; ++i ) if ( threads[i].joinable() ) threads[i].join();
+    }
+  }
+}
+
+SCENARIO( "Properties test suite", "[properties]" )
+{
+  GIVEN( "A JSON representation" )
+  {
+    const auto json = R"json({
+  "properties": [
+    {
+      "name": "begin",
+      "value": {
+        "unit": "in",
+        "value": 4.114543762687808E3
+      }
+    },
+    {
+      "name": "end",
+      "value": {
+        "unit": "in",
+        "value": 2.8749617758545774E3
+      }
+    }
+  ]
+})json";
+
+    WHEN( "Parsing JSON" )
+    {
+      const auto p = json::unmarshall<test::serial::Properties>( json );
+      REQUIRE( p.properties.size() == 2 );
+      CHECK( p.properties[0].name == "begin" );
+      REQUIRE( p.properties[0].value.is_object() );
+
+      const auto& p0 = p.properties[0].value.as_object();
+      REQUIRE( p0.contains( "unit" ) );
+      CHECK( p0.at( "unit" ).as_string() == "in" );
+      REQUIRE( p0.contains( "value" ) );
+      CHECK_THAT( p0.at( "value" ).as_double(), Catch::Matchers::WithinRel( 4.114543762687808E3, 0.000001 ) );
+
+      CHECK( p.properties[1].name == "end" );
+      REQUIRE( p.properties[1].value.is_object() );
+      const auto& p1 = p.properties[1].value.as_object();
+      REQUIRE( p1.contains( "unit" ) );
+      CHECK( p1.at( "unit" ).as_string() == "in" );
+      REQUIRE( p1.contains( "value" ) );
+      CHECK_THAT( p1.at( "value" ).as_double(), Catch::Matchers::WithinRel( 2.8749617758545774E3, 0.000001 ) );
+    }
+
+    AND_WHEN( "Serialising to JSON" )
+    {
+      const auto _p = json::unmarshall<test::serial::Properties>( json );
+      const auto str = json::str( _p );
+      const auto p = json::unmarshall<test::serial::Properties>( str );
+
+      const auto& p0 = p.properties[0].value.as_object();
+      REQUIRE( p0.contains( "unit" ) );
+      CHECK( p0.at( "unit" ).as_string() == "in" );
+      REQUIRE( p0.contains( "value" ) );
+      CHECK_THAT( p0.at( "value" ).as_double(), Catch::Matchers::WithinRel( 4.114543762687808E3, 0.000001 ) );
+
+      CHECK( p.properties[1].name == "end" );
+      REQUIRE( p.properties[1].value.is_object() );
+      const auto& p1 = p.properties[1].value.as_object();
+      REQUIRE( p1.contains( "unit" ) );
+      CHECK( p1.at( "unit" ).as_string() == "in" );
+      REQUIRE( p1.contains( "value" ) );
+      CHECK_THAT( p1.at( "value" ).as_double(), Catch::Matchers::WithinRel( 2.8749617758545774E3, 0.000001 ) );
+    }
+
+    AND_WHEN( "Serialising to BSON" )
+    {
+      const auto _p = json::unmarshall<test::serial::Properties>( json );
+      const auto bson = marshall( _p );
+      const auto p = unmarshall<test::serial::Properties>( bson );
+
+      const auto& p0 = p.properties[0].value.as_object();
+      REQUIRE( p0.contains( "unit" ) );
+      CHECK( p0.at( "unit" ).as_string() == "in" );
+      REQUIRE( p0.contains( "value" ) );
+      CHECK_THAT( p0.at( "value" ).as_double(), Catch::Matchers::WithinRel( 4.114543762687808E3, 0.000001 ) );
+
+      CHECK( p.properties[1].name == "end" );
+      REQUIRE( p.properties[1].value.is_object() );
+      const auto& p1 = p.properties[1].value.as_object();
+      REQUIRE( p1.contains( "unit" ) );
+      CHECK( p1.at( "unit" ).as_string() == "in" );
+      REQUIRE( p1.contains( "value" ) );
+      CHECK_THAT( p1.at( "value" ).as_double(), Catch::Matchers::WithinRel( 2.8749617758545774E3, 0.000001 ) );
     }
   }
 }
