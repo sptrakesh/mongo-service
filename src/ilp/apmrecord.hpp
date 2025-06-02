@@ -5,13 +5,12 @@
 #pragma once
 
 #include <chrono>
+#include <deque>
 #include <format>
-#include <memory>
 #include <source_location>
 #include <string>
 #include <string_view>
 #include <variant>
-#include <vector>
 #include <boost/container/flat_map.hpp>
 
 namespace spt::ilp
@@ -40,8 +39,6 @@ namespace spt::ilp
      */
     struct Process
     {
-      using Ptr = std::unique_ptr<Process>;
-
       /// Enumeration of process types.
       enum class Type : std::uint8_t
       {
@@ -87,7 +84,7 @@ namespace spt::ilp
     APMRecord( const APMRecord& ) = delete;
     APMRecord& operator=( const APMRecord& ) = delete;
 
-    std::vector<Process::Ptr> processes;
+    std::deque<Process> processes;
     /// Tags that will be sent via ILP.  Do not include application or id.
     TagMap tags;
     /// Values that will be sent via ILP.  Do not include duration.
@@ -118,12 +115,11 @@ namespace spt::ilp
    * @param id The id to assign to the record being created
    * @param application The name of the application for which the record is being created.
    * @param type The type to assign to the first process to add to the record.
-   * @param size The number of `processes` to reserve space for.
    * @param loc The location at which the record is to be created.
    * @return The newly created APM record.
    */
   APMRecord createAPMRecord( std::string_view id, std::string_view application, APMRecord::Process::Type type,
-    std::size_t size, std::source_location loc = std::source_location::current() );
+    std::source_location loc = std::source_location::current() );
 
   /**
    * Add a new process of specified type to the APM record.

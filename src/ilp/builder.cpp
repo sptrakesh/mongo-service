@@ -240,7 +240,7 @@ Builder& Builder::add( std::string_view name, const APMRecord& apm )
     startRecord( name ).
       addTag( "application"sv, apm.application ).
       addValue( "id", apm.id );
-    pbuilder::addProcess( *this, *process );
+    pbuilder::addProcess( *this, process );
     endRecord();
   } );
   return *this;
