@@ -64,7 +64,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -147,7 +147,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -234,7 +234,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -320,7 +320,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -402,7 +402,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
       if ( type == ResultType::poolFailure )
       {
@@ -483,7 +483,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -564,7 +564,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -640,7 +640,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -723,7 +723,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -801,7 +801,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -881,7 +881,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -961,7 +961,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )
@@ -1045,7 +1045,7 @@ namespace spt::mongoservice::api::repository
       auto bson = util::marshall( request );
       auto idx = apm.processes.size();
       const auto [type, opt] = execute( bson, apm );
-      ilp::addCurrentFunction( apm.processes[idx] );
+      ilp::addCurrentFunction( *apm.processes[idx] );
       ilp::setDuration( cp );
 
       if ( type == ResultType::poolFailure )

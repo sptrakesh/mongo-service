@@ -113,8 +113,8 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
       record.values.try_emplace( "double", double{ 1.234 } );
       record.values.try_emplace( "string", std::string{ "string value" } );
 
-      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Function );
-      auto& p1 = record.processes.back();
+      record.processes.emplace_back( std::make_unique<spt::ilp::APMRecord::Process>( spt::ilp::APMRecord::Process::Type::Function ) );
+      auto& p1 = *record.processes.back();
       p1.tags.try_emplace( "key10", "value1" );
       p1.tags.try_emplace( "key11", "value2" );
       p1.values.try_emplace( "int", int64_t{ -10 } );
@@ -123,8 +123,8 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
       p1.values.try_emplace( "string", "first value" );
       spt::ilp::setDuration( p1 );
 
-      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Step );
-      auto& p2 = record.processes.back();
+      record.processes.emplace_back( std::make_unique<spt::ilp::APMRecord::Process>( spt::ilp::APMRecord::Process::Type::Step ) );
+      auto& p2 = *record.processes.back();
       p2.tags.try_emplace( "key10", "value10" );
       p2.tags.try_emplace( "key11", "value20" );
       p2.values.try_emplace( "int", int64_t{ -11 } );
@@ -134,8 +134,8 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
       p2.values.try_emplace( "bool", false );
       spt::ilp::setDuration( p2 );
 
-      record.processes.emplace_back( spt::ilp::APMRecord::Process::Type::Other );
-      auto& p3 = record.processes.back();
+      record.processes.emplace_back( std::make_unique<spt::ilp::APMRecord::Process>( spt::ilp::APMRecord::Process::Type::Other ) );
+      auto& p3 = *record.processes.back();
       p3.tags.try_emplace( "key10", "value11" );
       p3.tags.try_emplace( "key11", "value21" );
       p3.values.try_emplace( "int", int64_t{ -12 } );
@@ -148,9 +148,9 @@ readings,city=London,make=Omron temperature=23.6,humidity=0.348 1465839830100700
       spt::ilp::setDuration( record );
 
       auto end = spt::ilp::APMRecord::DateTime{ record.timestamp + record.duration };
-      auto end1 = spt::ilp::APMRecord::DateTime{ record.processes.front().timestamp + record.processes.front().duration };
-      auto end2 = spt::ilp::APMRecord::DateTime{ record.processes[1].timestamp + record.processes[1].duration };
-      auto end3 = spt::ilp::APMRecord::DateTime{ record.processes[2].timestamp + record.processes[2].duration };
+      auto end1 = spt::ilp::APMRecord::DateTime{ record.processes.front()->timestamp + record.processes.front()->duration };
+      auto end2 = spt::ilp::APMRecord::DateTime{ record.processes[1]->timestamp + record.processes[1]->duration };
+      auto end3 = spt::ilp::APMRecord::DateTime{ record.processes[2]->timestamp + record.processes[2]->duration };
       auto str = builder.add( "apm", record ).finish();
       auto expected = std::format( R"(apm,application=unit\ test,key1=value1,key2=value2 id="abc123",duration={}i,end_timestamp={}t,double=1.234,int=-1i,string="string value",uint=1u {}
 apm,application=unit\ test,type=function,key10=value1,key11=value2 id="abc123",duration={}i,end_timestamp={}t,double=10.987,int=-10i,string="first value",uint=10u {}
@@ -160,20 +160,20 @@ apm,application=unit\ test,type=other,key10=value11,key11=value21 id="abc123",du
         record.duration.count(),
         std::chrono::duration_cast<std::chrono::microseconds>( end.time_since_epoch() ).count(),
         std::chrono::duration_cast<std::chrono::nanoseconds>( record.timestamp.time_since_epoch() ).count(),
-        record.processes.front().duration.count(),
+        record.processes.front()->duration.count(),
         std::chrono::duration_cast<std::chrono::microseconds>( end1.time_since_epoch() ).count(),
-        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.front().timestamp.time_since_epoch() ).count(),
-        record.processes[1].duration.count(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.front()->timestamp.time_since_epoch() ).count(),
+        record.processes[1]->duration.count(),
         std::chrono::duration_cast<std::chrono::microseconds>( end2.time_since_epoch() ).count(),
-        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes[1].timestamp.time_since_epoch() ).count(),
-        record.processes.back().duration.count(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes[1]->timestamp.time_since_epoch() ).count(),
+        record.processes.back()->duration.count(),
         std::chrono::duration_cast<std::chrono::microseconds>( end3.time_since_epoch() ).count(),
-        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.back().timestamp.time_since_epoch() ).count()
+        std::chrono::duration_cast<std::chrono::nanoseconds>( record.processes.back()->timestamp.time_since_epoch() ).count()
       );
       CHECK( str == expected );
-      CHECK( record.duration > record.processes.front().duration );
-      CHECK( record.duration > record.processes[1].duration );
-      CHECK( record.duration > record.processes.back().duration );
+      CHECK( record.duration > record.processes.front()->duration );
+      CHECK( record.duration > record.processes[1]->duration );
+      CHECK( record.duration > record.processes.back()->duration );
     }
   }
 }

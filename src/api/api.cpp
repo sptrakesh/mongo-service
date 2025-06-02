@@ -127,7 +127,7 @@ auto spt::mongoservice::api::execute( bsoncxx::document::view document, ilp::APM
   auto& connection = proxy.value().operator*();
   auto idx = apm.processes.size();
   auto opt = connection.execute( document, apm, bufSize );
-  ilp::addCurrentFunction( apm.processes[idx] );
+  ilp::addCurrentFunction( *apm.processes[idx] );
   if ( !opt )
   {
     LOG_WARN << "Error executing command " << bsoncxx::to_json( document ) << ". APM id: " << apm.id;
@@ -195,7 +195,7 @@ auto spt::mongoservice::api::execute( const Request& req, ilp::APMRecord& apm, s
   const auto q = query << finalize;
   auto idx = apm.processes.size();
   auto resp = execute( q.view(), apm, bufSize );
-  ilp::addCurrentFunction( apm.processes[idx] );
+  ilp::addCurrentFunction( *apm.processes[idx] );
   return resp;
 }
 

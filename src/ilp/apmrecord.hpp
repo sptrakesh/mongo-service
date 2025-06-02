@@ -6,12 +6,13 @@
 
 #include <chrono>
 #include <format>
-#include <map>
+#include <memory>
 #include <source_location>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
+#include <boost/container/flat_map.hpp>
 
 namespace spt::ilp
 {
@@ -29,12 +30,18 @@ namespace spt::ilp
     using DateTime = std::chrono::time_point<std::chrono::high_resolution_clock, std::chrono::nanoseconds>;
     /// Allowed value types in the `values` map.
     using Value = std::variant<bool, int64_t, uint64_t, double, std::string>;
+    /// Type of map used to store tags.
+    using TagMap = boost::container::flat_map<std::string, std::string, std::less<>>;
+    /// Type of map used to store values.
+    using ValueMap = boost::container::flat_map<std::string, Value, std::less<>>;
 
     /**
      * Representation of a task/process executed as part of a business process.
      */
     struct Process
     {
+      using Ptr = std::unique_ptr<Process>;
+
       /// Enumeration of process types.
       enum class Type : std::uint8_t
       {
@@ -46,8 +53,8 @@ namespace spt::ilp
         Other
       };
 
-      explicit Process( Type type ) : type( type ) {}
-      Process() = default;
+      explicit Process( Type type );
+      Process();
       ~Process() = default;
       Process( Process&& ) = default;
       Process& operator=( Process&& ) = default;
@@ -56,9 +63,9 @@ namespace spt::ilp
       Process& operator=( const Process& ) = delete;
 
       /// Tags that will be sent via ILP.  Do not include application or id.
-      std::map<std::string, std::string, std::less<>> tags;
+      TagMap tags;
       /// Values that will be sent via ILP.  Do not include duration.
-      std::map<std::string, Value, std::less<>> values;
+      ValueMap values;
       /// The timestamp at which this process was initiated.
       DateTime timestamp{ std::chrono::high_resolution_clock::now() };
       /// The duration for completing the process.  This is sent as a value over ILP.
@@ -72,7 +79,7 @@ namespace spt::ilp
      * Create a new APM record that will be sent to a TSDB over ILP.
      * @param id The unique id assigned to each invocation of the business process.
      */
-    explicit APMRecord( std::string_view id ) : id{ id } {}
+    explicit APMRecord( std::string_view id );
     ~APMRecord() = default;
     APMRecord( APMRecord&& ) = default;
     APMRecord& operator=( APMRecord&& ) = default;
@@ -80,11 +87,11 @@ namespace spt::ilp
     APMRecord( const APMRecord& ) = delete;
     APMRecord& operator=( const APMRecord& ) = delete;
 
-    std::vector<Process> processes;
+    std::vector<Process::Ptr> processes;
     /// Tags that will be sent via ILP.  Do not include application or id.
-    std::map<std::string, std::string, std::less<>> tags;
+    TagMap tags;
     /// Values that will be sent via ILP.  Do not include duration.
-    std::map<std::string, Value, std::less<>> values;
+    ValueMap values;
     /// A unique id assigned to each execution of the business process.
     std::string id;
     /// A tag used to identify the application/service that executes the business process.
