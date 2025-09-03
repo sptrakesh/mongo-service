@@ -1,4 +1,4 @@
-/* auto-generated on 2025-01-09 11:01:48 -0500. Do not edit! */
+/* auto-generated on 2025-08-19 20:53:13 -0400. version 4.0.0 Do not edit! */
 /* including simdjson.cpp:  */
 /* begin file simdjson.cpp */
 #define SIMDJSON_SRC_SIMDJSON_CPP
@@ -77,10 +77,29 @@
 #endif
 #endif
 
+#ifndef SIMDJSON_CONSTEXPR_LAMBDA
+#if SIMDJSON_CPLUSPLUS17
+#define SIMDJSON_CONSTEXPR_LAMBDA constexpr
+#else
+#define SIMDJSON_CONSTEXPR_LAMBDA
+#endif
+#endif
+
+
+
 #ifdef __has_include
 #if __has_include(<version>)
 #include <version>
 #endif
+#endif
+
+// The current specification is unclear on how we detect
+// static reflection, both __cpp_lib_reflection and
+// __cpp_impl_reflection are proposed in the draft specification.
+// For now, we disable static reflect by default. It must be
+// specified at compiler time.
+#ifndef SIMDJSON_STATIC_REFLECTION
+#define SIMDJSON_STATIC_REFLECTION 0 // disabled by default.
 #endif
 
 #if defined(__apple_build_version__)
@@ -89,17 +108,39 @@
 #endif
 #endif
 
+#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
+#include <ranges>
+#define SIMDJSON_SUPPORTS_RANGES 1
+#else
+#define SIMDJSON_SUPPORTS_RANGES 0
+#endif
 
 #if defined(__cpp_concepts) && !defined(SIMDJSON_CONCEPT_DISABLED)
 #if __cpp_concepts >= 201907L
 #include <utility>
+#define SIMDJSON_SUPPORTS_CONCEPTS 1
+#else
+#define SIMDJSON_SUPPORTS_CONCEPTS 0
+#endif
+#else // defined(__cpp_concepts) && !defined(SIMDJSON_CONCEPT_DISABLED)
+#define SIMDJSON_SUPPORTS_CONCEPTS 0
+#endif // defined(__cpp_concepts) && !defined(SIMDJSON_CONCEPT_DISABLED)
+
+// copy SIMDJSON_SUPPORTS_CONCEPTS to SIMDJSON_SUPPORTS_DESERIALIZATION.
+#if SIMDJSON_SUPPORTS_CONCEPTS
 #define SIMDJSON_SUPPORTS_DESERIALIZATION 1
 #else
 #define SIMDJSON_SUPPORTS_DESERIALIZATION 0
 #endif
-#else // defined(__cpp_concepts) && !defined(SIMDJSON_CONCEPT_DISABLED)
-#define SIMDJSON_SUPPORTS_DESERIALIZATION 0
-#endif // defined(__cpp_concepts) && !defined(SIMDJSON_CONCEPT_DISABLED)
+
+
+#if !defined(SIMDJSON_CONSTEVAL)
+#if defined(__cpp_consteval) && __cpp_consteval >= 201811L && defined(__cpp_lib_constexpr_string) && __cpp_lib_constexpr_string >= 201907L
+#define SIMDJSON_CONSTEVAL 1
+#else
+#define SIMDJSON_CONSTEVAL 0
+#endif // defined(__cpp_consteval) && __cpp_consteval >= 201811L && defined(__cpp_lib_constexpr_string) && __cpp_lib_constexpr_string >= 201907L
+#endif // !defined(SIMDJSON_CONSTEVAL)
 
 #endif // SIMDJSON_COMPILER_CHECK_H
 /* end file simdjson/compiler_check.h */
@@ -298,6 +339,7 @@ using std::size_t;
 #if defined(NDEBUG) || defined(__OPTIMIZE__) || (defined(_MSC_VER) && !defined(_DEBUG))
 // If NDEBUG is set, or __OPTIMIZE__ is set, or we are under MSVC in release mode,
 // then do away with asserts and use __assume.
+// We still recommend that our users set NDEBUG in release mode.
 #if SIMDJSON_VISUAL_STUDIO
 #define SIMDJSON_UNREACHABLE() __assume(0)
 #define SIMDJSON_ASSUME(COND) __assume(COND)
@@ -373,7 +415,7 @@ double from_chars(const char *first, const char* end) noexcept;
 }
 
 #ifndef SIMDJSON_EXCEPTIONS
-#if __cpp_exceptions
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
 #define SIMDJSON_EXCEPTIONS 1
 #else
 #define SIMDJSON_EXCEPTIONS 0
@@ -549,17 +591,6 @@ double from_chars(const char *first, const char* end) noexcept;
     // We assume by default static linkage
     #define SIMDJSON_DLLIMPORTEXPORT
     #endif
-
-/**
- * Workaround for the vcpkg package manager. Only vcpkg should
- * ever touch the next line. The SIMDJSON_USING_LIBRARY macro is otherwise unused.
- */
-#if SIMDJSON_USING_LIBRARY
-#define SIMDJSON_DLLIMPORTEXPORT __declspec(dllimport)
-#endif
-/**
- * End of workaround for the vcpkg package manager.
- */
 #else
     #define SIMDJSON_DLLIMPORTEXPORT
 #endif
@@ -576,12 +607,14 @@ double from_chars(const char *first, const char* end) noexcept;
 // even if we do not have C++17 support.
 #ifdef __cpp_lib_string_view
 #define SIMDJSON_HAS_STRING_VIEW
+#include <string_view>
 #endif
 
 // Some systems have string_view even if we do not have C++17 support,
 // and even if __cpp_lib_string_view is undefined, it is the case
 // with Apple clang version 11.
 // We must handle it. *This is important.*
+#ifndef _MSC_VER
 #ifndef SIMDJSON_HAS_STRING_VIEW
 #if defined __has_include
 // do not combine the next #if with the previous one (unsafe)
@@ -597,6 +630,7 @@ double from_chars(const char *first, const char* end) noexcept;
 #endif // __has_include (<string_view>)
 #endif // defined __has_include
 #endif // def SIMDJSON_HAS_STRING_VIEW
+#endif // def _MSC_VER
 // end of complicated but important routine to try to detect string_view.
 
 //
@@ -776,22 +810,22 @@ inline namespace literals {
 inline namespace string_view_literals {
 
 
-constexpr std::string_view operator "" _sv( const char* str, size_t len ) noexcept  // (1)
+constexpr std::string_view operator ""_sv( const char* str, size_t len ) noexcept  // (1)
 {
     return std::string_view{ str, len };
 }
 
-constexpr std::u16string_view operator "" _sv( const char16_t* str, size_t len ) noexcept  // (2)
+constexpr std::u16string_view operator ""_sv( const char16_t* str, size_t len ) noexcept  // (2)
 {
     return std::u16string_view{ str, len };
 }
 
-constexpr std::u32string_view operator "" _sv( const char32_t* str, size_t len ) noexcept  // (3)
+constexpr std::u32string_view operator ""_sv( const char32_t* str, size_t len ) noexcept  // (3)
 {
     return std::u32string_view{ str, len };
 }
 
-constexpr std::wstring_view operator "" _sv( const wchar_t* str, size_t len ) noexcept  // (4)
+constexpr std::wstring_view operator ""_sv( const wchar_t* str, size_t len ) noexcept  // (4)
 {
     return std::wstring_view{ str, len };
 }
@@ -1019,9 +1053,9 @@ using std::operator<<;
 #endif
 
 #if nssv_HAVE_NODISCARD
-# define nssv_nodiscard  [[nodiscard]]
+# define nssv_nodiscard  simdjson_warn_unused
 #else
-# define nssv_nodiscard  /*[[nodiscard]]*/
+# define nssv_nodiscard  /*simdjson_warn_unused*/
 #endif
 
 // Additional includes:
@@ -2122,22 +2156,22 @@ nssv_inline_ns namespace string_view_literals {
 
 #if nssv_CONFIG_STD_SV_OPERATOR && nssv_HAVE_STD_DEFINED_LITERALS
 
-nssv_constexpr nonstd::sv_lite::string_view operator "" sv( const char* str, size_t len ) nssv_noexcept  // (1)
+nssv_constexpr nonstd::sv_lite::string_view operator ""sv( const char* str, size_t len ) nssv_noexcept  // (1)
 {
     return nonstd::sv_lite::string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u16string_view operator "" sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
+nssv_constexpr nonstd::sv_lite::u16string_view operator ""sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
 {
     return nonstd::sv_lite::u16string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u32string_view operator "" sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
+nssv_constexpr nonstd::sv_lite::u32string_view operator ""sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
 {
     return nonstd::sv_lite::u32string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::wstring_view operator "" sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
+nssv_constexpr nonstd::sv_lite::wstring_view operator ""sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
 {
     return nonstd::sv_lite::wstring_view{ str, len };
 }
@@ -2146,22 +2180,22 @@ nssv_constexpr nonstd::sv_lite::wstring_view operator "" sv( const wchar_t* str,
 
 #if nssv_CONFIG_USR_SV_OPERATOR
 
-nssv_constexpr nonstd::sv_lite::string_view operator "" _sv( const char* str, size_t len ) nssv_noexcept  // (1)
+nssv_constexpr nonstd::sv_lite::string_view operator ""_sv( const char* str, size_t len ) nssv_noexcept  // (1)
 {
     return nonstd::sv_lite::string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u16string_view operator "" _sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
+nssv_constexpr nonstd::sv_lite::u16string_view operator ""_sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
 {
     return nonstd::sv_lite::u16string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u32string_view operator "" _sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
+nssv_constexpr nonstd::sv_lite::u32string_view operator ""_sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
 {
     return nonstd::sv_lite::u32string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::wstring_view operator "" _sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
+nssv_constexpr nonstd::sv_lite::wstring_view operator ""_sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
 {
     return nonstd::sv_lite::wstring_view{ str, len };
 }
@@ -2339,16 +2373,25 @@ namespace std {
 // It could also wrongly set SIMDJSON_DEVELOPMENT_CHECKS (e.g., if the programmer
 // sets _DEBUG in a release build under Visual Studio, or if some compiler fails to
 // set the __OPTIMIZE__ macro).
+// We make it so that if NDEBUG is defined, then SIMDJSON_DEVELOPMENT_CHECKS
+// is not defined, irrespective of the compiler.
+// We recommend that users set NDEBUG in release builds, so that
+// SIMDJSON_DEVELOPMENT_CHECKS is not defined in release builds by default,
+// irrespective of the compiler.
 #ifndef SIMDJSON_DEVELOPMENT_CHECKS
 #ifdef _MSC_VER
 // Visual Studio seems to set _DEBUG for debug builds.
-#ifdef _DEBUG
+// We set SIMDJSON_DEVELOPMENT_CHECKS to 1 if _DEBUG is defined
+// and NDEBUG is not defined.
+#if defined(_DEBUG) && !defined(NDEBUG)
 #define SIMDJSON_DEVELOPMENT_CHECKS 1
 #endif // _DEBUG
 #else // _MSC_VER
 // All other compilers appear to set __OPTIMIZE__ to a positive integer
 // when the compiler is optimizing.
-#ifndef __OPTIMIZE__
+// We only set SIMDJSON_DEVELOPMENT_CHECKS if both __OPTIMIZE__
+// and NDEBUG are not defined.
+#if !defined(__OPTIMIZE__) && !defined(NDEBUG)
 #define SIMDJSON_DEVELOPMENT_CHECKS 1
 #endif // __OPTIMIZE__
 #endif // _MSC_VER
@@ -2404,6 +2447,18 @@ namespace std {
 #define SIMDJSON_AVX512_ALLOWED 1
 #endif
 
+
+#ifndef __has_cpp_attribute
+#define simdjson_lifetime_bound
+#elif __has_cpp_attribute(msvc::lifetimebound)
+#define simdjson_lifetime_bound [[msvc::lifetimebound]]
+#elif __has_cpp_attribute(clang::lifetimebound)
+#define simdjson_lifetime_bound [[clang::lifetimebound]]
+#elif __has_cpp_attribute(lifetimebound)
+#define simdjson_lifetime_bound [[lifetimebound]]
+#else
+#define simdjson_lifetime_bound
+#endif
 #endif // SIMDJSON_COMMON_DEFS_H
 /* end file simdjson/common_defs.h */
 /* skipped duplicate #include "simdjson/compiler_check.h" */
@@ -2431,7 +2486,7 @@ enum error_code {
   SUCCESS = 0,                ///< No error
   CAPACITY,                   ///< This parser can't support a document that big
   MEMALLOC,                   ///< Error allocating memory, most likely out of memory
-  TAPE_ERROR,                 ///< Something went wrong, this is a generic error
+  TAPE_ERROR,                 ///< Something went wrong, this is a generic error. Fatal/unrecoverable error.
   DEPTH_ERROR,                ///< Your document exceeds the user-specified depth limitation
   STRING_ERROR,               ///< Problem while parsing a string
   T_ATOM_ERROR,               ///< Problem while parsing an atom starting with the letter 't'
@@ -2456,12 +2511,21 @@ enum error_code {
   PARSER_IN_USE,              ///< parser is already in use.
   OUT_OF_ORDER_ITERATION,     ///< tried to iterate an array or object out of order (checked when SIMDJSON_DEVELOPMENT_CHECKS=1)
   INSUFFICIENT_PADDING,       ///< The JSON doesn't have enough padding for simdjson to safely parse it.
-  INCOMPLETE_ARRAY_OR_OBJECT, ///< The document ends early.
+  INCOMPLETE_ARRAY_OR_OBJECT, ///< The document ends early. Fatal/unrecoverable error.
   SCALAR_DOCUMENT_AS_VALUE,   ///< A scalar document is treated as a value.
   OUT_OF_BOUNDS,              ///< Attempted to access location outside of document.
   TRAILING_CONTENT,           ///< Unexpected trailing content in the JSON input
-  NUM_ERROR_CODES
+  OUT_OF_CAPACITY,            ///< The capacity was exceeded, we cannot allocate enough memory.
+  NUM_ERROR_CODES             ///< Placeholder for end of error code list.
 };
+
+/**
+ * Some errors are fatal and invalidate the document. This function returns true if the
+ * error is fatal. It returns true for TAPE_ERROR and INCOMPLETE_ARRAY_OR_OBJECT.
+ * Once a fatal error is encountered, the on-demand document is no longer valid and
+ * processing should stop.
+ */
+ inline bool is_fatal(error_code error) noexcept;
 
 /**
  * It is the convention throughout the code that  the macro SIMDJSON_DEVELOPMENT_CHECKS determines whether
@@ -2599,17 +2663,48 @@ struct simdjson_result_base : protected std::pair<T, error_code> {
    * @throw simdjson_error if there was an error.
    */
   simdjson_inline operator T&&() && noexcept(false);
+
 #endif // SIMDJSON_EXCEPTIONS
 
   /**
    * Get the result value. This function is safe if and only
    * the error() method returns a value that evaluates to false.
+   * We discourage the use of value_unsafe().
+   *
+   * The recommended pattern is:
+   *
+   * T value; // where T is the type
+   * auto error = result.get(value);
+   * if (error) {
+   *   // handle error
+   * }
+   *
+   * Or you may call 'value()' which will raise an exception
+   * in case of error:
+   *
+   * T value = result.value();
    */
   simdjson_inline const T& value_unsafe() const& noexcept;
 
   /**
    * Take the result value (move it). This function is safe if and only
    * the error() method returns a value that evaluates to false.
+   * We discourage the use of value_unsafe().
+   *
+   * The recommended pattern is:
+   *
+   * T value; // where T is the type
+   * auto error = result.get(value);
+   * if (error) {
+   *   // handle error, return, exit, abort
+   * } else {
+   *   // use value here.
+   * }
+   *
+   * Or you may call 'value()' which will raise an exception
+   * in case of error:
+   *
+   * T value = result.value();
    */
   simdjson_inline T&& value_unsafe() && noexcept;
 
@@ -2655,6 +2750,22 @@ struct simdjson_result : public internal::simdjson_result_base<T> {
    * @param value The variable to assign the value to. May not be set if there is an error.
    */
   simdjson_warn_unused simdjson_inline error_code get(T &value) && noexcept;
+
+  /**
+   * Copy the value to a provided std::string, only enabled for std::string_view.
+   *
+   * @param value The variable to assign the value to. May not be set if there is an error.
+   */
+  template <typename U = T>
+  simdjson_warn_unused simdjson_inline error_code get(std::string &value) && noexcept {
+    static_assert(std::is_same<U, std::string_view>::value, "SFINAE");
+    std::string_view v;
+    error_code error = std::forward<simdjson_result<T>>(*this).get(v);
+    if (!error) {
+      value.assign(v.data(), v.size());
+    }
+    return error;
+  }
 
   /**
    * The error.
@@ -2733,7 +2844,7 @@ inline const std::string error_message(int error) noexcept;
 /* begin file simdjson/concepts.h */
 #ifndef SIMDJSON_CONCEPTS_H
 #define SIMDJSON_CONCEPTS_H
-#if SIMDJSON_SUPPORTS_DESERIALIZATION
+#if SIMDJSON_SUPPORTS_CONCEPTS
 
 #include <concepts>
 #include <type_traits>
@@ -2765,14 +2876,32 @@ SIMDJSON_IMPL_CONCEPT(op_append, operator+=)
 #undef SIMDJSON_IMPL_CONCEPT
 } // namespace details
 
+template <typename T>
+concept is_pair = requires { typename T::first_type; typename T::second_type; } &&
+                  std::same_as<T, std::pair<typename T::first_type, typename T::second_type>>;
+template <typename T>
+concept string_view_like = std::is_convertible_v<T, std::string_view> &&
+                           !std::is_convertible_v<T, const char*>;
+
+template<typename T>
+concept constructible_from_string_view = std::is_constructible_v<T, std::string_view>
+                                        && !std::is_same_v<T, std::string_view>
+                                        && std::is_default_constructible_v<T>;
+
+template<typename M>
+concept string_view_keyed_map = string_view_like<typename M::key_type>
+              && requires(std::remove_cvref_t<M>& m, typename M::key_type sv, typename M::mapped_type v) {
+    { m.emplace(sv, v) } -> std::same_as<std::pair<typename M::iterator, bool>>;
+};
+
 /// Check if T is a container that we can append to, including:
 ///   std::vector, std::deque, std::list, std::string, ...
 template <typename T>
 concept appendable_containers =
-    details::supports_emplace_back<T> || details::supports_emplace<T> ||
+    (details::supports_emplace_back<T> || details::supports_emplace<T> ||
     details::supports_push_back<T> || details::supports_push<T> ||
     details::supports_add<T> || details::supports_append<T> ||
-    details::supports_insert<T>;
+    details::supports_insert<T>) && !string_view_keyed_map<T>;
 
 /// Insert into the container however possible
 template <appendable_containers T, typename... Args>
@@ -2832,7 +2961,6 @@ concept optional_type = requires(std::remove_cvref_t<T> obj) {
   { obj.value() } -> std::same_as<typename std::remove_cvref_t<T>::value_type&>;
   requires requires(typename std::remove_cvref_t<T>::value_type &&val) {
     obj.emplace(std::move(val));
-    obj = std::move(val);
     {
       obj.value_or(val)
     } -> std::convertible_to<typename std::remove_cvref_t<T>::value_type>;
@@ -2840,9 +2968,11 @@ concept optional_type = requires(std::remove_cvref_t<T> obj) {
   { static_cast<bool>(obj) } -> std::same_as<bool>; // convertible to bool
 };
 
+
+
 } // namespace concepts
 } // namespace simdjson
-#endif // SIMDJSON_SUPPORTS_DESERIALIZATION
+#endif // SIMDJSON_SUPPORTS_CONCEPTS
 #endif // SIMDJSON_CONCEPTS_H
 /* end file simdjson/concepts.h */
 
@@ -4511,6 +4641,11 @@ extern SIMDJSON_DLLIMPORTEXPORT const uint32_t digit_to_val32[886];
 #include <iostream>
 
 namespace simdjson {
+
+inline bool is_fatal(error_code error) noexcept {
+  return error == TAPE_ERROR || error == INCOMPLETE_ARRAY_OR_OBJECT;
+}
+
 namespace internal {
   // We store the error code so we can validate the error message is associated with the right code
   struct error_code_info {
@@ -4628,7 +4763,8 @@ simdjson_inline void simdjson_result<T>::tie(T &value, error_code &error) && noe
 }
 
 template<typename T>
-simdjson_warn_unused simdjson_inline error_code simdjson_result<T>::get(T &value) && noexcept {
+simdjson_warn_unused simdjson_inline error_code
+simdjson_result<T>::get(T &value) && noexcept {
   return std::forward<internal::simdjson_result_base<T>>(*this).get(value);
 }
 
@@ -4696,7 +4832,7 @@ namespace internal {
     { SUCCESS, "SUCCESS: No error" },
     { CAPACITY, "CAPACITY: This parser can't support a document that big" },
     { MEMALLOC, "MEMALLOC: Error allocating memory, we're most likely out of memory" },
-    { TAPE_ERROR, "TAPE_ERROR: The JSON document has an improper structure: missing or superfluous commas, braces, missing keys, etc." },
+    { TAPE_ERROR, "TAPE_ERROR: The JSON document has an improper structure: missing or superfluous commas, braces, missing keys, etc.  This is a fatal and unrecoverable error." },
     { DEPTH_ERROR, "DEPTH_ERROR: The JSON document was too deep (too many nested objects and arrays)" },
     { STRING_ERROR, "STRING_ERROR: Problem while parsing a string" },
     { T_ATOM_ERROR, "T_ATOM_ERROR: Problem while parsing an atom starting with the letter 't'" },
@@ -4721,7 +4857,7 @@ namespace internal {
     { PARSER_IN_USE, "PARSER_IN_USE: Cannot parse a new document while a document is still in use." },
     { OUT_OF_ORDER_ITERATION, "OUT_OF_ORDER_ITERATION: Objects and arrays can only be iterated when they are first encountered." },
     { INSUFFICIENT_PADDING, "INSUFFICIENT_PADDING: simdjson requires the input JSON string to have at least SIMDJSON_PADDING extra bytes allocated, beyond the string's length. Consider using the simdjson::padded_string class if needed." },
-    { INCOMPLETE_ARRAY_OR_OBJECT, "INCOMPLETE_ARRAY_OR_OBJECT: JSON document ended early in the middle of an object or array." },
+    { INCOMPLETE_ARRAY_OR_OBJECT, "INCOMPLETE_ARRAY_OR_OBJECT: JSON document ended early in the middle of an object or array. This is a fatal and unrecoverable error." },
     { SCALAR_DOCUMENT_AS_VALUE, "SCALAR_DOCUMENT_AS_VALUE: A JSON document made of a scalar (number, Boolean, null or string) is treated as a value. Use get_bool(), get_double(), etc. on the document instead. "},
     { OUT_OF_BOUNDS, "OUT_OF_BOUNDS: Attempt to access location outside of document."},
     { TRAILING_CONTENT, "TRAILING_CONTENT: Unexpected trailing content in the JSON input."}
@@ -6787,7 +6923,7 @@ public:
    * The memory allocation is strict: you
    * can you use this function to increase
    * or lower the amount of allocated memory.
-   * Passsing zero clears the memory.
+   * Passing zero clears the memory.
    */
   error_code allocate(size_t len) noexcept;
   /** @private Capacity in bytes, in terms
@@ -8147,6 +8283,12 @@ namespace {
       tmp = vpaddq_u8(tmp, tmp);
       return vgetq_lane_u16(vreinterpretq_u16_u8(tmp), 0);
     }
+    // Returns 4-bit out of each byte, alternating between the high 4 bits and low
+    // bits result it is 64 bit.
+    simdjson_inline uint64_t to_bitmask64() const {
+      return vget_lane_u64(
+          vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(*this), 4)), 0);
+    }
     simdjson_inline bool any() const { return vmaxvq_u32(vreinterpretq_u32_u8(*this)) != 0; }
   };
 
@@ -8223,7 +8365,7 @@ namespace {
 
     // Bit-specific operations
     simdjson_inline simd8<bool> any_bits_set(simd8<uint8_t> bits) const { return vtstq_u8(*this, bits); }
-    simdjson_inline bool any_bits_set_anywhere() const { return this->max_val() != 0; }
+    simdjson_inline bool any_bits_set_anywhere() const { return vmaxvq_u32(vreinterpretq_u32_u8(*this)) != 0; }
     simdjson_inline bool any_bits_set_anywhere(simd8<uint8_t> bits) const { return (*this & bits).any_bits_set_anywhere(); }
     template<int N>
     simdjson_inline simd8<uint8_t> shr() const { return vshrq_n_u8(*this, N); }
@@ -8236,7 +8378,12 @@ namespace {
       return lookup_table.apply_lookup_16_to(*this);
     }
 
-
+    // Returns 4-bit out of each byte, alternating between the high 4 bits and low
+    // bits result it is 64 bit.
+    simdjson_inline uint64_t to_bitmask64() const {
+      return vget_lane_u64(
+          vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(*this), 4)), 0);
+    }
     // Copies to 'output" all bytes corresponding to a 0 in the mask (interpreted as a bitset).
     // Passing a 0 value for mask would be equivalent to writing out every byte to output.
     // Only the first 16 - count_ones(mask) bytes of the result are significant but 16 bytes
@@ -8558,6 +8705,32 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
     uint32_t(bs_and_quote >> 32) // quote_bits
   };
 }
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits) / 4; }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask64()
+  };
+}
+
+
 
 } // unnamed namespace
 } // namespace arm64
@@ -9033,6 +9206,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -9185,7 +9359,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -9695,7 +9869,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -10156,6 +10339,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -10914,6 +11103,12 @@ namespace {
       tmp = vpaddq_u8(tmp, tmp);
       return vgetq_lane_u16(vreinterpretq_u16_u8(tmp), 0);
     }
+    // Returns 4-bit out of each byte, alternating between the high 4 bits and low
+    // bits result it is 64 bit.
+    simdjson_inline uint64_t to_bitmask64() const {
+      return vget_lane_u64(
+          vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(*this), 4)), 0);
+    }
     simdjson_inline bool any() const { return vmaxvq_u32(vreinterpretq_u32_u8(*this)) != 0; }
   };
 
@@ -10990,7 +11185,7 @@ namespace {
 
     // Bit-specific operations
     simdjson_inline simd8<bool> any_bits_set(simd8<uint8_t> bits) const { return vtstq_u8(*this, bits); }
-    simdjson_inline bool any_bits_set_anywhere() const { return this->max_val() != 0; }
+    simdjson_inline bool any_bits_set_anywhere() const { return vmaxvq_u32(vreinterpretq_u32_u8(*this)) != 0; }
     simdjson_inline bool any_bits_set_anywhere(simd8<uint8_t> bits) const { return (*this & bits).any_bits_set_anywhere(); }
     template<int N>
     simdjson_inline simd8<uint8_t> shr() const { return vshrq_n_u8(*this, N); }
@@ -11003,7 +11198,12 @@ namespace {
       return lookup_table.apply_lookup_16_to(*this);
     }
 
-
+    // Returns 4-bit out of each byte, alternating between the high 4 bits and low
+    // bits result it is 64 bit.
+    simdjson_inline uint64_t to_bitmask64() const {
+      return vget_lane_u64(
+          vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(*this), 4)), 0);
+    }
     // Copies to 'output" all bytes corresponding to a 0 in the mask (interpreted as a bitset).
     // Passing a 0 value for mask would be equivalent to writing out every byte to output.
     // Only the first 16 - count_ones(mask) bytes of the result are significant but 16 bytes
@@ -11325,6 +11525,32 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
     uint32_t(bs_and_quote >> 32) // quote_bits
   };
 }
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits) / 4; }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask64()
+  };
+}
+
+
 
 } // unnamed namespace
 } // namespace arm64
@@ -13431,6 +13657,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for arm64 */
 /* including generic/stage2/stringparsing.h for arm64: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for arm64 */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -13670,6 +13897,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace arm64
 } // namespace simdjson
@@ -14921,6 +15149,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 32;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
+  };
+}
+
 } // unnamed namespace
 } // namespace haswell
 } // namespace simdjson
@@ -15393,6 +15646,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -15545,7 +15799,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -16055,7 +16309,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -16516,6 +16779,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -17556,6 +17825,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return {
       static_cast<uint32_t>((v == '\\').to_bitmask()),     // bs_bits
       static_cast<uint32_t>((v == '"').to_bitmask()), // quote_bits
+  };
+}
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 32;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
   };
 }
 
@@ -19662,6 +19956,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for haswell */
 /* including generic/stage2/stringparsing.h for haswell: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for haswell */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -19901,6 +20196,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace haswell
 } // namespace simdjson
@@ -20742,7 +21038,6 @@ namespace simd {
     friend simdjson_really_inline uint64_t operator==(const simd8<T> lhs, const simd8<T> rhs) {
       return _mm512_cmpeq_epi8_mask(lhs, rhs);
     }
-
     static const int SIZE = sizeof(base<T>::value);
 
     template<int N=1>
@@ -20813,14 +21108,18 @@ namespace simd {
 
     // Copies to 'output" all bytes corresponding to a 0 in the mask (interpreted as a bitset).
     // Passing a 0 value for mask would be equivalent to writing out every byte to output.
-    // Only the first 32 - count_ones(mask) bytes of the result are significant but 32 bytes
+    // Only the first 64 - count_ones(mask) bytes of the result are significant but 64 bytes
     // get written.
     // Design consideration: it seems like a function with the
     // signature simd8<L> compress(uint32_t mask) would be
     // sensible, but the AVX ISA makes this kind of approach difficult.
     template<typename L>
     simdjson_inline void compress(uint64_t mask, L * output) const {
-      _mm512_mask_compressstoreu_epi8 (output,~mask,*this);
+      // we deliberately avoid _mm512_mask_compressstoreu_epi8 for portability
+      // (AMD Zen4 has terrible performance with it, it is effectively broken)
+      // _mm512_mask_compressstoreu_epi8 (output,~mask,*this);
+      __m512i compressed = _mm512_maskz_compress_epi8(~mask, *this);
+      _mm512_storeu_si512(output, compressed); // could use a mask
     }
 
     template<typename L>
@@ -21080,6 +21379,35 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
       static_cast<uint64_t>(v == '"'), // quote_bits
   };
 }
+
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 64;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(uint64_t(escape_bits)); }
+
+  __mmask64 escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  __mmask64 is_quote = _mm512_cmpeq_epi8_mask(v, _mm512_set1_epi8('"'));
+  __mmask64 is_backslash = _mm512_cmpeq_epi8_mask(v, _mm512_set1_epi8('\\'));
+  __mmask64 is_control = _mm512_cmplt_epi8_mask(v, _mm512_set1_epi8(32));
+  return {
+    (is_backslash | is_quote | is_control)
+  };
+}
+
+
+
 
 } // unnamed namespace
 } // namespace icelake
@@ -21613,6 +21941,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -21765,7 +22094,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -22275,7 +22604,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -22736,6 +23074,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -23372,7 +23716,6 @@ namespace simd {
     friend simdjson_really_inline uint64_t operator==(const simd8<T> lhs, const simd8<T> rhs) {
       return _mm512_cmpeq_epi8_mask(lhs, rhs);
     }
-
     static const int SIZE = sizeof(base<T>::value);
 
     template<int N=1>
@@ -23443,14 +23786,18 @@ namespace simd {
 
     // Copies to 'output" all bytes corresponding to a 0 in the mask (interpreted as a bitset).
     // Passing a 0 value for mask would be equivalent to writing out every byte to output.
-    // Only the first 32 - count_ones(mask) bytes of the result are significant but 32 bytes
+    // Only the first 64 - count_ones(mask) bytes of the result are significant but 64 bytes
     // get written.
     // Design consideration: it seems like a function with the
     // signature simd8<L> compress(uint32_t mask) would be
     // sensible, but the AVX ISA makes this kind of approach difficult.
     template<typename L>
     simdjson_inline void compress(uint64_t mask, L * output) const {
-      _mm512_mask_compressstoreu_epi8 (output,~mask,*this);
+      // we deliberately avoid _mm512_mask_compressstoreu_epi8 for portability
+      // (AMD Zen4 has terrible performance with it, it is effectively broken)
+      // _mm512_mask_compressstoreu_epi8 (output,~mask,*this);
+      __m512i compressed = _mm512_maskz_compress_epi8(~mask, *this);
+      _mm512_storeu_si512(output, compressed); // could use a mask
     }
 
     template<typename L>
@@ -23710,6 +24057,35 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
       static_cast<uint64_t>(v == '"'), // quote_bits
   };
 }
+
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 64;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(uint64_t(escape_bits)); }
+
+  __mmask64 escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  __mmask64 is_quote = _mm512_cmpeq_epi8_mask(v, _mm512_set1_epi8('"'));
+  __mmask64 is_backslash = _mm512_cmpeq_epi8_mask(v, _mm512_set1_epi8('\\'));
+  __mmask64 is_control = _mm512_cmplt_epi8_mask(v, _mm512_set1_epi8(32));
+  return {
+    (is_backslash | is_quote | is_control)
+  };
+}
+
+
+
 
 } // unnamed namespace
 } // namespace icelake
@@ -25874,6 +26250,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for icelake */
 /* including generic/stage2/stringparsing.h for icelake: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for icelake */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -26113,6 +26490,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace icelake
 } // namespace simdjson
@@ -27515,6 +27893,32 @@ backslash_and_quote::copy_and_find(const uint8_t *src, uint8_t *dst) {
   };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    // We store it as a 64-bit bitmask even though we only need 16 bits.
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
+  };
+}
+
 } // unnamed namespace
 } // namespace ppc64
 } // namespace simdjson
@@ -27989,6 +28393,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -28141,7 +28546,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -28651,7 +29056,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -29112,6 +29526,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -30261,6 +30681,32 @@ backslash_and_quote::copy_and_find(const uint8_t *src, uint8_t *dst) {
   return {
       uint32_t(bs_and_quote),      // bs_bits
       uint32_t(bs_and_quote >> 32) // quote_bits
+  };
+}
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    // We store it as a 64-bit bitmask even though we only need 16 bits.
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
   };
 }
 
@@ -32369,6 +32815,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for ppc64 */
 /* including generic/stage2/stringparsing.h for ppc64: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for ppc64 */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -32608,6 +33055,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace ppc64
 } // namespace simdjson
@@ -34259,6 +34707,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
+  };
+}
+
 } // unnamed namespace
 } // namespace westmere
 } // namespace simdjson
@@ -34731,6 +35204,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -34883,7 +35357,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -35393,7 +35867,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -35854,6 +36337,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -37320,6 +37809,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return {
     uint32_t(bs_and_quote),      // bs_bits
     uint32_t(bs_and_quote >> 32) // quote_bits
+  };
+}
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    uint64_t((is_backslash | is_quote | is_control).to_bitmask())
   };
 }
 
@@ -39426,6 +39940,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for westmere */
 /* including generic/stage2/stringparsing.h for westmere: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for westmere */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -39665,6 +40180,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace westmere
 } // namespace simdjson
@@ -40193,7 +40709,6 @@ simdjson_warn_unused error_code dom_parser_implementation::parse(const uint8_t *
   if (error) { return error; }
   return stage2(_doc);
 }
-
 } // namespace westmere
 } // namespace simdjson
 
@@ -40823,6 +41338,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask()
+  };
+}
+
 } // unnamed namespace
 } // namespace lsx
 } // namespace simdjson
@@ -41297,6 +41837,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -41449,7 +41990,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -41959,7 +42500,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -42420,6 +42970,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -43354,6 +43910,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return {
     uint32_t(bs_and_quote),      // bs_bits
     uint32_t(bs_and_quote >> 32) // quote_bits
+  };
+}
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask()
   };
 }
 
@@ -45462,6 +46043,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for lsx */
 /* including generic/stage2/stringparsing.h for lsx: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for lsx */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -45701,6 +46283,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace lsx
 } // namespace simdjson
@@ -46834,6 +47417,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask()
+  };
+}
+
 } // unnamed namespace
 } // namespace lasx
 } // namespace simdjson
@@ -47308,6 +47916,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -47460,7 +48069,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -47970,7 +48579,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -48431,6 +49049,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -49381,6 +50005,31 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return {
       static_cast<uint32_t>((v == '\\').to_bitmask()),     // bs_bits
       static_cast<uint32_t>((v == '"').to_bitmask()), // quote_bits
+  };
+}
+
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 16;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits != 0; }
+  simdjson_inline int escape_index() { return trailing_zeroes(escape_bits); }
+
+  uint64_t escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  static_assert(SIMDJSON_PADDING >= (BYTES_PROCESSED - 1), "escaping finder must process fewer than SIMDJSON_PADDING bytes");
+  simd8<uint8_t> v(src);
+  v.store(dst);
+  simd8<bool> is_quote = (v == '"');
+  simd8<bool> is_backslash = (v == '\\');
+  simd8<bool> is_control = (v < 32);
+  return {
+    (is_backslash | is_quote | is_control).to_bitmask()
   };
 }
 
@@ -51489,6 +52138,7 @@ simdjson_warn_unused simdjson_inline error_code json_iterator::visit_primitive(V
 /* end file generic/stage2/json_iterator.h for lasx */
 /* including generic/stage2/stringparsing.h for lasx: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for lasx */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -51728,6 +52378,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace lasx
 } // namespace simdjson
@@ -52357,6 +53008,24 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return { src[0] };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 1;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits; }
+  simdjson_inline int escape_index() { return 0; }
+
+  bool escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  dst[0] = src[0];
+  return { (src[0] == '\\') || (src[0] == '"') || (src[0] < 32) };
+}
+
 } // unnamed namespace
 } // namespace fallback
 } // namespace simdjson
@@ -52918,6 +53587,7 @@ struct implementation_simdjson_result_base {
    * the error() method returns a value that evaluates to false.
    */
   simdjson_inline T&& value_unsafe() && noexcept;
+
 protected:
   /** users should never directly access first and second. **/
   T first{}; /** Users should never directly access 'first'. **/
@@ -53070,7 +53740,7 @@ simdjson_inline bool compute_float_64(int64_t power, uint64_t i, bool negative, 
   // floor(log(5**power)/log(2))
   //
   // Note that this is not magic: 152170/(1<<16) is
-  // approximatively equal to log(5)/log(2).
+  // approximately equal to log(5)/log(2).
   // The 1<<16 value is a power of two; we could use a
   // larger power of 2 if we wanted to.
   //
@@ -53580,7 +54250,16 @@ simdjson_inline error_code parse_number(const uint8_t *const src, W &writer) {
   if (i > uint64_t(INT64_MAX)) {
     WRITE_UNSIGNED(i, src, writer);
   } else {
-    WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+    if(i == 0 && negative) {
+      // We have to write -0.0 instead of 0
+      WRITE_DOUBLE(-0.0, src, writer);
+    } else {
+      WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+    }
+#else
+  WRITE_INTEGER(negative ? (~i+1) : i, src, writer);
+#endif
   }
   if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
   return SUCCESS;
@@ -54041,6 +54720,12 @@ simdjson_unused simdjson_inline simdjson_result<number_type> get_number_type(con
       if (simdjson_unlikely(digit_count == 19 && memcmp(src, smaller_big_integer, 19) > 0)) {
         return number_type::big_integer;
       }
+#if SIMDJSON_MINUS_ZERO_AS_FLOAT
+      if(digit_count == 1 && src[0] == '0') {
+        // We have to write -0.0 instead of 0
+        return number_type::floating_point_number;
+      }
+#endif
       return number_type::signed_integer;
     }
     // Let us check if we have a big integer (>=2**64).
@@ -54496,6 +55181,24 @@ simdjson_inline backslash_and_quote backslash_and_quote::copy_and_find(const uin
   return { src[0] };
 }
 
+
+struct escaping {
+  static constexpr uint32_t BYTES_PROCESSED = 1;
+  simdjson_inline static escaping copy_and_find(const uint8_t *src, uint8_t *dst);
+
+  simdjson_inline bool has_escape() { return escape_bits; }
+  simdjson_inline int escape_index() { return 0; }
+
+  bool escape_bits;
+}; // struct escaping
+
+
+
+simdjson_inline escaping escaping::copy_and_find(const uint8_t *src, uint8_t *dst) {
+  dst[0] = src[0];
+  return { (src[0] == '\\') || (src[0] == '"') || (src[0] < 32) };
+}
+
 } // unnamed namespace
 } // namespace fallback
 } // namespace simdjson
@@ -54702,6 +55405,7 @@ simdjson_inline uint32_t find_next_document_index(dom_parser_implementation &par
 /* end file generic/stage1/find_next_document_index.h for fallback */
 /* including generic/stage2/stringparsing.h for fallback: #include <generic/stage2/stringparsing.h> */
 /* begin file generic/stage2/stringparsing.h for fallback */
+#include <cstdint>
 #ifndef SIMDJSON_SRC_GENERIC_STAGE2_STRINGPARSING_H
 
 /* amalgamation skipped (editor-only): #ifndef SIMDJSON_CONDITIONAL_INCLUDE */
@@ -54941,6 +55645,7 @@ simdjson_warn_unused simdjson_inline uint8_t *parse_wobbly_string(const uint8_t 
 }
 
 } // namespace stringparsing
+
 } // unnamed namespace
 } // namespace fallback
 } // namespace simdjson
@@ -55907,10 +56612,78 @@ simdjson_inline void validate_utf8_character() {
   idx += 4;
 }
 
+static const uint8_t CHAR_TYPE_SPACE     = 1 << 0;
+static const uint8_t CHAR_TYPE_OPERATOR  = 1 << 1;
+static const uint8_t CHAR_TYPE_ESC_ASCII = 1 << 2;
+static const uint8_t CHAR_TYPE_NON_ASCII = 1 << 3;
+
+const uint8_t char_table[256] = {
+  0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+  0x04, 0x05, 0x05, 0x04, 0x04, 0x05, 0x04, 0x04,
+  0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+  0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+  0x01, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x02, 0x04, 0x02, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+  0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08
+};
+
+simdjson_inline bool char_is_type(uint8_t c, uint8_t type) {
+  return (char_table[c] & type);
+}
+
+simdjson_inline bool char_is_space(uint8_t c) {
+  return char_is_type(c, CHAR_TYPE_SPACE);
+}
+
+simdjson_inline bool char_is_operator(uint8_t c) {
+  return char_is_type(c, CHAR_TYPE_OPERATOR);
+}
+
+simdjson_inline bool char_is_space_or_operator(uint8_t c) {
+  return char_is_type(c, CHAR_TYPE_SPACE | CHAR_TYPE_OPERATOR);
+}
+
+simdjson_inline bool char_is_ascii_stop(uint8_t c) {
+  return char_is_type(c, CHAR_TYPE_ESC_ASCII | CHAR_TYPE_NON_ASCII);
+}
+
 // Returns true if the string is unclosed.
 simdjson_inline bool validate_string() {
   idx++; // skip first quote
-  while (idx < len && buf[idx] != '"') {
+  while (idx < len) {
+    do {
+      if (char_is_ascii_stop(buf[idx])) { break; }
+      idx++;
+    } while (idx < len);
+    if (idx >= len) { return true; }
+    if (buf[idx] == '"') {
+      return false;
+    }
     if (buf[idx] == '\\') {
       idx += 2;
     } else if (simdjson_unlikely(buf[idx] & 0x80)) {
@@ -55924,43 +56697,31 @@ simdjson_inline bool validate_string() {
   return false;
 }
 
-simdjson_inline bool is_whitespace_or_operator(uint8_t c) {
-  switch (c) {
-    case '{': case '}': case '[': case ']': case ',': case ':':
-    case ' ': case '\r': case '\n': case '\t':
-      return true;
-    default:
-      return false;
-  }
-}
-
 //
 // Parse the entire input in STEP_SIZE-byte chunks.
 //
 simdjson_inline error_code scan() {
   bool unclosed_string = false;
   for (;idx<len;idx++) {
-    switch (buf[idx]) {
-      // String
-      case '"':
-        add_structural();
-        unclosed_string |= validate_string();
-        break;
-      // Operator
-      case '{': case '}': case '[': case ']': case ',': case ':':
-        add_structural();
-        break;
-      // Whitespace
-      case ' ': case '\r': case '\n': case '\t':
-        break;
-      // Primitive or invalid character (invalid characters will be checked in stage 2)
-      default:
-        // Anything else, add the structural and go until we find the next one
-        add_structural();
-        while (idx+1<len && !is_whitespace_or_operator(buf[idx+1])) {
-          idx++;
-        };
-        break;
+    do {
+      if (!char_is_space(buf[idx])) { break; }
+      idx++;
+    } while (idx < len);
+    if (idx >= len) { break; }
+    // String
+    if (buf[idx] == '"') {
+      add_structural();
+      unclosed_string |= validate_string();
+    // Operator
+    } else if (char_is_operator(buf[idx])) {
+      add_structural();
+    // Primitive or invalid character (invalid characters will be checked in stage 2)
+    } else {
+      // Anything else, add the structural and go until we find the next one
+      add_structural();
+      while (idx+1<len && !char_is_space_or_operator(buf[idx+1])) {
+        idx++;
+      };
     }
   }
   // We pad beyond.

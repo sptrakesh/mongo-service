@@ -33,9 +33,12 @@
 #include <ostream>
 #include <set>
 #include <vector>
+#include <boost/lexical_cast.hpp>
 #include <boost/json/value.hpp>
 #include <boost/json/parse.hpp>
 #include <boost/json/serialize.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/exception/exception.hpp>
 
@@ -569,6 +572,12 @@ template <>
 inline boost::json::value spt::util::json::json( const boost::json::value& model )
 {
   return model;
+}
+
+template <>
+inline boost::json::value spt::util::json::json( const boost::uuids::uuid& model )
+{
+  return boost::json::value( boost::lexical_cast<std::string>( model ) );
 }
 
 template <>
@@ -1127,7 +1136,32 @@ inline void spt::util::json::set( const char* name, boost::json::value& field, s
     field = boost::json::value{ bv };
     break;
   }
+  case unknown:
   case null: break;
+  }
+}
+
+template <>
+inline void spt::util::json::set( const char* name, boost::uuids::uuid& field, simdjson::ondemand::value& value )
+{
+  if ( value.type().value() != simdjson::ondemand::json_type::string )
+  {
+    LOG_WARN << "Expected field " << name << " of type string, value of type " << magic_enum::enum_name( value.type().value() );
+  }
+  std::string_view v;
+  value.get( v );
+  std::string str;
+  str.reserve( v.size() );
+  str.append( v );
+
+  try
+  {
+    field = boost::lexical_cast<boost::uuids::uuid>( str );
+  }
+  catch ( const boost::bad_lexical_cast& e )
+  {
+    LOG_WARN << "Invalid UUID for field " << name << ": " << e.what();
+    throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
   }
 }
 

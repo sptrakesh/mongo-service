@@ -28,8 +28,9 @@
 #include <set>
 #include <string_view>
 #include <vector>
-#include <boost/cast.hpp>
 #include <boost/json/object.hpp>
+#include <boost/numeric/conversion/cast.hpp>
+#include <boost/uuid/uuid.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/oid.hpp>
 #include <bsoncxx/types/bson_value/value.hpp>
@@ -498,6 +499,12 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const boost::json::val
 }
 
 template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const boost::uuids::uuid& model )
+{
+  return bsoncxx::types::b_binary{ bsoncxx::binary_sub_type::k_uuid, boost::uuids::uuid::static_size(), model.data };
+}
+
+template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::array::value& model )
 {
   return bsoncxx::types::b_array{ model };
@@ -866,6 +873,15 @@ inline void spt::util::set( boost::json::value& field, bsoncxx::types::bson_valu
   default:
     LOG_DEBUG << "Unhandled type " << bsoncxx::to_string( value.type() );
   }
+}
+
+template <>
+inline void spt::util::set( boost::uuids::uuid& field, bsoncxx::types::bson_value::view value )
+{
+  if ( bsoncxx::type::k_binary != value.type() ) return;
+  const auto data = value.get_binary();
+  if ( data.sub_type != bsoncxx::binary_sub_type::k_uuid ) return;
+  std::memcpy( field.data, data.bytes, boost::uuids::uuid::static_size() );
 }
 
 template <>

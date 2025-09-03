@@ -4,6 +4,7 @@
 
 #include "model.hpp"
 
+#include <boost/uuid/uuid_generators.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -318,5 +319,16 @@ SCENARIO( "Serialisation test suite", "[serialise]" )
         CHECK( copy.id == obj.id );
       }
     }
+  }
+
+  GIVEN( "UUID value" )
+  {
+    auto generator = boost::uuids::random_generator{};
+    auto uuid = generator();
+    auto value = bson( uuid );
+
+    auto uuid1 = boost::uuids::uuid{};
+    set( uuid1, value );
+    CHECK( uuid == uuid1 );
   }
 }

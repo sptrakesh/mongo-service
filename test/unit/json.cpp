@@ -6,6 +6,7 @@
 
 #include <sstream>
 #include <thread>
+#include <boost/uuid/uuid_generators.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -556,6 +557,14 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
         CHECK( copy.id == obj.id );
       }
     }
+  }
+
+  GIVEN( "A UUID value" )
+  {
+    auto generator = boost::uuids::random_generator{};
+    auto uuid = generator();
+    auto value = json::json( uuid );
+    CHECK( value.as_string() == boost::lexical_cast<std::string>( uuid  ) );
   }
 }
 
