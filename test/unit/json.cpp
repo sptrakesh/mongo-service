@@ -564,7 +564,24 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
     auto generator = boost::uuids::random_generator{};
     auto uuid = generator();
     auto value = json::json( uuid );
-    CHECK( value.as_string() == boost::lexical_cast<std::string>( uuid  ) );
+    CHECK( value.as_string() == boost::lexical_cast<std::string>( uuid ) );
+  }
+
+  GIVEN( "Extended JSON representation of BSON ObjectId" )
+  {
+    struct IdHolder
+    {
+      BEGIN_VISITABLES(IdHolder);
+      VISITABLE(bsoncxx::oid, id);
+      END_VISITABLES;
+    };
+
+    WHEN( "Parsing extended JSON representation" )
+    {
+      const auto json = R"json({"id": {"$oid": "68e96158fb2e0818250c21b0"})json"sv;
+      const auto obj = spt::util::json::unmarshall<IdHolder>( json );
+      CHECK( obj.id.to_string() == "68e96158fb2e0818250c21b0" );
+    }
   }
 }
 

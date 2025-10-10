@@ -528,7 +528,7 @@ namespace
 
       d << "$set" << open_document;
 
-      for ( auto&& e : doc )
+      for ( const auto& e : doc )
       {
         if ( e.key() == "_id" ) continue;
         if ( e.key() == "$unset" ) continue;
