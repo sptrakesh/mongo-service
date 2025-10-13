@@ -566,21 +566,40 @@ SCENARIO( "JSON Serialisation test suite", "[json]" )
     auto value = json::json( uuid );
     CHECK( value.as_string() == boost::lexical_cast<std::string>( uuid ) );
   }
+}
 
-  GIVEN( "Extended JSON representation of BSON ObjectId" )
+SCENARIO( "Extended JSON Representation", "[extended-json]" )
+{
+  GIVEN( "Extended JSON representation of BSON types" )
   {
     struct IdHolder
     {
       BEGIN_VISITABLES(IdHolder);
       VISITABLE(bsoncxx::oid, id);
+      VISITABLE(DateTime, date);
       END_VISITABLES;
     };
 
-    WHEN( "Parsing extended JSON representation" )
+    WHEN( "Parsing relaxed extended JSON representation" )
     {
-      const auto json = R"json({"id": {"$oid": "68e96158fb2e0818250c21b0"})json"sv;
+      const auto json = R"json({
+  "id": {"$oid": "68e96158fb2e0818250c21b0"},
+  "date": {"$date": "2025-10-13T16:11:08.123456-05:00"}
+})json"sv;
       const auto obj = spt::util::json::unmarshall<IdHolder>( json );
       CHECK( obj.id.to_string() == "68e96158fb2e0818250c21b0" );
+      CHECK( std::chrono::duration_cast<std::chrono::microseconds>( obj.date.time_since_epoch() ) == std::chrono::microseconds{ 1760389868123456 } );
+    }
+
+    AND_WHEN( "Parsing extended JSON representation" )
+    {
+      const auto json = R"json({
+  "id": {"$oid": "68e96158fb2e0818250c21b0"},
+  "date": {"$date": {"$numberLong": "1760389868123"}}
+})json"sv;
+      const auto obj = spt::util::json::unmarshall<IdHolder>( json );
+      CHECK( obj.id.to_string() == "68e96158fb2e0818250c21b0" );
+      CHECK( std::chrono::duration_cast<std::chrono::milliseconds>( obj.date.time_since_epoch() ) == std::chrono::milliseconds{ 1760389868123 } );
     }
   }
 }
