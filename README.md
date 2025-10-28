@@ -451,7 +451,7 @@ In this case, only a placeholder response is returned as follows:
 
 ##### Replace Document
 If the `document` has a `replace` sub-document, then the existing document as
-specified by the `filter` query will be replaced.  MongoDB will return as error
+specified by the `filter` query will be replaced.  MongoDB will return an error
 if an attempt is made to replace multiple documents (the query filter **must** return
 a single document).  A version history document is created with the replaced
 document.
@@ -643,51 +643,6 @@ The following options are supported for the `delete` action (see `Delete` struct
     If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
 * `hint` - *document*.  Sets the index to use for this operation.
 * `let` - *document*.  Set the value of the let option.
-
-#### Drop Collection
-Drop the specified collection and all its containing documents.  Specify an
-empty `document` in the payload to satisfy payload requirements.  If you wish
-to also remove all version history documents for the dropped collection, specify
-`clearVersionHistory` `true` in the `document` (revision history documents
-will be removed *asynchronously*). Specify the *write concern* settings in the
-optional `options` sub-document.
-
-Sample drop payload specifying removal of all associated revision history documents (see `DropCollection` struct 
-in [dropcollection.hpp](src/api/model/request/dropcollection.hpp)):
-```json
-{
-  "action": "dropCollection",
-  "database": "itest",
-  "collection": "test",
-  "document": {"clearVersionHistory": true}
-}
-```
-
-Sample response (see `DropCollection` struct in [collection.hpp](src/api/model/response/collection.hpp)):
-```json
-{ "dropCollection" : true }
-```
-
-##### Options
-The following options are supported for the `dropCollection` action (see `DropCollection` struct in [dropcollection.hpp](src/api/options/dropcollection.hpp)):
-* `writeConcern` - *document*.  The write concern for the operation.
-  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
-    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
-  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
-    considered successful. Write operations will block until they have been replicated to the specified number of
-    servers in a replica set.
-  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
-    * `0` - Represent the implicit default write concern.
-    * `1` - Represent write concern with `w: "majority"`.
-    * `2` - Represent write concern with `w: <custom write concern name>`.
-    * `3` - Represent write concern for un-acknowledged writes.
-    * `4` - Represent write concern for acknowledged writes.
-  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
-    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
-  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
-    nodes that must acknowledge a write operation before it is considered a success.
-  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
-    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
 
 #### Index
 The `document` represents the specification for the *index* to be created.
@@ -974,7 +929,7 @@ documentation for the supported options.
 Rename a `collection` in the specified `database`.  If a `collection` already exists with the
 `document.target` *name*, an error is returned.  The option to automatically drop a pre-existing
 collection as supported by **MongoDB** is not supported.  For such cases, use the `dropCollection`
-action prior to invoking this action.  Specify the *write concern* settings in the
+action before invoking this action.  Specify the *write concern* settings in the
 optional `options` sub-document.
 
 This is a potentially heavy-weight operation.  All *version history* documents for the specified
@@ -985,9 +940,9 @@ period of time.
 
 **Note**: Renaming the collection in all associated *version history* documents may be the *wrong* choice.
 In chronological terms, those documents were associated with the previous `collection`.  Only future revisions
-are associated with the renamed `target`.  However, this can create issues in terms of retrieval, or if
+are associated with the renamed `target`.  However, this can create issues in terms of retrieval or if
 iterating over records for some other purpose, or if a new collection with the *previous* name is created
-in future.
+in the future.
 
 Sample rename payload (see `RenameCollection` struct in [renamecollection.hpp](src/api/model/request/renamecollection.hpp)):
 ```json
@@ -1010,8 +965,53 @@ Sample response payload (see `CreateCollection` struct in [collection.hpp](src/a
 ##### Options
 Same write options as for the `dropCollection` [action](#drop-collection).
 
+#### Drop Collection
+Drop the specified collection and all its containing documents.  Specify an
+empty `document` in the payload to satisfy payload requirements.  If you wish
+to also remove all version history documents for the dropped collection, specify
+`clearVersionHistory` `true` in the `document` (revision history documents
+will be removed *asynchronously*). Specify the *write concern* settings in the
+optional `options` sub-document.
+
+Sample drop payload specifying removal of all associated revision history documents (see `DropCollection` struct
+in [dropcollection.hpp](src/api/model/request/dropcollection.hpp)):
+```json
+{
+  "action": "dropCollection",
+  "database": "itest",
+  "collection": "test",
+  "document": {"clearVersionHistory": true}
+}
+```
+
+Sample response (see `DropCollection` struct in [collection.hpp](src/api/model/response/collection.hpp)):
+```json
+{ "dropCollection" : true }
+```
+
+##### Options
+The following options are supported for the `dropCollection` action (see `DropCollection` struct in [dropcollection.hpp](src/api/options/dropcollection.hpp)):
+* `writeConcern` - *document*.  The write concern for the operation.
+  * `journal` - *boolean*.  If `true` confirms that the database has written the data to the on-disk journal before
+    reporting a write operations was successful. This ensures that data is not lost if the database shuts down unexpectedly.
+  * `nodes` - *integer*.  Sets the number of nodes that are required to acknowledge the write before the operation is
+    considered successful. Write operations will block until they have been replicated to the specified number of
+    servers in a replica set.
+  * `acknowledgeLevel` - *integer*.  Sets the [acknowledgement](https://www.mongodb.com/docs/manual/reference/write-concern/#w-option) level for the write operation.
+    * `0` - Represent the implicit default write concern.
+    * `1` - Represent write concern with `w: "majority"`.
+    * `2` - Represent write concern with `w: <custom write concern name>`.
+    * `3` - Represent write concern for un-acknowledged writes.
+    * `4` - Represent write concern for acknowledged writes.
+  * `majority` - *integer*.  The amount of time (milliseconds) to wait before the write operation times out if it
+    cannot reach the majority of nodes in the replica set. If the value is zero, then no timeout is set.
+  * `tag` - *string*.  Sets the name representing the server-side `getLastErrorMode` entry containing the list of
+    nodes that must acknowledge a write operation before it is considered a success.
+  * `timeout` - *integer*.  Sets an upper bound on the time (milliseconds) a write concern can take to be satisfied.
+    If the write concern cannot be satisfied within the timeout, the operation is considered a failure.
+
 ### Document Response
-Create, update and delete actions only return some meta information about the
+Create, update, and delete actions only return some meta information about the
 action that was performed.  The assumption is that caller already has all the
 document information needed, and there is no need for the service to return
 that information.
@@ -1378,7 +1378,7 @@ sudo make install
 </details>
 
 <details>
-<summary>Check out, build and install the project.</summary>
+<summary>Check out, build, and install the project.</summary>
 
 ```shell
 cd /var/tmp
@@ -1492,7 +1492,7 @@ cd vcpkg
 </details>
 
 <details>
-<summary>Check out, build and install the project.</summary>
+<summary>Check out, build, and install the project.</summary>
 
 Launch the Visual Studio Command utility.
 ```shell
@@ -1523,6 +1523,7 @@ have been disabled when running on Windows to avoid running into these issues.
 
 ## Clients
 Sample clients in other languages that use the service.
+* **Rust** - Wrapper client for [Rust](https://rust-lang.org/) is available under the [rust](client/rust/README.md) directory.
 * **Julia** - Sample client package for [Julia](https://julialang.org) is available under the [julia](client/julia) directory.
 * **Python** - Sample client package for [Python](https://python.org) is available under the [python](client/python) directory.
 

@@ -68,12 +68,9 @@ namespace
             "collection" << conf.versionHistoryCollection <<
             "entity" << id << finalize;
         }
-        else
-        {
-          LOG_WARN
-            << "Unable to create version for " << dbname << ':' << collname
-            << ':' << id.to_string();
-        }
+        LOG_WARN
+          << "Unable to create version for " << dbname << ':' << collname
+          << ':' << id.to_string();
       }
       else
       {

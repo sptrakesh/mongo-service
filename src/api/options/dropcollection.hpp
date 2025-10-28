@@ -20,6 +20,7 @@ namespace spt::mongoservice::api::options
     DropCollection& operator=(const DropCollection&) = delete;
 
     BEGIN_VISITABLES(DropCollection);
+    // A document expressing the write concern.
     VISITABLE(std::optional<WriteConcern>, writeConcern);
     END_VISITABLES;
   };

@@ -1105,10 +1105,17 @@ void spt::util::json::parseDate( const char* name, D& field, simdjson::ondemand:
 
       int64_t iv{ 0 };
       auto [ptr, cec] = std::from_chars( v.data(), v.data() + v.size(), iv );
-      if ( cec == std::errc() ) field = D{ std::chrono::milliseconds{ iv } };
-      else throw simdjson::simdjson_error{ simdjson::UTF8_ERROR };
+      if ( cec == std::errc() )
+      {
+        field = D{ std::chrono::milliseconds{ iv } };
+        return;
+      }
+      throw simdjson::simdjson_error{ simdjson::UTF8_ERROR };
     }
   }
+
+  LOG_WARN << "Invalid extended JSON encoding for " << name << " of type DateTime";
+  throw simdjson::simdjson_error{ simdjson::error_code::INCORRECT_TYPE };
 }
 
 template <>

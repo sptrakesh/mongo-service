@@ -215,9 +215,9 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
-      retrieve.options->partialResults = false;
+      retrieve.options->allowPartialResults = false;
       retrieve.options->returnKey = true;
       retrieve.options->showRecordId = true;
 
@@ -240,10 +240,10 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( retrieve.options->sort == copy.options->sort );
       CHECK( retrieve.options->readPreference == copy.options->readPreference );
       CHECK( retrieve.options->comment == copy.options->comment );
-      CHECK( retrieve.options->maxTime == copy.options->maxTime );
+      CHECK( retrieve.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( retrieve.options->limit == copy.options->limit );
       CHECK( retrieve.options->skip == copy.options->skip );
-      CHECK( retrieve.options->partialResults == copy.options->partialResults );
+      CHECK( retrieve.options->allowPartialResults == copy.options->allowPartialResults );
       CHECK( retrieve.options->returnKey == copy.options->returnKey );
       CHECK( retrieve.options->showRecordId == copy.options->showRecordId );
       CHECK( copy.action == model::request::Action::retrieve );
@@ -266,9 +266,9 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
-      retrieve.options->partialResults = true;
+      retrieve.options->allowPartialResults = true;
       retrieve.options->returnKey = false;
       retrieve.options->showRecordId = false;
 
@@ -294,10 +294,10 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( retrieve.options->sort == copy.options->sort );
       CHECK( retrieve.options->readPreference == copy.options->readPreference );
       CHECK( retrieve.options->comment == copy.options->comment );
-      CHECK( retrieve.options->maxTime == copy.options->maxTime );
+      CHECK( retrieve.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( retrieve.options->limit == copy.options->limit );
       CHECK( retrieve.options->skip == copy.options->skip );
-      CHECK( retrieve.options->partialResults == copy.options->partialResults );
+      CHECK( retrieve.options->allowPartialResults == copy.options->allowPartialResults );
       CHECK( retrieve.options->returnKey == copy.options->returnKey );
       CHECK( retrieve.options->showRecordId == copy.options->showRecordId );
       CHECK( copy.action == model::request::Action::retrieve );
@@ -319,11 +319,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation->locale = "en";
       count.options->collation->strength = 1;
       count.options->hint = document{} << "name" << 1 << finalize;
-      count.options->readPreference = options::ReadPreference{};
-      count.options->readPreference->tags = document{} << "region" << "east" << finalize;
-      count.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      count.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      count.options->maxTime = std::chrono::milliseconds{ 1000 };
+      count.options->readConcern = options::ReadConcern{};
+      count.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       count.options->limit = 100'000;
       count.options->skip = 200'000;
 
@@ -338,8 +335,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       REQUIRE( copy.options );
       CHECK( count.options->collation == copy.options->collation );
       CHECK( count.options->hint == copy.options->hint );
-      CHECK( count.options->readPreference == copy.options->readPreference );
-      CHECK( count.options->maxTime == copy.options->maxTime );
+      CHECK( count.options->readConcern == copy.options->readConcern );
+      CHECK( count.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( count.options->limit == copy.options->limit );
       CHECK( count.options->skip == copy.options->skip );
       CHECK( copy.action == model::request::Action::count );
@@ -356,11 +353,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation->locale = "en";
       count.options->collation->strength = 1;
       count.options->hint = document{} << "name" << 1 << finalize;
-      count.options->readPreference = options::ReadPreference{};
-      count.options->readPreference->tags = document{} << "region" << "east" << finalize;
-      count.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      count.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      count.options->maxTime = std::chrono::milliseconds{ 1000 };
+      count.options->readConcern = options::ReadConcern{};
+      count.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       count.options->limit = 10'000;
       count.options->skip = 50'000;
 
@@ -378,8 +372,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       REQUIRE( copy.options );
       CHECK( count.options->collation == copy.options->collation );
       CHECK( count.options->hint == copy.options->hint );
-      CHECK( count.options->readPreference == copy.options->readPreference );
-      CHECK( count.options->maxTime == copy.options->maxTime );
+      CHECK( count.options->readConcern == copy.options->readConcern );
+      CHECK( count.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( count.options->limit == copy.options->limit );
       CHECK( count.options->skip == copy.options->skip );
       CHECK( copy.action == model::request::Action::count );
@@ -400,11 +394,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation = options::Collation{};
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
-      distinct.options->readPreference = options::ReadPreference{};
-      distinct.options->readPreference->tags = document{} << "region" << "east" << finalize;
-      distinct.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      distinct.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
+      distinct.options->readConcern = options::ReadConcern{};
+      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
 
       const auto bson = spt::util::marshall( distinct );
       const auto copy = spt::util::unmarshall<model::request::Distinct<bsoncxx::document::value>>( bson );
@@ -419,8 +410,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( distinct.action == copy.action );
       REQUIRE( copy.options );
       CHECK( distinct.options->collation == copy.options->collation );
-      CHECK( distinct.options->readPreference == copy.options->readPreference );
-      CHECK( distinct.options->maxTime == copy.options->maxTime );
+      CHECK( distinct.options->readConcern == copy.options->readConcern );
+      CHECK( distinct.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( copy.action == model::request::Action::distinct );
     }
 
@@ -434,11 +425,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation = options::Collation{};
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
-      distinct.options->readPreference = options::ReadPreference{};
-      distinct.options->readPreference->tags = document{} << "region" << "east" << finalize;
-      distinct.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      distinct.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
+      distinct.options->readConcern = options::ReadConcern{};
+      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
 
       const auto bson = spt::util::marshall( distinct );
       const auto copy = spt::util::unmarshall<model::request::Distinct<pmodel::Query>>( bson );
@@ -456,8 +444,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( distinct.action == copy.action );
       REQUIRE( copy.options );
       CHECK( distinct.options->collation == copy.options->collation );
-      CHECK( distinct.options->readPreference == copy.options->readPreference );
-      CHECK( distinct.options->maxTime == copy.options->maxTime );
+      CHECK( distinct.options->readConcern == copy.options->readConcern );
+      CHECK( distinct.options->maxTimeMS == copy.options->maxTimeMS );
       CHECK( copy.action == model::request::Action::distinct );
     }
 
@@ -479,7 +467,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       const auto bson = spt::util::marshall( update );
@@ -492,7 +480,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( update.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( update.options->writeConcern == copy.options->writeConcern );
-      CHECK( update.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( update.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( update.options->upsert == copy.options->upsert );
       CHECK( copy.action == model::request::Action::update );
     }
@@ -518,7 +506,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       const auto bson = spt::util::marshall( update );
@@ -531,7 +519,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( update.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( update.options->writeConcern == copy.options->writeConcern );
-      CHECK( update.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( update.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( update.options->upsert == copy.options->upsert );
       CHECK( copy.action == model::request::Action::update );
     }
@@ -557,7 +545,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       const auto bson = spt::util::marshall( update );
@@ -570,7 +558,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( update.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( update.options->writeConcern == copy.options->writeConcern );
-      CHECK( update.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( update.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( update.options->upsert == copy.options->upsert );
       CHECK( copy.action == model::request::Action::update );
     }
@@ -599,7 +587,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       const auto bson = spt::util::marshall( update );
@@ -613,7 +601,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( update.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( update.options->writeConcern == copy.options->writeConcern );
-      CHECK( update.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( update.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( update.options->upsert == copy.options->upsert );
       CHECK( copy.action == model::request::Action::update );
     }
@@ -643,7 +631,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = false;
+      update.options->bypassDocumentValidation = false;
       update.options->upsert = false;
 
       const auto bson = spt::util::marshall( update );
@@ -729,7 +717,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = false;
+      update.options->bypassDocumentValidation = false;
       update.options->upsert = false;
 
       const auto bson = spt::util::marshall( update );
@@ -785,7 +773,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = false;
+      update.options->bypassDocumentValidation = false;
       update.options->upsert = false;
 
       const auto bson = spt::util::marshall( update );
@@ -1404,7 +1392,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       create.document->collation->locale = "en";
       create.document->collation->strength = 1;
       create.document->collation->caseLevel = true;
-      create.document->collation->caseFirst = "case";
+      create.document->collation->caseFirst = options::Collation::CaseFirst::lower;
       create.document->collation->numericOrdering = true;
       create.document->collation->backwards = true;
       create.document->pipeline = array{} << open_document << "$match" << open_document << close_document << close_document << finalize;
@@ -1586,7 +1574,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       update.options->writeConcern->nodes = 2;
       update.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       update.options->writeConcern->journal = true;
-      update.options->bypassValidation = false;
+      update.options->bypassDocumentValidation = false;
       update.options->upsert = false;
       builder.addUpdate( update );
 

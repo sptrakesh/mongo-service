@@ -30,6 +30,7 @@ namespace spt::mongoservice::api
    * @param port The TCP port to connect to.
    * @param application The name of the client application to use when sending
    *   command to service.
+   * @param poolConfiguration Configuration for the connection pool.
    * @param ioc The optional io context to use for the connection.
    */
   void init( std::string_view server, std::string_view port,
@@ -39,7 +40,7 @@ namespace spt::mongoservice::api
 
   enum class ResultType : std::uint_fast8_t {
     /**
-     * Command executed against server successfully.  This does not indicate
+     * Command executed against the server successfully.  This does not indicate
      * the actual command being executed succeeded, just that the command was
      * executed by the service, and a response received.
      */
@@ -58,8 +59,9 @@ namespace spt::mongoservice::api
   /**
    * Execute the command specified in the input document view against the service.
    * @param document The document with the command to execute.
-   * @param bufSize Optional initial size of buffer to use to receive data.
-   * @return The result document or std::nullopt if invalid data was received.
+   * @param bufSize Optional initial size of the buffer to use to receive data.
+   * @return A tuple containing the result type and result document (std::nullopt
+   *   if invalid data was received).
    *   Caller must check the document contents to ensure successful execution
    *   of the command.
    */

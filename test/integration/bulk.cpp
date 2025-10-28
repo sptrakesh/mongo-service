@@ -73,7 +73,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       CHECK_FALSE( apm.processes.empty() );
     }
 
-    AND_THEN( "Retriving count of documents" )
+    AND_THEN( "Retrieving count of documents" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;
@@ -131,7 +131,7 @@ SCENARIO( "Bulk operation test suite", "[bulk]" )
       CHECK_FALSE( apm.processes.empty() );
     }
 
-    AND_THEN( "Retriving count of documents after delete" )
+    AND_THEN( "Retrieving count of documents after delete" )
     {
       namespace basic = bsoncxx::builder::basic;
       using basic::kvp;

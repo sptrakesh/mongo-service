@@ -146,7 +146,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       count.database = database;
       count.collection = collection;
       count.options = options::Count{};
-      count.options->maxTime = std::chrono::milliseconds{ 1000 };
+      count.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       count.options->limit = 100'000;
 
       auto result = repository::count( count );
@@ -166,7 +166,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       update.metadata->project = "serialisation";
       update.metadata->product = "mongo-service";
       update.options = options::Update{};
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
@@ -195,7 +195,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       update.metadata->project = "serialisation";
       update.metadata->product = "mongo-service";
       update.options = options::Update{};
-      update.options->bypassValidation = true;
+      update.options->bypassDocumentValidation = true;
       update.options->upsert = true;
 
       auto result = repository::update( update );
@@ -263,9 +263,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.document->id = oid;
       retrieve.options = options::Find{};
       retrieve.options->sort = document{} << "str" << 1 << "_id" << -1 << finalize;
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
-      retrieve.options->partialResults = true;
+      retrieve.options->allowPartialResults = true;
       retrieve.options->returnKey = false;
       retrieve.options->showRecordId = false;
 
@@ -286,9 +286,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.database = database;
       retrieve.collection = collection;
       retrieve.options = options::Find{};
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
-      retrieve.options->partialResults = true;
+      retrieve.options->allowPartialResults = true;
       retrieve.options->returnKey = false;
       retrieve.options->showRecordId = false;
 
@@ -312,7 +312,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.collection = collection;
       retrieve.options = options::Find{};
       retrieve.options->sort = document{} << "str" << 1 << "_id" << -1 << finalize;
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
 
       auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
@@ -338,7 +338,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       retrieve.collection = collection;
       retrieve.options = options::Find{};
       retrieve.options->sort = document{} << "str" << 1 << "_id" << -1 << finalize;
-      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
       retrieve.options->skip = 10000;
 
@@ -364,9 +364,9 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       pipeline.addStage( "$sort", document{} << "_id" << -1 << finalize );
       pipeline.addStage( "$limit", 1 );
       pipeline.options = options::Find{};
-      pipeline.options->maxTime = std::chrono::milliseconds{ 1000 };
+      pipeline.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
       pipeline.options->limit = 10000;
-      pipeline.options->partialResults = false;
+      pipeline.options->allowPartialResults = false;
       pipeline.options->returnKey = true;
       pipeline.options->showRecordId = true;
 
@@ -389,7 +389,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       distinct.document->filter = std::nullopt;
       distinct.document->field = "str";
       distinct.options = options::Distinct{};
-      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
+      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
 
       auto result = repository::distinct( distinct );
       REQUIRE( result.has_value() );
@@ -404,7 +404,7 @@ TEST_CASE_PERSISTENT_FIXTURE( prepository::Fixture, "Repository interface test s
       distinct.collection = collection;
       distinct.document->field = "str";
       distinct.options = options::Distinct{};
-      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
+      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
 
       auto apm = spt::ilp::APMRecord{ bsoncxx::oid{}.to_string() };
       auto result = repository::distinct( distinct, apm );

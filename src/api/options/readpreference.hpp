@@ -40,4 +40,23 @@ namespace spt::mongoservice::api::options
   void populate( ReadPreference& model, bsoncxx::document::view bson );
   void populate( const ReadPreference& model, bsoncxx::builder::stream::document& builder );
   void populate( const ReadPreference& model, boost::json::object& object );
+
+  struct ReadConcern
+  {
+    enum class Level : uint_fast8_t { local, available, majority, linearizable, snapshot };
+
+    explicit ReadConcern( bsoncxx::document::view doc ) { util::unmarshall( *this, doc ); }
+    ReadConcern() = default;
+    ~ReadConcern() = default;
+    ReadConcern(ReadConcern&&) = default;
+    ReadConcern& operator=(ReadConcern&&) = default;
+    bool operator==(const ReadConcern&) const = default;
+
+    ReadConcern(const ReadConcern&) = delete;
+    ReadConcern& operator=(const ReadConcern&) = delete;
+
+    BEGIN_VISITABLES(ReadConcern);
+    VISITABLE_DIRECT_INIT(Level, level, {Level::local});
+    END_VISITABLES;
+  };
 }

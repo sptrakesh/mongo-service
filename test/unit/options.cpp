@@ -100,14 +100,14 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.arrayFilters = array{} <<
         open_document << "price" << open_document << "$gte" << 10 << close_document << close_document <<
         finalize;
-      opt.bypassValidation = true;
+      opt.bypassDocumentValidation = true;
       opt.upsert = true;
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Update>( bson );
 
       CHECK( opt.writeConcern == copy.writeConcern );
-      CHECK( opt.bypassValidation == copy.bypassValidation );
+      CHECK( opt.bypassDocumentValidation == copy.bypassDocumentValidation );
       CHECK( opt.collation == copy.collation );
       CHECK( opt.upsert == copy.upsert );
       REQUIRE( copy.arrayFilters );
@@ -209,10 +209,10 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
       opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
       opt.comment = "Unit test";
-      opt.maxTime = std::chrono::milliseconds{ 1000 };
+      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
       opt.limit = 10000;
       opt.skip = 1000;
-      opt.partialResults = false;
+      opt.allowPartialResults = false;
       opt.returnKey = true;
       opt.showRecordId = true;
 
@@ -234,10 +234,10 @@ SCENARIO( "Options API model test suite", "[options]" )
       CHECK( opt.sort == copy.sort );
       CHECK( opt.readPreference == copy.readPreference );
       CHECK( opt.comment == copy.comment );
-      CHECK( opt.maxTime == copy.maxTime );
+      CHECK( opt.maxTimeMS == copy.maxTimeMS );
       CHECK( opt.limit == copy.limit );
       CHECK( opt.skip == copy.skip );
-      CHECK( opt.partialResults == copy.partialResults );
+      CHECK( opt.allowPartialResults == copy.allowPartialResults );
       CHECK( opt.returnKey == copy.returnKey );
       CHECK( opt.showRecordId == copy.showRecordId );
     }
@@ -249,21 +249,18 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation->locale = "en";
       opt.collation->strength = 1;
       opt.hint = document{} << "name" << 1 << finalize;
-      opt.maxTime = std::chrono::milliseconds{ 1000 };
+      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
       opt.limit = 10000;
       opt.skip = 1000;
-      opt.readPreference = ReadPreference{};
-      opt.readPreference->tags = document{} << "region" << "east" << finalize;
-      opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
+      opt.readConcern = ReadConcern{};
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Count>( bson );
 
       CHECK( opt.collation == copy.collation );
       CHECK( opt.hint == copy.hint );
-      CHECK( opt.readPreference == copy.readPreference );
-      CHECK( opt.maxTime == copy.maxTime );
+      CHECK( opt.readConcern == copy.readConcern );
+      CHECK( opt.maxTimeMS == copy.maxTimeMS );
       CHECK( opt.limit == copy.limit );
       CHECK( opt.skip == copy.skip );
     }
@@ -274,18 +271,15 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation = Collation{};
       opt.collation->locale = "en";
       opt.collation->strength = 1;
-      opt.maxTime = std::chrono::milliseconds{ 1000 };
-      opt.readPreference = ReadPreference{};
-      opt.readPreference->tags = document{} << "region" << "east" << finalize;
-      opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
-      opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
+      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
+      opt.readConcern = ReadConcern{};
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Distinct>( bson );
 
       CHECK( opt.collation == copy.collation );
-      CHECK( opt.readPreference == copy.readPreference );
-      CHECK( opt.maxTime == copy.maxTime );
+      CHECK( opt.readConcern == copy.readConcern );
+      CHECK( opt.maxTimeMS == copy.maxTimeMS );
     }
 
     AND_WHEN( "Serialising index" )
@@ -346,7 +340,7 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation->locale = "en";
       opt.collation->strength = 1;
       opt.collation->caseLevel = true;
-      opt.collation->caseFirst = "case";
+      opt.collation->caseFirst = Collation::CaseFirst::lower;
       opt.collation->numericOrdering = true;
       opt.collation->backwards = true;
       opt.timeseries = CreateCollection::Timeseries{};

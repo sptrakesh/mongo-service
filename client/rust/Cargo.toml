@@ -1,0 +1,17 @@
+[package]
+name = "mongo-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bson = { version = "3.0.0", features = ["chrono-0_4", "serde"] }
+cxx = { version = "1.0.187", features = ["alloc", "c++20"] }
+log = "0.4.28"
+serde = "1.0.228"
+
+[dev-dependencies]
+chrono = "0.4.42"
+googletest = "0.14.2"
+
+[build-dependencies]
+cxx-build = "1.0.187"

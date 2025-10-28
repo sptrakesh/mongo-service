@@ -84,7 +84,7 @@ namespace spt::util
   bsoncxx::types::bson_value::value bson( const M& model );
 
   /**
-   *
+   * Serialise the specified enum type into a BSON string.
    * @tparam E The scoped enum type
    * @param model The enum type field to be converted to a BSON value.  Converts the enum to its name.
    * @return The BSON value equivalent.
@@ -160,6 +160,19 @@ namespace spt::util
   bsoncxx::types::bson_value::value bson( const std::vector<E>& items );
 
   /**
+   * Serialise the specified optional enum type into a BSON string or `null` is not set.
+   * @tparam E The scoped enum type
+   * @param model The enum type field to be converted to a BSON value.  Converts the enum to its name.
+   * @return The BSON value equivalent.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  bsoncxx::types::bson_value::value bson( const std::optional<E>& model )
+  {
+    return model ? bson( *model ) : bsoncxx::types::b_null{};
+  }
+
+  /**
    * General implementation for serialising an optional type.  Delegates to the appropriate {@xrefitem bson(const M&)} function
    * if the variant is set.
    * @tparam T The type wrapped in the optional.
@@ -167,7 +180,7 @@ namespace spt::util
    * @return The BSON value variant.
    */
   template <typename T>
-  inline bsoncxx::types::bson_value::value bson( const std::optional<T>& model )
+  bsoncxx::types::bson_value::value bson( const std::optional<T>& model )
   {
     return model ? bson( *model ) : bsoncxx::types::b_null{};
   }
@@ -317,7 +330,7 @@ namespace spt::util
   void set( M& field, bsoncxx::types::bson_value::view value );
 
   /**
-   *
+   * Set an enum field from the corresponding BSON string.
    * @tparam E The scoped enum type to unmarshall from the BSON representation.
    * @param field The enum field that is to be unmarshalled from BSON.
    * @param value The BSON value from which the enum is to be de-serialised.
@@ -326,6 +339,22 @@ namespace spt::util
     requires std::is_enum_v<E>
   void set( E& field, bsoncxx::types::bson_value::view value )
   {
+    if ( value.get_string().value.empty() ) return;
+    if ( auto e = magic_enum::enum_cast<E>( value.get_string().value ); e ) field = *e;
+    else LOG_DEBUG << "Value (" << value.get_string().value << ") cannot be cast to enum type " << typeid( E ).name();
+  }
+
+  /**
+   * Set an optional enum field from the corresponding BSON string.
+   * @tparam E The scoped enum type to unmarshall from the BSON representation.
+   * @param field The enum field that is to be unmarshalled from BSON.
+   * @param value The BSON value from which the enum is to be de-serialised.
+   */
+  template <typename E>
+    requires std::is_enum_v<E>
+  void set( std::optional<E>& field, bsoncxx::types::bson_value::view value )
+  {
+    if ( value.type() == bsoncxx::type::k_null ) return;
     if ( value.get_string().value.empty() ) return;
     if ( auto e = magic_enum::enum_cast<E>( value.get_string().value ); e ) field = *e;
     else LOG_DEBUG << "Value (" << value.get_string().value << ") cannot be cast to enum type " << typeid( E ).name();

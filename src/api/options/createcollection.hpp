@@ -29,10 +29,15 @@ namespace spt::mongoservice::api::options
       Timeseries& operator=(const Timeseries&) = delete;
 
       BEGIN_VISITABLES(Timeseries);
+      // The name of the field which contains the date in each time series document.
       VISITABLE(std::string, timeField);
+      // The name of the field which contains metadata in each time series document.
       VISITABLE(std::string, metaField);
+      // Sets the maximum time between timestamps in the same bucket.
       VISITABLE_DIRECT_INIT(std::optional<std::chrono::seconds>, bucketMaxSpanSeconds, {std::nullopt});
+      // Sets the number of seconds to round down by when MongoDB sets the minimum timestamp for a new bucket.
       VISITABLE_DIRECT_INIT(std::optional<std::chrono::seconds>, bucketRoundingSeconds, {std::nullopt});
+      // Set granularity to the value that most closely matches the time between consecutive incoming timestamps.
       VISITABLE_DIRECT_INIT(Granularity, granularity, {Granularity::invalid});
       END_VISITABLES;
     };
@@ -100,21 +105,34 @@ namespace spt::mongoservice::api::options
     CreateCollection& operator=(const CreateCollection&) = delete;
 
     BEGIN_VISITABLES(CreateCollection);
+    // A document that expresses the write concern for the operation.
     VISITABLE(std::optional<WriteConcern>, writeConcern);
+    // Specifies the default collation for the collection.
     VISITABLE(std::optional<Collation>, collation);
     VISITABLE(std::optional<Timeseries>, timeseries);
+    // An array that consists of the aggregation pipeline stage(s).
     VISITABLE(std::optional<bsoncxx::array::value>, pipeline);
+    // Allows users to specify validation rules or expressions for the collection.
     VISITABLE(std::optional<bsoncxx::document::value>, validator);
+    // Allows users to specify a default configuration for indexes when creating a collection.
     VISITABLE(std::optional<bsoncxx::document::value>, indexOptionDefaults);
+    // Allows users to specify configuration to the storage engine on a per-collection basis when creating a collection.
     VISITABLE(std::optional<bsoncxx::document::value>, storageEngine);
     VISITABLE(std::optional<ChangeStream>, changeStreamPreAndPostImages);
     VISITABLE(std::optional<ClusteredIndex>, clusteredIndex);
+    // The name of the source collection or view from which to create a view.
     VISITABLE(std::string, viewOn);
+    // Specify a maximum size in bytes for a capped collection.
     VISITABLE(std::optional<int64_t>, size);
+    // The maximum number of documents allowed in the capped collection.
     VISITABLE(std::optional<int64_t>, max);
+    // Specifies the seconds after which documents in a time series collection or clustered collection expire.
     VISITABLE_DIRECT_INIT(std::optional<std::chrono::seconds>, expireAfterSeconds, {std::nullopt});
+    // Determines whether to error on invalid documents or just warn about the violations but allow invalid documents to be inserted.
     VISITABLE_DIRECT_INIT(ValidationAction, validationAction, {ValidationAction::invalid});
+    // Determines how strictly MongoDB applies the validation rules to existing documents during an update.
     VISITABLE_DIRECT_INIT(ValidationLevel, validationLevel, {ValidationLevel::invalid});
+    // To create a capped collection, specify `true`.
     VISITABLE(std::optional<bool>, capped);
     END_VISITABLES;
   };
