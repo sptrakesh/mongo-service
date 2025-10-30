@@ -1523,7 +1523,7 @@ have been disabled when running on Windows to avoid running into these issues.
 
 ## Clients
 Sample clients in other languages that use the service.
-* **Rust** - Wrapper client for [Rust](https://rust-lang.org/) is available under the [rust](client/rust/README.md) directory.
+* **Rust** - Wrapper client (FFI) for [Rust](https://rust-lang.org/) is available under the [rust](client/rust/README.md) directory.
 * **Julia** - Sample client package for [Julia](https://julialang.org) is available under the [julia](client/julia) directory.
 * **Python** - Sample client package for [Python](https://python.org) is available under the [python](client/python) directory.
 
