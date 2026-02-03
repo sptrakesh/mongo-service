@@ -118,7 +118,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       insert.options->writeConcern->nodes = 2;
       insert.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       insert.options->writeConcern->journal = true;
-      insert.options->bypassValidation = true;
+      insert.options->bypassDocumentValidation = true;
       insert.options->ordered = true;
 
       const auto bson = spt::util::marshall( insert );
@@ -131,7 +131,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( insert.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( insert.options->writeConcern == copy.options->writeConcern );
-      CHECK( insert.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( insert.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( insert.options->ordered == copy.options->ordered );
       CHECK( copy.action == model::request::Action::create );
     }
@@ -155,7 +155,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       insert.options->writeConcern->nodes = 2;
       insert.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       insert.options->writeConcern->journal = true;
-      insert.options->bypassValidation = true;
+      insert.options->bypassDocumentValidation = true;
       insert.options->ordered = true;
 
       const auto bson = spt::util::marshall( insert );
@@ -168,7 +168,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( insert.metadata == copy.metadata );
       REQUIRE( copy.options );
       CHECK( insert.options->writeConcern == copy.options->writeConcern );
-      CHECK( insert.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( insert.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( insert.options->ordered == copy.options->ordered );
       CHECK( copy.action == model::request::Action::create );
     }
@@ -188,7 +188,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->collation = options::Collation{};
       retrieve.options->collation->locale = "en";
       retrieve.options->collation->strength = 1;
-      retrieve.options->hint = document{} << "name" << 1 << finalize;
+      retrieve.options->hint.emplace( document{} << "name" << 1 << finalize );
       retrieve.options->let = document{} <<
         "vars" <<
           open_document <<
@@ -215,7 +215,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
       retrieve.options->allowPartialResults = false;
       retrieve.options->returnKey = true;
@@ -240,7 +240,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( retrieve.options->sort == copy.options->sort );
       CHECK( retrieve.options->readPreference == copy.options->readPreference );
       CHECK( retrieve.options->comment == copy.options->comment );
-      CHECK( retrieve.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( retrieve.options->maxTime == copy.options->maxTime );
       CHECK( retrieve.options->limit == copy.options->limit );
       CHECK( retrieve.options->skip == copy.options->skip );
       CHECK( retrieve.options->allowPartialResults == copy.options->allowPartialResults );
@@ -259,14 +259,14 @@ SCENARIO( "Document API model test suite", "[document]" )
       retrieve.options->collation = options::Collation{};
       retrieve.options->collation->locale = "en";
       retrieve.options->collation->strength = 1;
-      retrieve.options->hint = document{} << "name" << 1 << finalize;
+      retrieve.options->hint.emplace( document{} << "name" << 1 << finalize );
       retrieve.options->projection = document{} << "name" << 1 << "_id" << 0 << finalize;
       retrieve.options->sort = document{} << "name" << 1 << "_id" << -1 << finalize;
       retrieve.options->readPreference = options::ReadPreference{};
       retrieve.options->readPreference->tags = document{} << "region" << "east" << finalize;
       retrieve.options->readPreference->maxStaleness = std::chrono::seconds{ 120 };
       retrieve.options->readPreference->mode = options::ReadPreference::ReadMode::Nearest;
-      retrieve.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      retrieve.options->maxTime = std::chrono::milliseconds{ 1000 };
       retrieve.options->limit = 10000;
       retrieve.options->allowPartialResults = true;
       retrieve.options->returnKey = false;
@@ -294,7 +294,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( retrieve.options->sort == copy.options->sort );
       CHECK( retrieve.options->readPreference == copy.options->readPreference );
       CHECK( retrieve.options->comment == copy.options->comment );
-      CHECK( retrieve.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( retrieve.options->maxTime == copy.options->maxTime );
       CHECK( retrieve.options->limit == copy.options->limit );
       CHECK( retrieve.options->skip == copy.options->skip );
       CHECK( retrieve.options->allowPartialResults == copy.options->allowPartialResults );
@@ -318,9 +318,10 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation = options::Collation{};
       count.options->collation->locale = "en";
       count.options->collation->strength = 1;
-      count.options->hint = document{} << "name" << 1 << finalize;
-      count.options->readConcern = options::ReadConcern{};
-      count.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      count.options->hint.emplace( "name_1" );
+      count.options->readPreference.emplace();
+      count.options->readPreference->tags.emplace( document{} << "region" << "east" << finalize );
+      count.options->maxTime = std::chrono::milliseconds{ 1000 };
       count.options->limit = 100'000;
       count.options->skip = 200'000;
 
@@ -335,8 +336,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       REQUIRE( copy.options );
       CHECK( count.options->collation == copy.options->collation );
       CHECK( count.options->hint == copy.options->hint );
-      CHECK( count.options->readConcern == copy.options->readConcern );
-      CHECK( count.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( count.options->readPreference == copy.options->readPreference );
+      CHECK( count.options->maxTime == copy.options->maxTime );
       CHECK( count.options->limit == copy.options->limit );
       CHECK( count.options->skip == copy.options->skip );
       CHECK( copy.action == model::request::Action::count );
@@ -352,9 +353,9 @@ SCENARIO( "Document API model test suite", "[document]" )
       count.options->collation = options::Collation{};
       count.options->collation->locale = "en";
       count.options->collation->strength = 1;
-      count.options->hint = document{} << "name" << 1 << finalize;
-      count.options->readConcern = options::ReadConcern{};
-      count.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      count.options->hint.emplace( document{} << "name" << 1 << finalize );
+      count.options->readPreference.emplace();
+      count.options->maxTime = std::chrono::milliseconds{ 1000 };
       count.options->limit = 10'000;
       count.options->skip = 50'000;
 
@@ -372,8 +373,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       REQUIRE( copy.options );
       CHECK( count.options->collation == copy.options->collation );
       CHECK( count.options->hint == copy.options->hint );
-      CHECK( count.options->readConcern == copy.options->readConcern );
-      CHECK( count.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( count.options->readPreference == copy.options->readPreference );
+      CHECK( count.options->maxTime == copy.options->maxTime );
       CHECK( count.options->limit == copy.options->limit );
       CHECK( count.options->skip == copy.options->skip );
       CHECK( copy.action == model::request::Action::count );
@@ -394,8 +395,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation = options::Collation{};
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
-      distinct.options->readConcern = options::ReadConcern{};
-      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      distinct.options->readPreference.emplace();
+      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
 
       const auto bson = spt::util::marshall( distinct );
       const auto copy = spt::util::unmarshall<model::request::Distinct<bsoncxx::document::value>>( bson );
@@ -410,8 +411,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( distinct.action == copy.action );
       REQUIRE( copy.options );
       CHECK( distinct.options->collation == copy.options->collation );
-      CHECK( distinct.options->readConcern == copy.options->readConcern );
-      CHECK( distinct.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( distinct.options->readPreference == copy.options->readPreference );
+      CHECK( distinct.options->maxTime == copy.options->maxTime );
       CHECK( copy.action == model::request::Action::distinct );
     }
 
@@ -425,8 +426,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       distinct.options->collation = options::Collation{};
       distinct.options->collation->locale = "en";
       distinct.options->collation->strength = 1;
-      distinct.options->readConcern = options::ReadConcern{};
-      distinct.options->maxTimeMS = std::chrono::milliseconds{ 1000 };
+      distinct.options->readPreference.emplace();
+      distinct.options->maxTime = std::chrono::milliseconds{ 1000 };
 
       const auto bson = spt::util::marshall( distinct );
       const auto copy = spt::util::unmarshall<model::request::Distinct<pmodel::Query>>( bson );
@@ -444,8 +445,8 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( distinct.action == copy.action );
       REQUIRE( copy.options );
       CHECK( distinct.options->collation == copy.options->collation );
-      CHECK( distinct.options->readConcern == copy.options->readConcern );
-      CHECK( distinct.options->maxTimeMS == copy.options->maxTimeMS );
+      CHECK( distinct.options->readPreference == copy.options->readPreference );
+      CHECK( distinct.options->maxTime == copy.options->maxTime );
       CHECK( copy.action == model::request::Action::distinct );
     }
 
@@ -815,7 +816,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       remove.options->collation = options::Collation{};
       remove.options->collation->locale = "en";
       remove.options->collation->strength = 1;
-      remove.options->hint = document{} << "name" << 1 << finalize;
+      remove.options->hint.emplace( "name_1" );
       remove.options->writeConcern = options::WriteConcern{};
       remove.options->writeConcern->tag = "test";
       remove.options->writeConcern->majority = std::chrono::milliseconds{ 100 };
@@ -879,7 +880,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       remove.options->collation = options::Collation{};
       remove.options->collation->locale = "en";
       remove.options->collation->strength = 1;
-      remove.options->hint = document{} << "name" << 1 << finalize;
+      remove.options->hint.emplace( document{} << "name" << 1 << finalize );
       remove.options->writeConcern = options::WriteConcern{};
       remove.options->writeConcern->tag = "test";
       remove.options->writeConcern->majority = std::chrono::milliseconds{ 100 };
@@ -1346,7 +1347,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       insert.options->writeConcern->nodes = 2;
       insert.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       insert.options->writeConcern->journal = true;
-      insert.options->bypassValidation = true;
+      insert.options->bypassDocumentValidation = true;
       insert.options->ordered = true;
 
       const auto bson = spt::util::marshall( insert );
@@ -1358,7 +1359,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       CHECK( insert.document == copy.document );
       REQUIRE( copy.options );
       CHECK( insert.options->writeConcern == copy.options->writeConcern );
-      CHECK( insert.options->bypassValidation == copy.options->bypassValidation );
+      CHECK( insert.options->bypassDocumentValidation == copy.options->bypassDocumentValidation );
       CHECK( insert.options->ordered == copy.options->ordered );
       CHECK( copy.action == model::request::Action::createTimeseries );
     }
@@ -1545,7 +1546,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       insert.options->writeConcern->nodes = 2;
       insert.options->writeConcern->acknowledgeLevel = options::WriteConcern::Level::Majority;
       insert.options->writeConcern->journal = true;
-      insert.options->bypassValidation = true;
+      insert.options->bypassDocumentValidation = true;
       insert.options->ordered = true;
       builder.addCreate( insert );
 
@@ -1586,7 +1587,7 @@ SCENARIO( "Document API model test suite", "[document]" )
       remove.options->collation = options::Collation{};
       remove.options->collation->locale = "en";
       remove.options->collation->strength = 1;
-      remove.options->hint = document{} << "name" << 1 << finalize;
+      remove.options->hint.emplace( "name_1" );
       remove.options->writeConcern = options::WriteConcern{};
       remove.options->writeConcern->tag = "test";
       remove.options->writeConcern->majority = std::chrono::milliseconds{ 100 };

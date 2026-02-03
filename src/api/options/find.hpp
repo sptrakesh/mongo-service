@@ -24,8 +24,9 @@ namespace spt::mongoservice::api::options
     // Collation settings for operation.
     VISITABLE(std::optional<Collation>, collation);
     VISITABLE(std::optional<bsoncxx::document::value>, commentOption);
-    // orces the query optimizer to use specific indexes in the query.
-    VISITABLE(std::optional<bsoncxx::document::value>, hint);
+    // Forces the query optimizer to use specific indexes in the query.
+    VISITABLE(std::optional<bsoncxx::types::bson_value::value>, hint);
+    // Specifies a document with a list of variables.
     VISITABLE(std::optional<bsoncxx::document::value>, let);
     // The exclusive upper bound for a specific index.
     VISITABLE(std::optional<bsoncxx::document::value>, max);
@@ -37,12 +38,10 @@ namespace spt::mongoservice::api::options
     VISITABLE(std::optional<bsoncxx::document::value>, sort);
     // Specifies the read preference level for the query.
     VISITABLE(std::optional<ReadPreference>, readPreference);
-    // Specifies the read concern level for the query.
-    VISITABLE(std::optional<ReadConcern>, readConcern);
     // Adds a $comment to the query that shows in the profiler logs.
     VISITABLE(std::string, comment);
     // The maximum amount of time (in milliseconds) the server should allow the query to run.
-    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTimeMS, {std::nullopt});
+    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTime, {std::nullopt});
     // Sets a limit of documents returned in the result set.
     VISITABLE(std::optional<int64_t>, limit);
     // How many documents to skip before returning the first document in the result set.

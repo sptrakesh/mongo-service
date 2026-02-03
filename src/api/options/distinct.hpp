@@ -23,9 +23,9 @@ namespace spt::mongoservice::api::options
     BEGIN_VISITABLES(Distinct);
     // Specifies the collation to use for the operation.
     VISITABLE(std::optional<Collation>, collation);
-    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTimeMS, {std::nullopt});
-    // Specifies the read concern.
-    VISITABLE(std::optional<ReadConcern>, readConcern);
+    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTime, {std::nullopt});
+    // Specifies the read preference.
+    VISITABLE(std::optional<ReadPreference>, readPreference);
     END_VISITABLES;
   };
 }

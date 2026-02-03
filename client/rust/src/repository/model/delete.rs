@@ -102,7 +102,7 @@ impl<M: Serialize> Request<M>
   ///
   /// This method first converts the object into a document representation using the `serialize_to_document` function.
   /// It then adds the "action" field with the value corresponding to the `Action::delete` variant
-  /// (assumed to be an enum defined in the `crate` module). Finally, it converts the modified document
+  /// (assumed to be an enum defined in the `crate::Action` module). Finally, it converts the modified document
   /// into a byte vector and returns the result.
   ///
   /// # Returns

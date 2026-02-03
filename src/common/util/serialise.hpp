@@ -193,7 +193,7 @@ namespace spt::util
    * @return The BSON value variant.
    */
   template <typename T>
-  inline bsoncxx::types::bson_value::value bson( const std::shared_ptr<T>& model )
+  bsoncxx::types::bson_value::value bson( const std::shared_ptr<T>& model )
   {
     return model ? bson( *model.get() ) : bsoncxx::types::b_null{};
   }
@@ -543,6 +543,18 @@ template <>
 inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::document::value& model )
 {
   return bsoncxx::types::b_document{ model };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::document::view& model )
+{
+  return { model };
+}
+
+template <>
+inline bsoncxx::types::bson_value::value spt::util::bson( const bsoncxx::types::bson_value::value& model )
+{
+  return model;
 }
 
 template <spt::util::Visitable M>
@@ -1026,6 +1038,23 @@ inline void spt::util::set( std::vector<std::chrono::time_point<std::chrono::sys
 {
   field.reserve( std::ranges::distance( value.get_array().value ) );
   for ( const auto& item: value.get_array().value ) field.emplace_back( item.get_date().value );
+}
+
+template <>
+inline void spt::util::set( bsoncxx::types::bson_value::value& field, bsoncxx::types::bson_value::view value )
+{
+  field = bsoncxx::types::bson_value::value{ value };
+}
+
+template <>
+inline void spt::util::set( std::optional<bsoncxx::types::bson_value::value>& field, bsoncxx::types::bson_value::view value )
+{
+  if ( value.type() == bsoncxx::type::k_null )
+  {
+    field = std::nullopt;
+    return;
+  }
+  field = bsoncxx::types::bson_value::value{ value };
 }
 
 template <typename M>

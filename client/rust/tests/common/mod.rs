@@ -1,5 +1,5 @@
 use bson::{doc, oid::ObjectId};
-use mongo_service::{execute, init as minit, Configuration, Logger, Request, Response};
+use mongo_service::{execute, init as minit, Configuration, Logger, LogLevel, Request, Response};
 use googletest::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,8 @@ pub struct Person
 
 pub fn init()
 {
-  let logger = Logger::new("/tmp/", "mongo-service-rust");
+  let mut logger = Logger::new("/tmp/", "mongo-service-rust");
+  logger.level = LogLevel::DEBUG;
   let conf = Configuration::new("rust", "localhost", 2000);
   minit(logger, conf);
 }

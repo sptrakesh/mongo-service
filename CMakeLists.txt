@@ -67,6 +67,7 @@ if (UNIX)
   set(Boost_USE_STATIC_RUNTIME ON)
   set(Boost_USE_MULTITHREADED ON)
   set(OPENSSL_USE_STATIC_LIBS TRUE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-literal-operator")
 endif (UNIX)
 
 find_package(Boost REQUIRED COMPONENTS json)

@@ -5,7 +5,7 @@
 #pragma once
 
 #include "rust/cxx.h"
-#include "mongo-service/src/mongoservice.rs.h"
+#include "mongo-service/src/client.rs.h"
 
 void init_logger( Logger conf );
 void init( Configuration conf );

@@ -73,14 +73,14 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.writeConcern->nodes = 2;
       opt.writeConcern->acknowledgeLevel = WriteConcern::Level::Majority;
       opt.writeConcern->journal = true;
-      opt.bypassValidation = true;
+      opt.bypassDocumentValidation = true;
       opt.ordered = true;
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Insert>( bson );
 
       CHECK( opt.writeConcern == copy.writeConcern );
-      CHECK( opt.bypassValidation == copy.bypassValidation );
+      CHECK( opt.bypassDocumentValidation == copy.bypassDocumentValidation );
       CHECK( opt.ordered == copy.ordered );
     }
 
@@ -135,7 +135,7 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.writeConcern->nodes = 2;
       opt.writeConcern->acknowledgeLevel = WriteConcern::Level::Majority;
       opt.writeConcern->journal = true;
-      opt.hint = document{} << "name" << 1 << finalize;
+      opt.hint.emplace( document{} << "name" << 1 << finalize );
       opt.let = document{} <<
         "vars" <<
           open_document <<
@@ -179,7 +179,7 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation->locale = "en";
       opt.collation->strength = 1;
       opt.commentOption = document{} << "locale" << "en" << "strength" << 1 << finalize;
-      opt.hint = document{} << "name" << 1 << finalize;
+      opt.hint.emplace( "name_1" );
       opt.let = document{} <<
         "vars" <<
           open_document <<
@@ -209,7 +209,7 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.readPreference->maxStaleness = std::chrono::seconds{ 120 };
       opt.readPreference->mode = ReadPreference::ReadMode::Nearest;
       opt.comment = "Unit test";
-      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
+      opt.maxTime = std::chrono::milliseconds{ 1000 };
       opt.limit = 10000;
       opt.skip = 1000;
       opt.allowPartialResults = false;
@@ -234,7 +234,7 @@ SCENARIO( "Options API model test suite", "[options]" )
       CHECK( opt.sort == copy.sort );
       CHECK( opt.readPreference == copy.readPreference );
       CHECK( opt.comment == copy.comment );
-      CHECK( opt.maxTimeMS == copy.maxTimeMS );
+      CHECK( opt.maxTime == copy.maxTime );
       CHECK( opt.limit == copy.limit );
       CHECK( opt.skip == copy.skip );
       CHECK( opt.allowPartialResults == copy.allowPartialResults );
@@ -248,19 +248,20 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation = Collation{};
       opt.collation->locale = "en";
       opt.collation->strength = 1;
-      opt.hint = document{} << "name" << 1 << finalize;
-      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
+      opt.hint = bsoncxx::types::bson_value::value{ document{} << "name" << 1 << finalize };
+      opt.maxTime = std::chrono::milliseconds{ 1000 };
       opt.limit = 10000;
       opt.skip = 1000;
-      opt.readConcern = ReadConcern{};
+      opt.readPreference.emplace();
+      opt.readPreference->tags.emplace( document{} << "region" << "east" << finalize );
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Count>( bson );
 
       CHECK( opt.collation == copy.collation );
       CHECK( opt.hint == copy.hint );
-      CHECK( opt.readConcern == copy.readConcern );
-      CHECK( opt.maxTimeMS == copy.maxTimeMS );
+      CHECK( opt.readPreference == copy.readPreference );
+      CHECK( opt.maxTime == copy.maxTime );
       CHECK( opt.limit == copy.limit );
       CHECK( opt.skip == copy.skip );
     }
@@ -271,15 +272,16 @@ SCENARIO( "Options API model test suite", "[options]" )
       opt.collation = Collation{};
       opt.collation->locale = "en";
       opt.collation->strength = 1;
-      opt.maxTimeMS = std::chrono::milliseconds{ 1000 };
-      opt.readConcern = ReadConcern{};
+      opt.maxTime = std::chrono::milliseconds{ 1000 };
+      opt.readPreference.emplace();
+      opt.readPreference->tags.emplace( document{} << "region" << "east" << finalize );
 
       auto bson = spt::util::marshall( opt );
       auto copy = spt::util::unmarshall<Distinct>( bson );
 
       CHECK( opt.collation == copy.collation );
-      CHECK( opt.readConcern == copy.readConcern );
-      CHECK( opt.maxTimeMS == copy.maxTimeMS );
+      CHECK( opt.readPreference == copy.readPreference );
+      CHECK( opt.maxTime == copy.maxTime );
     }
 
     AND_WHEN( "Serialising index" )

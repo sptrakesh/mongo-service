@@ -24,15 +24,15 @@ namespace spt::mongoservice::api::options
     // Specifies the collation to use for the operation.
     VISITABLE(std::optional<Collation>, collation);
     // The index to use. Specify either the index name as a string or the index specification document.
-    VISITABLE(std::optional<bsoncxx::document::value>, hint);
+    VISITABLE(std::optional<bsoncxx::types::bson_value::value>, hint);
     // Specifies a time limit in milliseconds.
-    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTimeMS, {std::nullopt});
+    VISITABLE_DIRECT_INIT(std::optional<std::chrono::milliseconds>, maxTime, {std::nullopt});
     // The maximum number of matching documents to return.
     VISITABLE(std::optional<int64_t>, limit);
     // The number of matching documents to skip before returning results.
     VISITABLE(std::optional<int64_t>, skip);
     // Specifies the read concern.
-    VISITABLE(std::optional<ReadConcern>, readConcern);
+    VISITABLE(std::optional<ReadPreference>, readPreference);
     END_VISITABLES;
   };
 }

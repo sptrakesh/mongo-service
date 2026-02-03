@@ -1,6 +1,5 @@
 use bson::{deserialize_from_document, doc, Bson, Document, oid::ObjectId};
 use std::error::Error;
-use log::warn;
 use serde::{Deserialize, Serialize};
 
 pub mod model;
@@ -36,6 +35,94 @@ pub fn create<E: Serialize, M: Serialize>(request: model::create::Request<E, M>)
   else { Err("Invalid response from mongo-service".into()) }
 }
 
+/// This function is a generic implementation to retrieve data from a request object
+/// and return it in structured format after deserialization.
+///
+/// # Type Parameters
+/// - `D`: A type that implements the `Serialize` trait, representing the data structure
+///   to be serialized for the given request.
+/// - `E`: A type that implements the `Deserialize` trait, representing the data structure
+///   to be deserialized from the response.
+///
+/// # Arguments
+/// - `request`: A `model::retrieve::Request<D>` object that contains the data to be serialized
+///   and sent to the backend service.
+///
+/// # Returns
+/// - `Ok(model::retrieve::Response<E>)`: Returns a structured response object containing the requested data,
+///   which can either be a single result (`Response::Result`) or multiple results (`Response::Results`),
+///   depending on the response format.
+/// - `Err(Box<dyn Error>)`: Returns an error in the following scenarios:
+///   - If serialization of the request fails.
+///   - If the response from the backend service is an error.
+///   - If the response does not match one of the expected formats (e.g., missing "result", "results", or "error" keys).
+///
+/// # Errors
+/// - If the response contains an "error" key, the associated string value will be converted into an error and returned.
+/// - If the backend service returns an invalid or unexpected response format, an error with the message
+///   "Invalid response from mongo-service" will be raised.
+///
+/// # Implementation Details
+/// 1. The function serializes the request using the `serialise` method.
+/// 2. It sends the serialized request to the backend service using `crate::client::cpp::execute`.
+/// 3. If the response contains the key:
+///    - `"result"`: It deserializes the single result into type `E` and returns it.
+///    - `"results"`: It deserializes a list of results into type `E` and returns them as a vector.
+///    - `"error"`: It extracts the error message and returns it as an error result.
+///    - Any other case: The response is considered invalid, and an error is returned.
+///
+/// # Example
+/// ```rust
+/// use mongo_service::repository::{find, model::retrieve::{Request, Response}};
+/// use serde::{Serialize, Deserialize};
+/// use std::error::Error;
+///
+/// #[derive(Serialize)]
+/// struct MyRequest {
+///     field: String,
+/// }
+///
+/// #[derive(Deserialize, Debug)]
+/// struct MyResponse {
+///     id: u32,
+///     name: String,
+/// }
+///
+/// fn invoke_find_function() -> Result<(), Box<dyn Error>> {
+///     let request = Request::<MyRequest>::new("rust-app", "test", "test", MyRequest { field: "example".to_string() });
+///     let response: Response<MyResponse> = find(request)?;
+///
+///     match response {
+///         Response::Result(result) => println!("{:?}", result),
+///         Response::Results(results) => results.iter().for_each(|r| println!("{:?}", r)),
+///     }
+///
+///     Ok(())
+/// }
+/// ```
+///
+/// This is a high-level utility for interacting with the backend service, leveraging serialization/deserialization
+/// to abstract away raw data handling.
+pub fn find<D: Serialize, E: for <'de> Deserialize<'de>>(request: model::retrieve::Request<D>) -> Result<model::retrieve::Response<E>, Box<dyn Error>>
+{
+  let bytes = request.serialise()?;
+  let response = crate::client::cpp::execute(bytes);
+  if response.is_err() { return Err(response.unwrap_err().into()); }
+
+  let d = Document::from_reader(response.unwrap().as_slice())?;
+  if d.contains_key("result")
+  {
+    Ok(model::retrieve::Response::Result(deserialize_from_document::<E>(d)?))
+  }
+  else if d.contains_key("results")
+  {
+    let a = d.get_array("results").unwrap();
+    Ok(model::retrieve::Response::Results(a.iter().map(|x| deserialize_from_document::<E>(x.as_document().unwrap().clone()).unwrap()).collect()))
+  }
+  else if d.contains_key("error") { Err(d.get("error").unwrap().as_str().unwrap().into()) }
+  else { Err("Invalid response from mongo-service".into()) }
+}
+
 /// Retrieves a document from the specified database and collection by its ObjectId.
 ///
 /// # Arguments
@@ -44,6 +131,7 @@ pub fn create<E: Serialize, M: Serialize>(request: model::create::Request<E, M>)
 /// * `application` - A string slice specifying the application context.
 /// * `database` - The name of the database where the document resides.
 /// * `collection` - The name of the collection where the document resides.
+/// * `options` - An optional `model::retrieve::Options` object containing additional options for the request.
 ///
 /// # Returns
 ///
@@ -80,14 +168,15 @@ pub fn create<E: Serialize, M: Serialize>(request: model::create::Request<E, M>)
 /// }
 ///
 /// let id = ObjectId::parse_str("64bd1f7dfb57a9f6032a4462").unwrap();
-/// let result: MyDocument = by_id(id, "my_app", "my_db", "my_collection").unwrap();
+/// let result: MyDocument = by_id(id, "my_app", "my_db", "my_collection", None).unwrap();
 /// println!("Retrieved document: {:?}", result);
 /// ```
-pub fn by_id<E: for <'de> Deserialize<'de>>(id: ObjectId, application: &str, database: &str, collection: &str) -> Result<E, Box<dyn Error>>
+pub fn by_id<E: for <'de> Deserialize<'de>>(id: ObjectId, application: &str, database: &str, collection: &str,
+    options: Option<model::retrieve::Options>) -> Result<E, Box<dyn Error>>
 {
-  let request = doc!{"application": application, "database": database, "collection": collection,
-    "action": format!("{:?}", crate::Action::retrieve), "document": doc!{"_id": id}};
-  let bytes = request.to_vec()?;
+  let mut request = model::retrieve::Request::<Document>::new(application, database, collection, doc!{"_id": id});
+  if options.is_some() { request.options = options; }
+  let bytes = request.serialise()?;
   let response = crate::client::cpp::execute(bytes);
   if response.is_err() { return Err(response.unwrap_err().into()); }
 
@@ -97,96 +186,94 @@ pub fn by_id<E: for <'de> Deserialize<'de>>(id: ObjectId, application: &str, dat
   else { Err("Invalid response from mongo-service".into()) }
 }
 
-/// Filters and retrieves documents from a specified MongoDB collection based on the provided filter criteria.
+/// Filters documents from a MongoDB collection based on specified criteria and options.
 ///
-/// This function sends a request to a database backend to execute the desired query and retrieves
-/// the results. The results can either be a single document or multiple documents, depending on the
-/// filtering operation.
+/// # Type Parameters:
+/// - `E`: The type to which the resulting documents will be deserialized.
+///         This type must implement the `Deserialize` trait for deserialization.
 ///
-/// # Type Parameters
-/// - `E`: The type representing the structure of the documents being retrieved. Must implement the
-///   `Deserialize` trait for deserialization.
+/// # Arguments:
+/// - `filter` (`Document`): The MongoDB filter query used to filter documents.
+/// - `application` (`&str`): The name of the application schema for database context.
+/// - `database` (`&str`): The name of the database to query.
+/// - `collection` (`&str`): The name of the collection from which to query documents.
+/// - `descending` (`bool`): Whether to sort the `_id` field in descending (`true`) or ascending (`false`) order.
+///      Only used when no options are provided.
+/// - `options` (`Option<model::retrieve::Options>`): Options for the retrieve operation.
+///     If `None`, the default options are used.
+///     If `Some(options)`, the provided options are used.
+///     The default options are:
+///     - `limit` (`None`): No limit on the number of documents returned.
+///     - `sort` (`Some(doc!{"_id": if descending { -1 } else { 1 }})`): Sort the results by `_id` in descending (`true`) or ascending (`false`) order.
+///     - `skip` (`None`): No skip in the results.
+///     - `projection` (`None`): No projection in the results.
+///     - `hint` (`None`): No hint in the results.
+///     - `comment` (`None`): No comment in the results.
 ///
-/// # Parameters
-/// - `filter`: A `Document` that specifies the filtering conditions for querying documents from the
-///   collection. This acts as a MongoDB query filter.
-/// - `application`: A `&str` representing the application name.
-/// - `database`: A `&str` specifying the database name from where the documents should be retrieved.
-/// - `collection`: A `&str` representing the name of the target collection in the database.
-/// - `limit`: A `u32` defining the maximum number of documents to retrieve.
-/// - `descending`: A `bool` indicating whether the results should be sorted in descending order by
-///   the `_id` field. If `false`, sorting will be in ascending order.
+/// # Returns:
+/// - `Ok(model::retrieve::Response<E>)`: Returns a response which can either be:
+///   - `model::retrieve::Response::Result`: A unique document matching the filter.
+///   - `model::retrieve::Response::Results`: A list of documents matching the filter.
+/// - `Err(Box<dyn Error>)`: Returns an error if the operation fails, such as:
+///   - Issues with serialization or deserialization.
+///   - Errors returned from the MongoDB service.
+///   - An invalid response structure from the database service.
 ///
-/// # Returns
-/// - `Ok(Vec<E>)`: A vector of deserialised documents of type `E` if the operation succeeds.
-/// - `Err(Box<dyn Error>)`: An error wrapped in a boxed dynamic error type if the query or processing fails.
+/// # Errors:
+/// - If the `filter` or response cannot be serialized/deserialized, an error is returned.
+/// - If the response from the MongoDB backend service contains an error or invalid structure, an error is returned.
 ///
-/// # Errors
-/// The function returns an error in the following cases:
-/// - If the request cannot be sent or processed by the back-end service.
-/// - If the response does not contain valid results (e.g., missing expected fields such as "result"
-///   or "results").
-/// - If the response contains an "error" field with a relevant error message from the back-end.
-/// - If an invalid or unexpected response format is returned from the MongoDB service.
-///
-/// # Notes
-/// - The function logs a warning if a unique result is returned for the given filter.
-/// - The results are deserialized from BSON documents into the specified type `E`.
-///
-/// # Example
-/// ```rust
-/// use bson::doc;
-/// use mongo_service::repository::filter;
+/// # Example:
+/// ```rust, no_run
+/// use bson::{doc, Document};
+/// use mongo_service::repository;
 /// use serde::Deserialize;
-/// use std::error::Error;
 ///
-/// #[derive(Deserialize, Debug)]
+/// #[derive(Debug, Deserialize)]
 /// struct MyDocument {
-///     _id: String,
-///     name: String,
-///     age: i32,
+///     field1: String,
+///     field2: i32,
 /// }
 ///
-/// fn fetch() -> Result<(), Box<dyn Error>> {
-///     let filter_criteria = doc! { "age": { "$gt": 30 } };
-///     let results: Vec<MyDocument> = filter(
-///         filter_criteria,
-///         "my_app",
-///         "my_database",
-///         "my_collection",
-///         10,
-///         false,
-///     )?;
+/// let filter = doc! { "field1": "value" };
+/// let result = repository::filter::<MyDocument>(
+///     filter,
+///     "my_application",
+///     "my_database",
+///     "my_collection",
+///     false,
+///     None
+/// );
 ///
-///     for doc in results {
-///         println!("{:?}", doc);
-///     }
-///     Ok(())
+/// match result {
+///     Ok(response) => match response {
+///         repository::model::retrieve::Response::Result(doc) => println!("Got single document: {:?}", doc),
+///         repository::model::retrieve::Response::Results(docs) => println!("Got documents: {:?}", docs),
+///     },
+///     Err(e) => eprintln!("Error occurred: {}", e),
 /// }
 /// ```
+///
+/// # Notes:
+/// - Sorting is applied on the `_id` field.
+/// - If `descending` is `true`, the results are sorted in descending order; otherwise, they're sorted in ascending order.
+/// - Always ensure consistent error handling based on the response context.
 pub fn filter<E: for <'de> Deserialize<'de>>(filter: Document, application: &str,
-  database: &str, collection: &str, limit: u32, descending: bool) -> Result<Vec<E>, Box<dyn Error>>
+  database: &str, collection: &str, descending: bool, options: Option<model::retrieve::Options>) -> Result<model::retrieve::Response<E>, Box<dyn Error>>
 {
-  let request = doc!{"application": application, "database": database, "collection": collection, "document": &filter,
-    "options": doc!{"limit": limit, "sort": doc!{"_id": if descending { -1 } else { 1 }}},
-    "action": format!("{:?}", crate::Action::retrieve)};
-  let bytes = request.to_vec()?;
-  let response = crate::client::cpp::execute(bytes);
-  if response.is_err() { return Err(response.unwrap_err().into()); }
-
-  let d = Document::from_reader(response.unwrap().as_slice())?;
-  if d.contains_key("result")
+  let mut request = model::retrieve::Request::<Document>::new(application, database, collection, filter);
+  if options.is_some() { request.options = options; }
+  else
   {
-    warn!("Unique result returned for filter: {:?}", filter);
-    Ok(vec![deserialize_from_document::<E>(d)?])
+    if descending { request.options = Some(model::retrieve::Options::new()); }
+    else
+    {
+      let mut opts = model::retrieve::Options::new();
+      opts.sort = Some(doc!{"_id": if descending { -1 } else { 1 }});
+      request.options = Some(opts);
+    }
   }
-  else if d.contains_key("results")
-  {
-    let a = d.get_array("results").unwrap();
-    Ok(a.iter().map(|x| deserialize_from_document::<E>(x.as_document().unwrap().clone()).unwrap()).collect())
-  }
-  else if d.contains_key("error") { Err(d.get("error").unwrap().as_str().unwrap().into()) }
-  else { Err("Invalid response from mongo-service".into()) }
+  find(request)
 }
 
 /// A function that retrieves a filtered list of documents from a MongoDB collection based on the provided field and value criteria.
@@ -200,8 +287,9 @@ pub fn filter<E: for <'de> Deserialize<'de>>(filter: Document, application: &str
 /// - `application`: A string slice (`&str`) representing the name of the application (likely used to identify the MongoDB client or connection settings).
 /// - `database`: A string slice (`&str`) representing the name of the database to query.
 /// - `collection`: A string slice (`&str`) representing the name of the collection to search within.
-/// - `limit`: A `u32` value specifying the maximum number of documents to return.
 /// - `descending`: A `bool` indicating whether the results should be sorted in descending order (true) or ascending order (false).
+///      Only useful when no options are passed in.
+/// - `options`: Options for the retrieve operation.
 ///
 /// # Returns
 /// - `Result<Vec<E>, Box<dyn Error>>`: On success, returns a `Vec` of deserialised documents of type `E`.
@@ -230,19 +318,23 @@ pub fn filter<E: for <'de> Deserialize<'de>>(filter: Document, application: &str
 ///     age: i32,
 /// }
 ///
-/// let field = "username";
+/// let field = "name";
 /// let value = Bson::String("john_doe".to_string());
 /// let application = "my_app";
 /// let database = "my_database";
 /// let collection = "users";
-/// let limit = 10;
 /// let descending = true;
 ///
-/// match mongo_service::repository::property::<MyDocument>(field, value, application, database, collection, limit, descending) {
+/// match mongo_service::repository::property::<MyDocument>(field, value, application, database, collection, descending, None) {
 ///     Ok(results) => {
-///         for result in results {
-///             println!("{:?}", result);
-///         }
+///          match results
+///          {
+///            mongo_service::repository::model::retrieve::Response::<MyDocument>::Results(docs) =>
+///            {
+///              for doc in &docs { println!("{:?}", doc); }
+///            }
+///            _ => panic!("Unexpected response")
+///          }
 ///     }
 ///     Err(e) => {
 ///         eprintln!("Error fetching documents: {}", e);
@@ -250,9 +342,9 @@ pub fn filter<E: for <'de> Deserialize<'de>>(filter: Document, application: &str
 /// }
 /// ```
 pub fn property<E: for <'de> Deserialize<'de>>(field: &str, value: Bson, application: &str,
-  database: &str, collection: &str, limit: u32, descending: bool) -> Result<Vec<E>, Box<dyn Error>>
+  database: &str, collection: &str, descending: bool, options: Option<model::retrieve::Options>) -> Result<model::retrieve::Response<E>, Box<dyn Error>>
 {
-  filter(doc!{field: value}, application, database, collection, limit, descending)
+  filter(doc!{field: value}, application, database, collection, descending, options)
 }
 
 /// Updates an entity in the database using the provided request.
@@ -435,6 +527,19 @@ pub fn delete_by_id(id: ObjectId, application: &str, database: &str, collection:
   let req = model::delete::Request::<Document>::new(application, database,
     collection, doc!{"_id": id});
   delete(req)
+}
+
+pub fn count<M: Serialize>(application: &str, database: &str, collection: &str, filter: M) -> Result<model::count::Response, Box<dyn Error>>
+{
+  let req = model::count::Request::<M>::new(application, database, collection, filter);
+  let bytes = req.serialise()?;
+  let response = crate::client::cpp::execute(bytes);
+  if response.is_err() { return Err(response.unwrap_err().into()); }
+
+  let d = Document::from_reader(response.unwrap().as_slice())?;
+  if d.contains_key("count") { Ok(deserialize_from_document::<model::count::Response>(d)?) }
+  else if d.contains_key("error") { Err(d.get("error").unwrap().as_str().unwrap().into()) }
+  else { Err("Invalid response from mongo-service".into()) }
 }
 
 /// Retrieves a specific version history document from the database.

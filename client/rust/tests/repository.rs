@@ -1,6 +1,7 @@
 use bson::{bson, oid::ObjectId};
 use googletest::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::common::Person;
 
 mod common;
 
@@ -37,22 +38,27 @@ fn model() -> Result<()>
     _ => panic!("Unexpected response")
   }
 
-  let res = mongo_service::repository::by_id::<common::Person>(p.id.clone(), application, database, collection);
+  let res = mongo_service::repository::by_id::<Person>(p.id.clone(), application, database, collection, None);
   verify_that!(res.is_ok(), eq(true))?;
   expect_eq!(res.unwrap(), p);
 
-  let res = mongo_service::repository::property::<common::Person>("name", bson!(p.name.clone()), application, database, collection, 100, true);
+  let res = mongo_service::repository::property::<Person>("name", bson!(p.name.clone()), application, database, collection, true, None);
   verify_that!(res.is_ok(), eq(true))?;
-  let res = res.unwrap();
-  verify_that!(res.len(), gt(0))?;
-  for person in res.iter() { expect_eq!(person.name, p.name); }
-  let mut found = false;
-  for person in &res { if person.id == p.id { found = true; } }
-  expect_eq!(found, true);
+  match res.unwrap()
+  {
+    mongo_service::repository::model::retrieve::Response::<Person>::Results(persons) =>
+    {
+      for person in &persons { expect_eq!(person.name, p.name); }
+      let mut found = false;
+      for person in &persons { if person.id == p.id { found = true; } }
+      expect_eq!(found, true);
+    }
+    _ => panic!("Unexpected response")
+  }
 
   let mut modified = p.clone();
   modified.name = "Jane Doe".to_string();
-  let req = mongo_service::repository::model::update::RequestBuilder::<common::Person, Metadata>::new(application, database, collection, modified.clone()).with_metadata(m.clone()).build();
+  let req = mongo_service::repository::model::update::RequestBuilder::<Person, Metadata>::new(application, database, collection, modified.clone()).with_metadata(m.clone()).build();
   let res = mongo_service::repository::update(req);
   verify_that!(res.is_ok(), eq(true))?;
   let res = res.unwrap();
@@ -65,6 +71,11 @@ fn model() -> Result<()>
       }
     _ => panic!("Unexpected response")
   }
+
+  let res = mongo_service::repository::count::<bson::Document>(application, database, collection, bson::doc!{});
+  verify_that!(res.is_ok(), eq(true))?;
+  let res = res.unwrap();
+  expect_gt!(res.count, 0);
 
   let res = mongo_service::repository::delete_by_id(p.id.clone(), application, database, collection);
   verify_that!(res.is_ok(), eq(true))?;

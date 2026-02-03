@@ -1,4 +1,4 @@
-use bson::{doc, serialize_to_document, Array};
+use bson::{doc, serialize_to_document, Array, Bson, Document};
 use serde::{Deserialize, Serialize};
 
 /// Specifies the options for updating documents into a database collection.
@@ -9,13 +9,14 @@ pub struct Options
   pub writeConcern: Option<super::options::WriteConcern>,
   /// The collation to use for text data.
   pub collation: Option<super::options::Collation>,
+  /// The index to use. Specify either the index name as a string or the index specification document.
+  pub hint: Option<Bson>,
+  /// Orders the documents before the update is applied.
+  pub sort: Option<Document>,
   /// An array of filter documents that determine which array elements to modify for an update operation on an array field.
   pub arrayFilters: Option<Array>,
   /// Specifies the time limit in milliseconds for the update operation to run before timing out.
-  pub maxTimeMS: Option<u64>,
-  /// If set to `true`, updates *multiple* documents that meet the query criteria. If set to `false`,
-  /// updates *one* document. The default value is `false`.
-  pub multi: Option<bool>,
+  pub maxTime: Option<u64>,
   /// If `true`, inserts a new document if no document matches the filter.  If `false`, an error is returned
   pub upsert: Option<bool>,
   /// If `true`, ignores any schema validation rules specified on the collection.  Only applies if

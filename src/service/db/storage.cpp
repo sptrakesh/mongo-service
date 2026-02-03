@@ -31,6 +31,17 @@ namespace
     using namespace spt::db;
     using boost::asio::awaitable;
 
+    std::optional<mongocxx::hint> hint( bsoncxx::document::view view )
+    {
+      if ( auto iter = view.find( "hint" ); iter != view.end() )
+      {
+        if ( iter->type() == bsoncxx::type::k_document ) return mongocxx::hint{ iter->get_document().value };
+        if ( iter->type() == bsoncxx::type::k_string ) return mongocxx::hint{ iter->get_string().value };
+      }
+
+      return std::nullopt;
+    }
+
     awaitable<bsoncxx::document::view_or_value> history( bsoncxx::document::view view, mongocxx::pool::entry& client,
         std::optional<bsoncxx::document::view> metadata = std::nullopt )
     {
@@ -229,7 +240,7 @@ namespace
       if ( opts )
       {
         if ( const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *opts ); col ) options.collation( *col );
-        if ( const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *opts ); hint ) options.hint( mongocxx::hint{ *hint } );
+        if ( auto h = hint( *opts ); h ) options.hint( std::move( *h ) );
         if ( const auto limit = bsonValueIfExists<int64_t>( "limit", *opts ); limit ) options.limit( *limit );
         if ( const auto time = bsonValueIfExists<std::chrono::milliseconds>( "maxTime", *opts ); time ) options.max_time( *time );
         if ( const auto skip = bsonValueIfExists<int64_t>( "skip", *opts ); skip ) options.skip( *skip );
@@ -303,7 +314,7 @@ namespace
         if ( const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
         if ( const auto com = bsonValueIfExists<std::string>( "comment", *options ); com ) opts.comment( *com );
         if ( const auto com = bsonValueIfExists<bsoncxx::document::view>( "commentOption", *options ); com ) opts.comment_option( { *com } );
-        if ( const auto hint = bsonValueIfExists<bsoncxx::document::view>( "hint", *options ); hint ) opts.hint( { *hint } );
+        if ( auto h = hint( *options ); h ) opts.hint( std::move( *h ) );
         if ( const auto let = bsonValueIfExists<bsoncxx::document::view>( "let", *options ); let ) opts.let( *let );
         if ( const auto limit = bsonValueIfExists<int64_t>( "limit", *options ); limit ) opts.limit( *limit );
         if ( const auto max = bsonValueIfExists<bsoncxx::document::view>( "max", *options ); max ) opts.max( *max );
@@ -315,6 +326,10 @@ namespace
         if ( const auto ri = bsonValueIfExists<bool>( "showRecordId", *options ); ri ) opts.show_record_id( *ri );
         if ( const auto skip = bsonValueIfExists<int64_t>( "skip", *options ); skip ) opts.skip( *skip );
         if ( const auto sort = bsonValueIfExists<bsoncxx::document::view>( "sort", *options ); sort ) opts.sort( *sort );
+        if ( const auto d = bsonValueIfExists<bool>( "allowDiskUse", *options ); d ) opts.allow_disk_use( *d );
+        if ( const auto p = bsonValueIfExists<bool>( "allowPartialResults", *options ); p ) opts.allow_partial_results( *p );
+        if ( const auto r = bsonValueIfExists<bool>( "returnKey", *options ); r ) opts.return_key( *r );
+        if ( const auto r = bsonValueIfExists<bool>( "showRecordId", *options ); r ) opts.show_record_id( *r );
       }
 
       return opts;
@@ -389,9 +404,9 @@ namespace
       auto opts = mongocxx::options::insert{};
       if ( options )
       {
-        if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
-        if ( auto ordered = bsonValueIfExists<bool>( "ordered", *options ); ordered ) opts.ordered( *ordered );
-        if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
+        if ( const auto validate = bsonValueIfExists<bool>( "bypassDocumentValidation", *options ); validate ) opts.bypass_document_validation( *validate );
+        if ( const auto ordered = bsonValueIfExists<bool>( "ordered", *options ); ordered ) opts.ordered( *ordered );
+        if ( const auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
       }
 
       return opts;
@@ -579,11 +594,13 @@ namespace
 
       if ( options )
       {
-        if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
-        if ( auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
-        if ( auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
-        if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
-        if ( auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options ); af ) opts.array_filters( *af );
+        if ( const auto validate = bsonValueIfExists<bool>( "bypassDocumentValidation", *options ); validate ) opts.bypass_document_validation( *validate );
+        if ( const auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
+        if ( const auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
+        if ( const auto s = bsonValueIfExists<bsoncxx::document::view>( "sort", *options ); s ) opts.sort( *s );
+        if ( const auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
+        if ( const auto af = bsonValueIfExists<bsoncxx::array::view>( "arrayFilters", *options ); af ) opts.array_filters( *af );
+        if ( auto h = hint( *options ); h ) opts.hint( std::move( *h ) );
       }
 
       return opts;
@@ -767,7 +784,7 @@ namespace
 
       if ( options )
       {
-        if ( auto validate = bsonValueIfExists<bool>( "bypassValidation", *options ); validate ) opts.bypass_document_validation( *validate );
+        if ( auto validate = bsonValueIfExists<bool>( "bypassDocumentValidation", *options ); validate ) opts.bypass_document_validation( *validate );
         if ( auto col = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); col ) opts.collation( *col );
         if ( auto upsert = bsonValueIfExists<bool>( "upsert", *options ); upsert ) opts.upsert( *upsert );
         if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
@@ -970,10 +987,10 @@ namespace
       auto opts = mongocxx::options::delete_options{};
       if ( options )
       {
-        if ( auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
-        if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
-        if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "hint", *options ); co ) opts.hint( { *co } );
-        if ( auto co = bsonValueIfExists<bsoncxx::document::view>( "let", *options ); co ) opts.let( *co );
+        if ( const auto wc = bsonValueIfExists<bsoncxx::document::view>( "writeConcern", *options ); wc ) opts.write_concern( internal::writeConcern( *wc ) );
+        if ( const auto co = bsonValueIfExists<bsoncxx::document::view>( "collation", *options ); co ) opts.collation( *co );
+        if ( auto hi = hint( *options ); hi ) opts.hint( std::move( *hi ) );
+        if ( const auto co = bsonValueIfExists<bsoncxx::document::view>( "let", *options ); co ) opts.let( *co );
       }
 
       auto cliento = Pool::instance().acquire();

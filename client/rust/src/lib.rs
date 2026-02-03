@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::sync::Once;
 
-pub use client::cpp::{Logger, Configuration};
+pub use client::cpp::{Logger, LogLevel, Configuration};
 use client::cpp::{init_logger, init as init_service, execute as exec};
 
 static INIT: Once = Once::new();

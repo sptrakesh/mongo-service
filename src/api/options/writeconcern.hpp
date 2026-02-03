@@ -16,6 +16,10 @@
 
 namespace spt::mongoservice::api::options
 {
+  /**
+   * Write concern describes the level of acknowledgment requested from MongoDB for write operations to a standalone
+   * mongod, replica sets, or sharded cluster
+   */
   struct WriteConcern
   {
     enum class Level : uint8_t { Default, Majority, Tag, Unacknowledged, Acknowledged };
