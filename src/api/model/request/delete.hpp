@@ -32,6 +32,7 @@ namespace spt::mongoservice::api::model::request
       FROM_BSON( std::string, application, bson );
       FROM_BSON( std::string, correlationId, bson );
       FROM_BSON( bool, skipMetric, bson );
+      FROM_BSON( bool, skipVersion, bson );
     }
 
     BEGIN_VISITABLES(Delete);
@@ -44,6 +45,7 @@ namespace spt::mongoservice::api::model::request
     std::string correlationId;
     Action action{Action::_delete};
     bool skipMetric{false};
+    bool skipVersion{false};
     END_VISITABLES;
   };
 
@@ -63,7 +65,8 @@ namespace spt::mongoservice::api::model::request
     if ( !model.correlationId.empty() ) builder << "correlationId" << model.correlationId;
     builder <<
       "action" << util::bson( model.action ) <<
-      "skipMetric" << model.skipMetric;
+      "skipMetric" << model.skipMetric <<
+      "skipVersion" << model.skipVersion;
   }
 
   template <util::Visitable Document, util::Visitable Metadata>
@@ -76,5 +79,6 @@ namespace spt::mongoservice::api::model::request
     if ( !model.correlationId.empty() ) object.emplace( "correlationId", model.correlationId );
     object.emplace( "action", util::json::json( model.action ) );
     object.emplace( "skipMetric", model.skipMetric );
+    object.emplace( "skipVersion", model.skipVersion );
   }
 }

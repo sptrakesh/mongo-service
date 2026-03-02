@@ -9,7 +9,7 @@
 using std::operator""s;
 using std::operator""sv;
 
-bool spt::util::json::hasDangerousContent( const std::string& field )
+bool spt::util::json::hasDangerousContent( std::string_view field )
 {
   // "<[A-z0-9_/ \"']*>"s
   // "<(\"[^\"]*\"|'[^']*'|[^'\">])*>"s
@@ -20,7 +20,7 @@ bool spt::util::json::hasDangerousContent( const std::string& field )
   if ( field.empty() ) return false;
   const auto html = [&field]()
   {
-    if ( std::regex_search( field, regex ) )
+    if ( std::regex_search( field.begin(), field.end(), regex ) )
     {
       LOG_WARN << "Potential HTML tag(s) in payload. " << field;
       return true;
@@ -31,16 +31,16 @@ bool spt::util::json::hasDangerousContent( const std::string& field )
 
   const auto script = [&field]()
   {
-    const auto var = field.find( "var "sv ) != std::string::npos;
-    const auto let = field.find( "let "sv ) != std::string::npos;
-    const auto cst = field.find( "const "sv ) != std::string::npos;
-    const auto eval = field.find( "eval"sv ) != std::string::npos;
-    const auto equals = field.find( "="sv ) != std::string::npos;
-    const auto fn = field.find( "function "sv ) != std::string::npos;
-    const auto async = field.find( "async "sv ) != std::string::npos;
-    const auto await = field.find( "await"sv ) != std::string::npos;
-    const auto alert = field.find( "alert("sv ) != std::string::npos;
-    const auto console = field.find( "console."sv ) != std::string::npos;
+    const auto var = field.find( "var "sv ) != std::string_view::npos;
+    const auto let = field.find( "let "sv ) != std::string_view::npos;
+    const auto cst = field.find( "const "sv ) != std::string_view::npos;
+    const auto eval = field.find( "eval"sv ) != std::string_view::npos;
+    const auto equals = field.find( "="sv ) != std::string_view::npos;
+    const auto fn = field.find( "function "sv ) != std::string_view::npos;
+    const auto async = field.find( "async "sv ) != std::string_view::npos;
+    const auto await = field.find( "await"sv ) != std::string_view::npos;
+    const auto alert = field.find( "alert("sv ) != std::string_view::npos;
+    const auto console = field.find( "console."sv ) != std::string_view::npos;
     if ( ( var || let || cst || eval || async || alert ) && ( equals || fn || await || console ) )
     {
       LOG_WARN << "Potential JavaScript in payload. " << field;

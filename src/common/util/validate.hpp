@@ -95,7 +95,9 @@ namespace spt::util::json
    * @param field The string to check for potentially dangerous content.
    * @return true if potentially dangerous content is found.
    */
-  bool hasDangerousContent( const std::string& field );
+  bool hasDangerousContent( std::string_view field );
+
+  inline bool hasDangerousContent( const std::string& field ) { return hasDangerousContent( std::string_view{ field } ); }
 }
 
 template <>
