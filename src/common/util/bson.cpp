@@ -388,7 +388,7 @@ namespace spt::util
       {
         try
         {
-          LOG_INFO << "Attempting to parse value " << v << " as BSON ObjectId.";
+          LOG_DEBUG << "Attempting to parse value " << v << " as BSON ObjectId.";
           return O{ bsoncxx::oid{ v } };
         }
         catch ( const bsoncxx::exception& ex )
@@ -399,7 +399,7 @@ namespace spt::util
 
       if ( v.front() > 47 && v.front() < 58 && v.find( '-' ) != boost::json::string::npos )
       {
-        LOG_INFO << "Attempting to parse value " << v << " as ISO8601 date-time.";
+        LOG_DEBUG << "Attempting to parse value " << v << " as ISO8601 date-time.";
         auto dt = parseISO8601( v );
         if ( dt.has_value() ) return O{ dt.value() };
       }

@@ -98,10 +98,10 @@ namespace spt::util
   }
 
   /**
-   * General implementation for converting a reference wrapped model into a BSON object.
+   * General implementation for converting a reference-wrapped model into a BSON object.
    * @tparam M The visitable model wrapped in a reference wrapper.
    * @param model The reference wrapper instance to serialise.
-   * @return The JSON representation of the wrapped model.
+   * @return The BSON representation of the wrapped model.
    */
   template <Visitable M>
     requires NotEnumeration<M>
@@ -111,7 +111,7 @@ namespace spt::util
    * General implementation for converting a reference wrapped `const` model into a BSON object.
    * @tparam M The visitable model wrapped in a reference wrapper.
    * @param model The reference wrapper instance to serialise.
-   * @return The JSON representation of the wrapped model.
+   * @return The BSON representation of the wrapped model.
    */
   template <Visitable M>
     requires NotEnumeration<M>
@@ -194,6 +194,19 @@ namespace spt::util
    */
   template <typename T>
   bsoncxx::types::bson_value::value bson( const std::shared_ptr<T>& model )
+  {
+    return model ? bson( *model.get() ) : bsoncxx::types::b_null{};
+  }
+
+  /**
+   * General implementation for serialising a unique pointer type.  Delegates to the appropriate {@xrefitem bson(const M&)} function
+   * if the unique pointer is valid.
+   * @tparam T The type wrapped in the unique pointer.
+   * @param model The unique pointer instance to be serialised.
+   * @return The BSON value variant.
+   */
+  template <typename T>
+  bsoncxx::types::bson_value::value bson( const std::unique_ptr<T>& model )
   {
     return model ? bson( *model.get() ) : bsoncxx::types::b_null{};
   }
@@ -571,7 +584,8 @@ bsoncxx::types::bson_value::value spt::util::bson( const M& model )
         if ( n == "id"sv && v.view().type() == bsoncxx::type::k_oid )
         {
           root << "_id"sv << std::move( v );
-        } else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
+        }
+        else if ( v.view().type() != bsoncxx::type::k_null ) root << n << std::move( v );
       } );
 
   if constexpr ( visit_struct::traits::ext::is_fully_visitable<M>() == false ) populate( model, root );
@@ -594,7 +608,7 @@ bsoncxx::types::bson_value::value spt::util::bson( const std::reference_wrapper<
 
 template<typename Model>
   requires spt::util::NotEnumeration<Model>
-bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model> &items )
+bsoncxx::types::bson_value::value spt::util::bson( const std::set<Model>& items )
 {
   if ( items.empty()) return bsoncxx::types::b_null{};
 
@@ -624,7 +638,7 @@ bsoncxx::types::bson_value::value spt::util::bson( const std::set<E> &items )
 
 template <typename Model>
   requires spt::util::NotEnumeration<Model>
-inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Model>& vec )
+bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Model>& vec )
 {
   if ( vec.empty() ) return bsoncxx::types::b_null{};
 
@@ -639,7 +653,7 @@ inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<Mode
 
 template<typename E>
   requires std::is_enum_v<E>
-inline bsoncxx::types::bson_value::value spt::util::bson( const std::vector<E> &items )
+bsoncxx::types::bson_value::value spt::util::bson( const std::vector<E> &items )
 {
   if ( items.empty() ) return bsoncxx::types::b_null{};
 

@@ -19,13 +19,13 @@ namespace spt::util::test::serial
     NotVisitable() = default;
     ~NotVisitable() = default;
 
-    inline void set( bsoncxx::document::view bson )
+    void set( bsoncxx::document::view bson )
     {
       FROM_BSON( std::string, identifier, bson )
       FROM_BSON( int64_t, integer, bson )
     }
 
-    inline void set( simdjson::ondemand::object& obj )
+    void set( simdjson::ondemand::object& obj )
     {
       FROM_JSON( identifier, obj )
       FROM_JSON( integer, obj )
@@ -48,6 +48,23 @@ namespace spt::util::test::serial
   inline boost::json::value json( const NotVisitable& model )
   {
     return boost::json::object{ { "identifier"sv, model.identifier }, { "integer"sv, model.integer } };
+  }
+
+  inline std::string& fields( const NotVisitable&, std::string& response, const boost::json::object& filter )
+  {
+    const auto idi = filter.contains( "identifier"sv );
+    const auto ii = filter.contains( "integer"sv );
+    if ( !idi && !ii ) response.append( "{ identifier integer } " );
+    else if ( !idi ) response.append( "{ identifier } " );
+    else if ( !ii ) response.append( "{ integer } " );
+    return response;
+  }
+
+  inline std::string& gql( const NotVisitable& model, std::string& response )
+  {
+    response.append( "{ identifier: \"" ).append( model.identifier ).
+      append( "\" integer: " ).append( std::to_string( model.integer ) ).append( " } " );
+    return response;
   }
 
   inline void set( NotVisitable& field, bsoncxx::types::bson_value::view value )

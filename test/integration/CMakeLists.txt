@@ -21,5 +21,5 @@ target_compile_definitions(integration PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS}
 target_link_libraries(integration
   PRIVATE api ilp Catch2::Catch2 cpr::cpr ${OPENSSL_LIBRARIES} ZLIB::ZLIB)
 
-add_test(NAME integration COMMAND integration)
+add_test(NAME integration COMMAND integration --reporter html)
 install(TARGETS integration DESTINATION bin)

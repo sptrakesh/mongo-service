@@ -13,8 +13,7 @@ namespace spt::util
    * @tparam T The type that is considered visitable.
    */
   template <typename T>
-  concept Visitable = requires( T t )
-  {
+  concept Visitable = requires( T t ) {
     std::is_default_constructible<T>{};
     visit_struct::traits::is_visitable<T>{};
   };
@@ -23,5 +22,5 @@ namespace spt::util
    * A concept that restricts a type to not being a scoped enumeration.
    */
   template <typename T>
-  concept NotEnumeration = not std::is_enum_v<T>;
-}
+  concept NotEnumeration = !std::is_enum_v<T>;
+} // namespace spt::util

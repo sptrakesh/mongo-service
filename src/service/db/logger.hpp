@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <bsoncxx/stdx/string_view.hpp>
 #include <mongocxx/logger.hpp>
 
 namespace spt::db

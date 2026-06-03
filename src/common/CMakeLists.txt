@@ -1,5 +1,5 @@
 set(Target_Name "common")
-file(GLOB_RECURSE mongo-service_SRCS *.cpp *.h)
+file(GLOB_RECURSE mongo-service_SRCS *.cpp *.h *.hpp)
 add_library(${Target_Name} STATIC ${mongo-service_SRCS})
 add_library(mongo-service::common ALIAS ${Target_Name})
 
