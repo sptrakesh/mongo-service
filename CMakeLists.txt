@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.50 FATAL_ERROR)
 
 if (POLICY CMP0069)
   cmake_policy(SET CMP0069 NEW)
@@ -25,7 +25,7 @@ if (WIN32)
     cmake_policy(SET CMP0091 NEW) 
   endif()
   if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS "/EHsc /await:strict /std:c++20 /utf-8")
+    set(CMAKE_CXX_FLAGS "/EHsc /await:strict /std:c++23 /utf-8")
     add_compile_definitions(_WIN32_WINNT=0x0A000007)
   endif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif(WIN32)
@@ -111,7 +111,6 @@ if (APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
 endif()
 
-find_package(fmt REQUIRED)
 option(USE_MONGOCXX_CONFIG "Use mongocxx cmake targets" ON)
 if (USE_MONGOCXX_CONFIG)
   message(STATUS "mongocxx targets configured")
@@ -135,7 +134,6 @@ if (APPLE)
   set(CMAKE_MACOSX_RPATH 1)
   include_directories(
     /usr/local/boost/include
-    /usr/local/fmt/include
     /usr/local/range-v3/include
   )
 else()
