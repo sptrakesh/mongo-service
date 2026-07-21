@@ -10,7 +10,7 @@ COPY docker/env.sh /opt/spt/mongo-service/docker/
 
 WORKDIR /opt/spt/mongo-service/build
 RUN rm -rf * \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Wno-maybe-uninitialized" -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_TESTING=OFF .. \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_TESTING=OFF .. \
   && make -j8 \
   && make install
 

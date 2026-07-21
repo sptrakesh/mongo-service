@@ -60,6 +60,7 @@ if (UNIX AND NOT APPLE)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=mold")
     message(STATUS "Enabling mold linker")
   endif (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64" )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif (UNIX AND NOT APPLE)
 
 if (UNIX)
