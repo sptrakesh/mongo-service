@@ -9,15 +9,20 @@ from request import Request
 class Client:
     def __init__(self, host: str, port: int, application: str):
         assert host
-        self._host = host
+        self.__host = host
         assert port > 0
-        self._port = port
+        self.__port = port
         assert application
-        self._application = application
+        self.__application = application
+        self.__reader = None
+        self.__writer = None
 
     async def _async_init(self):
-        self._reader, self._writer = await open_connection(host=self._host, port=self._port)
-        _log.info(f"Connected to {self._host}:{self._port}")
+        if self.__reader is not None:
+            return self
+
+        self.__reader, self.__writer = await open_connection(host=self.__host, port=self.__port)
+        _log.info(f"Connected to {self.__host}:{self.__port}")
         return self
 
     def __await__(self):
@@ -34,23 +39,23 @@ class Client:
         b = request.bson()
         _log.info(f"Writing {len(b)} bytes to server.")
 
-        self._writer.write(b)
-        await self._writer.drain()
+        self.__writer.write(b)
+        await self.__writer.drain()
 
         _log.info("Reading response size to 4 byte array")
-        lv = await self._reader.readexactly(4)
+        lv = await self.__reader.readexactly(4)
         l = int.from_bytes(lv, "little")
         _log.info(f"Response size: {l}")
 
-        b = await self._reader.readexactly(l - 4)
+        b = await self.__reader.readexactly(l - 4)
 
         ba = b''.join([lv, b])
         return Dict(decode(ba))
 
     async def close(self):
-        self._writer.close()
-        await self._writer.wait_closed()
-        _log.info(f"Disconnected from {self._host}:{self._port}")
+        self.__writer.close()
+        await self.__writer.wait_closed()
+        _log.info(f"Disconnected from {self.__host}:{self.__port}")
 
 
 def has_key(key: str, dictionary: Dict):
