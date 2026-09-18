@@ -582,10 +582,18 @@ SCENARIO( "Extended JSON Representation", "[extended-json]" )
 
     WHEN( "Parsing relaxed extended JSON representation" )
     {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+      const auto json = R"json({
+  "id": {"$oid": " \t 68e96158fb2e0818250c21b0 \r"},
+  "date": {"$date": "\t2025-10-13T16:11:08.123456-05:00\r"}
+})json"sv;
+#else
       const auto json = R"json({
   "id": {"$oid": "68e96158fb2e0818250c21b0"},
   "date": {"$date": "2025-10-13T16:11:08.123456-05:00"}
 })json"sv;
+#endif
+
       const auto obj = spt::util::json::unmarshall<IdHolder>( json );
       CHECK( obj.id.to_string() == "68e96158fb2e0818250c21b0" );
       CHECK( std::chrono::duration_cast<std::chrono::microseconds>( obj.date.time_since_epoch() ) == std::chrono::microseconds{ 1760389868123456 } );
@@ -630,6 +638,26 @@ SCENARIO( "Properties test suite", "[properties]" )
 {
   GIVEN( "A JSON representation" )
   {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    const auto json = R"json({
+  "properties": [
+    {
+      "name": "  begin",
+      "value": {
+        "unit": "in",
+        "value": 4.114543762687808E3
+      }
+    },
+    {
+      "name": "end  ",
+      "value": {
+        "unit": "in",
+        "value": 2.8749617758545774E3
+      }
+    }
+  ]
+})json";
+#else
     const auto json = R"json({
   "properties": [
     {
@@ -648,6 +676,7 @@ SCENARIO( "Properties test suite", "[properties]" )
     }
   ]
 })json";
+#endif
 
     WHEN( "Parsing JSON" )
     {

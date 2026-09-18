@@ -10,7 +10,7 @@ COPY docker/env.sh /opt/spt/mongo-service/docker/
 
 WORKDIR /opt/spt/mongo-service/build
 RUN rm -rf * \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_TESTING=OFF .. \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_TESTING=OFF -DJSON_STRING_TRIM_WHITE_SPACE=ON .. \
   && make -j8 \
   && make install
 
@@ -32,7 +32,6 @@ RUN apk add --no-cache readline \
   && chown spt:spt /opt/spt/logs /opt/spt/data
 
 COPY docker/scripts/entrypoint.sh /opt/spt/bin
-COPY docker/scripts/gdb.sh /tmp
 
 WORKDIR /opt/spt
 ENV LD_LIBRARY_PATH=/usr/lib

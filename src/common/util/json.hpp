@@ -9,6 +9,11 @@
 #include "date.hpp"
 #include "parser.hpp"
 #include "validate.hpp"
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+#include "trim.hpp"
+#endif
+
 #if defined __has_include
 #if __has_include("../../log/NanoLog.hpp")
 #include "../../log/NanoLog.hpp"
@@ -763,6 +768,10 @@ void spt::util::json::set( const char* name, E& field, simdjson::ondemand::value
   std::string_view v;
   READ_JSON_VALUE()
 
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+  v = spt::util::trim( v );
+#endif
+
   if ( v.empty() ) return;
   if ( auto e = magic_enum::enum_cast<E>( v ); e ) field = *e;
   else
@@ -784,6 +793,9 @@ void spt::util::json::set( const char* name, std::set<E>& field, simdjson::ondem
   field.reserve( arr.count_elements() );
   for ( std::string_view x: arr )
   {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    x = spt::util::trim( x );
+#endif
     if ( x.empty() ) continue;
     if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
     else
@@ -806,6 +818,9 @@ void spt::util::json::set( const char* name, std::vector<E>& field, simdjson::on
   field.reserve( arr.count_elements() );
   for ( std::string_view x: arr )
   {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    x = spt::util::trim( x );
+#endif
     if ( x.empty() ) continue;
     if ( auto e = magic_enum::enum_cast<E>( x ); e ) field.push_back( *e );
     else
@@ -956,7 +971,11 @@ inline void spt::util::json::set( const char* name, bsoncxx::oid& field, simdjso
     std::string_view v;
     READ_JSON_VALUE()
 
-    auto id = parseId( v );
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    v = spt::util::trim( v );
+#endif
+
+    const auto id = parseId( v );
     if ( !id )
     {
       LOG_CRIT << "Invalid BSON object id " << v << " for field " << name << ".";
@@ -998,14 +1017,17 @@ inline void spt::util::json::set( const char* name, std::string& field, simdjson
   {
     LOG_WARN << "Expected field " << name << " of type string, value of type " << magic_enum::enum_name( value.type().value() );
   }
+
   std::string_view v;
   READ_JSON_VALUE()
-  std::string str;
-  str.reserve( v.size() );
-  str.append( v );
 
-  if ( !validate( name, str ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
-  field = std::move( str );
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+  field = std::string{ spt::util::trim( v ) };
+#else
+  field = std::string{ v };
+#endif
+
+  if ( !validate( name, field ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
 }
 
 template <>
@@ -1015,8 +1037,12 @@ inline void spt::util::json::set( const char* name, DateTime& field, simdjson::o
   {
     std::string_view v;
     READ_JSON_VALUE()
-    auto date = parseISO8601( v );
-    if ( date.has_value() )
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    v = spt::util::trim( v );
+#endif
+
+    if ( const auto date = parseISO8601( v ); date.has_value() )
     {
       auto dt = DateTime{ date->time_since_epoch() };
       if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
@@ -1149,10 +1175,14 @@ inline void spt::util::json::set( const char* name, DateTimeMs& field, simdjson:
   {
     std::string_view v;
     READ_JSON_VALUE()
-    auto date = parseISO8601( v );
-    if ( date.has_value() )
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    v = spt::util::trim( v );
+#endif
+
+    if ( const auto date = parseISO8601( v ); date.has_value() )
     {
-      auto dt = DateTime{ date->time_since_epoch() };
+      const auto dt = DateTime{ date->time_since_epoch() };
       if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field = DateTimeMs{ std::chrono::duration_cast<std::chrono::milliseconds>( dt.time_since_epoch() ) };
     }
@@ -1176,10 +1206,14 @@ inline void spt::util::json::set( const char* name, DateTimeNs& field, simdjson:
   {
     std::string_view v;
     READ_JSON_VALUE()
-    auto date = parseISO8601( v );
-    if ( date.has_value() )
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    v = spt::util::trim( v );
+#endif
+
+    if ( const auto date = parseISO8601( v ); date.has_value() )
     {
-      auto dt = DateTime{ date->time_since_epoch() };
+      const auto dt = DateTime{ date->time_since_epoch() };
       if ( !validate( name, dt ) ) throw simdjson::simdjson_error{ simdjson::error_code::UTF8_ERROR };
       field = DateTimeNs{ std::chrono::duration_cast<std::chrono::microseconds>( dt.time_since_epoch() ) };
     }
@@ -1269,6 +1303,11 @@ inline void spt::util::json::set( const char* name, boost::json::value& field, s
   {
     std::string_view v;
     READ_JSON_VALUE()
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    v = spt::util::trim( v );
+#endif
+
     field = boost::json::value{ v };
     break;
   }
@@ -1293,9 +1332,12 @@ inline void spt::util::json::set( const char* name, boost::uuids::uuid& field, s
   }
   std::string_view v;
   READ_JSON_VALUE()
-  std::string str;
-  str.reserve( v.size() );
-  str.append( v );
+
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+  const auto str = std::string{ spt::util::trim( v ) };
+#else
+  const auto str = std::string{ v };
+#endif
 
   try
   {
@@ -1526,6 +1568,10 @@ inline void spt::util::json::set( const char* name, std::set<std::string, std::l
   auto arr = value.get_array();
   for ( std::string_view x: arr )
   {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    x = spt::util::trim( x );
+#endif
+
     if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
     field.emplace( x );
   }
@@ -1542,6 +1588,10 @@ inline void spt::util::json::set( const char* name, std::vector<std::string>& fi
   field.reserve( 8 );
   for ( std::string_view x: arr )
   {
+#if defined JSON_STRING_TRIM_WHITE_SPACE
+    x = spt::util::trim( x );
+#endif
+
     if ( !validate( name, x ) ) throw simdjson::simdjson_error{ simdjson::error_code::STRING_ERROR };
     field.emplace_back( x );
   }

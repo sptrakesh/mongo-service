@@ -150,6 +150,13 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX /opt/spt)
 endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
+option(JSON_STRING_TRIM_WHITE_SPACE "Trim white space characters from JSON string values" OFF)
+
+if (JSON_STRING_TRIM_WHITE_SPACE)
+  message(STATUS "Enabling automatic trimming of JSON string values")
+  add_compile_definitions(JSON_STRING_TRIM_WHITE_SPACE=true)
+endif (JSON_STRING_TRIM_WHITE_SPACE)
+
 add_subdirectory(src/ilp)
 add_subdirectory(src/log)
 add_subdirectory(src/common)
