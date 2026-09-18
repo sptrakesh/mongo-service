@@ -1305,6 +1305,10 @@ to using half the available CPU cores.
 ## Build
 Check out the sources and use `cmake` to build and install the project locally.
 
+There is a `JSON_STRING_TRIM_WHITE_SPACE` option that can be enabled if you wish automatic trimming
+of whitespace from JSON string values while parsing.  This can be a very convenient option for projects
+where string values in input JSON are not expected to have leading or trailing whitespace.
+
 ### UNIX
 
 <details>
@@ -1388,7 +1392,8 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH=/usr/local/boost \
   -DCMAKE_PREFIX_PATH=/usr/local/mongo \
   -DCMAKE_INSTALL_PREFIX=/usr/local/spt \
-  -DBUILD_TESTING=OFF -S . -B build
+  -DBUILD_TESTING=OFF \
+  -DJSON_STRING_TRIM_WHITE_SPACE=ON -S . -B build
 cmake --build build --parallel
 sudo cmake --install build
 ```
@@ -1499,7 +1504,7 @@ Launch the Visual Studio Command utility.
 cd %homepath%\source\repos
 git clone https://github.com/sptrakesh/mongo-service.git
 cd mongo-service
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=\opt\local -DCMAKE_INSTALL_PREFIX=\opt\spt -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE="C:/opt/src/vcpkg/scripts/buildsystems/vcpkg.cmake" -S . -B build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=\opt\local -DCMAKE_INSTALL_PREFIX=\opt\spt -DBUILD_TESTING=ON -DJSON_STRING_TRIM_WHITE_SPACE=ON -DCMAKE_TOOLCHAIN_FILE="C:/opt/src/vcpkg/scripts/buildsystems/vcpkg.cmake" -S . -B build
 cmake --build build -j8
 cmake --build build --target install
 ```
