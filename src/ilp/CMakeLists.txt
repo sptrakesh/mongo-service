@@ -9,7 +9,7 @@ target_include_directories(${Target_Name}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(${Target_Name} INTERFACE nanolog Boost::boost range-v3::range-v3)
+target_link_libraries(${Target_Name} INTERFACE nanolog Boost::boost)
 
 install(TARGETS ${Target_Name} EXPORT MongoServiceIlpTargets DESTINATION lib)
 install (

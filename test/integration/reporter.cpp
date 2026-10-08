@@ -15,8 +15,7 @@
 #include <catch2/reporters/catch_reporter_streaming_base.hpp>
 
 #include <boost/algorithm/string/replace.hpp>
-#include <range/v3/algorithm/find_if.hpp>
-#include <range/v3/view/reverse.hpp>
+#include <ranges>
 
 namespace
 {
@@ -26,7 +25,7 @@ namespace
     T create( std::string_view name )
     {
       auto t = T{};
-      t.name = std::string{ std::string_view{ ranges::find_if( name, []( char a ) { return !std::isspace( a ); } ), name.end() } };
+      t.name = std::string{ std::string_view{ std::ranges::find_if( name, []( char a ) { return !std::isspace( a ); } ), name.end() } };
       t.sections.reserve( 16 );
       return t;
     }
@@ -491,8 +490,8 @@ namespace spt::test::reporter
 
       const auto add = [this]( std::vector<phr::Section>& sections, phr::Section&& sec )
       {
-        if ( auto iter = ranges::find_if( sections, [&sec]( const auto& tc ) { return tc.name == sec.name; } );
-          iter == ranges::end( sections ) )
+        if ( auto iter = std::ranges::find_if( sections, [&sec]( const auto& tc ) { return tc.name == sec.name; } );
+          iter == std::ranges::end( sections ) )
         {
           sections.push_back( std::move( sec ) );
           currentSection = &sections.back();
@@ -572,7 +571,7 @@ namespace spt::test::reporter
         root = root->parent;
       }
 
-      for ( const auto& msg : messages | ranges::views::reverse ) std::println( "{}", msg );
+      for ( const auto& msg : messages | std::ranges::views::reverse ) std::println( "{}", msg );
 
       currentSection = currentSection->parent;
     }

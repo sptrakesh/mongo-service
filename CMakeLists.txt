@@ -118,7 +118,6 @@ if (USE_MONGOCXX_CONFIG)
   find_package(mongocxx REQUIRED)
 endif (USE_MONGOCXX_CONFIG)
 find_package(OpenSSL REQUIRED)
-find_package(range-v3 REQUIRED)
 find_package(Threads)
 find_package(ZLIB REQUIRED)
 
@@ -135,7 +134,6 @@ if (APPLE)
   set(CMAKE_MACOSX_RPATH 1)
   include_directories(
     /usr/local/boost/include
-    /usr/local/range-v3/include
   )
 else()
   include_directories(

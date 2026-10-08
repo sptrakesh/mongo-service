@@ -6,7 +6,7 @@
 #include "../common/util/date.hpp"
 
 #include <format>
-#include <range/v3/algorithm/for_each.hpp>
+#include <ranges>
 
 using spt::ilp::Builder;
 
@@ -94,8 +94,8 @@ namespace
         addValue( "end_timestamp", end ).
         timestamp( std::chrono::duration_cast<std::chrono::nanoseconds>( apm.timestamp.time_since_epoch() ) );
 
-      ranges::for_each( apm.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
-      ranges::for_each( apm.values, [&builder]( const auto& pair )
+      std::ranges::for_each( apm.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
+      std::ranges::for_each( apm.values, [&builder]( const auto& pair )
       {
         std::visit( overload
           {
@@ -117,8 +117,8 @@ namespace
         addValue( "end_timestamp", end ).
         timestamp( std::chrono::duration_cast<std::chrono::nanoseconds>( process.timestamp.time_since_epoch() ) );
 
-      ranges::for_each( process.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
-      ranges::for_each( process.values, [&builder]( const auto& pair )
+      std::ranges::for_each( process.tags, [&builder]( const auto& tag ) { builder.addTag( tag.first, tag.second ); } );
+      std::ranges::for_each( process.values, [&builder]( const auto& pair )
       {
         std::visit( overload
           {
@@ -235,7 +235,7 @@ Builder& Builder::add( std::string_view name, const APMRecord& apm )
   endRecord();
   if ( apm.processes.empty() ) return *this;
 
-  ranges::for_each( apm.processes, [this, name, &apm]( const auto& process )
+  std::ranges::for_each( apm.processes, [this, name, &apm]( const auto& process )
   {
     startRecord( name ).
       addTag( "application"sv, apm.application ).

@@ -1,4 +1,4 @@
 #!/bin/sh
 
-VERSION='1.12.3'
+VERSION='1.12.4'
 NAME='mongo-service'

@@ -1780,9 +1780,8 @@ template <typename M>
 void spt::util::json::set( const char* name, std::optional<M>& field, simdjson::ondemand::value& value )
 {
   if ( value.type().value() == simdjson::ondemand::json_type::null ) return;
-  auto m = M{};
-  set( name, m, value );
-  field = std::move( m );
+  field.emplace();
+  set( name, *field, value );
 }
 
 template <typename M>
